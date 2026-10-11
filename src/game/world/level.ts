@@ -23,3 +23,7 @@ export const FALLING_PLATFORMS: readonly Rect[] = [{ x: 1190, y: 480, width: 150
 // 숨겨진 블록: ground1의 틈(300-380)을 완전히 채워 평소엔 일반 바닥과 이음매 없이 동일하다.
 // 점프 없이 걸어서 그대로 접촉하며, 사라지면 진짜 구덩이가 생긴다 (docs/traps-spec.md #1)
 export const HIDDEN_BLOCKS: readonly Rect[] = [{ x: 300, y: 500, width: 80, height: 120 }];
+export interface EnemyPatrol { minX: number; maxX: number; y: number }
+// 적: ground2 위를 왕복. y는 바닥(500)에 발이 닿는 높이(500-28), 위험지대(1060-1140)와 겹치지 않는
+// 구간을 왕복한다 (docs/traps-spec.md 적 충돌 규칙)
+export const ENEMIES: readonly EnemyPatrol[] = [{ minX: 700, maxX: 850, y: 472 }];

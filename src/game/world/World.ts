@@ -1,7 +1,8 @@
 import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
+import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import { FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH } from './level';
+import { ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH } from './level';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
@@ -27,6 +28,10 @@ function createCollapsingSolids(rects: readonly Rect[]): CollapsingSolidState[] 
   return rects.map((rect) => ({ rect, solid: true, timer: null }));
 }
 
+function createEnemies(): Enemy[] {
+  return ENEMIES.map((e) => createEnemy(e.minX, e.maxX, e.y));
+}
+
 // 접촉 시 타이머를 시작하고, 유예 시간이 지나면 솔리드 속성을 제거한다. 붕괴 직후 플레이어가
 // 그 위에 서 있었다면 grounded도 즉시 false로 되돌려, 사라진 발판에서 점프하는 것을 막는다
 // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
@@ -48,12 +53,14 @@ export class World {
   cleared = false;
   fallingPlatforms: CollapsingSolidState[] = createCollapsingSolids(FALLING_PLATFORMS);
   hiddenBlocks: CollapsingSolidState[] = createCollapsingSolids(HIDDEN_BLOCKS);
+  enemies: Enemy[] = createEnemies();
   reset(countDeath = false): void {
     if (countDeath) this.deaths++;
     this.player = createPlayer(SPAWN.x, SPAWN.y);
     this.cleared = false;
     this.fallingPlatforms = createCollapsingSolids(FALLING_PLATFORMS);
     this.hiddenBlocks = createCollapsingSolids(HIDDEN_BLOCKS);
+    this.enemies = createEnemies();
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -74,7 +81,10 @@ export class World {
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(WORLD_WIDTH - p.width, p.x));
 
+    for (const e of this.enemies) updateEnemy(e, dt);
+
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
+    if (this.enemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (overlaps(p, GOAL)) this.cleared = true;
     if (p.y > WORLD_HEIGHT + 100) this.reset(true);
   }

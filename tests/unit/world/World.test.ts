@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import { FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS } from '../../../src/game/world/level';
+import { ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import type { Player } from '../../../src/game/entities/Player';
 
@@ -75,8 +75,14 @@ describe('World trap and goal rules', () => {
     expect(world.player.grounded).toBe(false);
   });
 
-  it('reaches the falling platform from spawn using only movement and jump input (no teleporting)', () => {
+  it('reaches the falling platform using only movement and jump input (no teleporting)', () => {
     const world = new World();
+    // 숨겨진 블록 틈(300-380)과 적 구간(700-850)은 각자 전용 reachability 테스트가 있다 —
+    // 이 테스트는 이동+점프만으로 낙하 발판에 "실제로 도달·발동"하는지만 검증하므로,
+    // 그 함정들을 넘긴 지점(ground2, 적 구간 이후)에서 출발한다.
+    world.player.x = 900;
+    world.player.y = 468;
+    world.player.grounded = true;
     const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
     let triggered = false;
     for (let i = 0; i < 600 && !triggered; i++) {
@@ -131,6 +137,58 @@ describe('World trap and goal rules', () => {
     }
     expect(triggered).toBe(true);
     expect(world.deaths).toBe(0);
+  });
+
+  it('resets with a counted death when touching an enemy', () => {
+    const world = new World();
+    const enemy = world.enemies[0];
+    world.player.x = enemy.x;
+    world.player.y = enemy.y;
+    world.update(dt, noInput);
+    expect(world.deaths).toBe(1);
+    expect(world.player.x).toBe(65);
+  });
+
+  it('enemy patrols back and forth without being pushed by the player', () => {
+    const world = new World();
+    const enemy = world.enemies[0];
+    const startX = enemy.x;
+    for (let i = 0; i < 300; i++) world.update(dt, noInput);
+    // 플레이어와 멀리 떨어져 있으므로 충돌 없이 자유롭게 왕복한다 — 범위를 벗어나지 않아야 한다.
+    expect(world.enemies[0].x).toBeGreaterThanOrEqual(ENEMIES[0].minX);
+    expect(world.enemies[0].x + world.enemies[0].width).toBeLessThanOrEqual(ENEMIES[0].maxX);
+    expect(world.enemies[0].x).not.toBe(startX);
+  });
+
+  it('resets enemy patrol position and direction on restart', () => {
+    const world = new World();
+    for (let i = 0; i < 60; i++) world.update(dt, noInput); // let it move away from minX
+    expect(world.enemies[0].x).not.toBe(ENEMIES[0].minX);
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.enemies[0].x).toBe(ENEMIES[0].minX);
+    expect(world.enemies[0].vx).toBeGreaterThan(0);
+  });
+
+  it('reaches and collides with the enemy using only movement and jump input (no teleporting)', () => {
+    const world = new World();
+    // 숨겨진 블록(300-380)은 밟으면 반드시 붕괴하는 함정이라 직선 보행 테스트와는 별개로
+    // "reaches and triggers the hidden block" 테스트로 이미 검증했다 — 여기서는 그 틈을 넘어선
+    // 지점(400)에서 출발해 gap1(520-620)을 점프로 건너 적 구간(700-850)까지 도달하는지 검증한다.
+    world.player.x = 400;
+    world.player.y = 468;
+    world.player.grounded = true;
+    const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+    let reachedZone = false;
+    let collided = false;
+    for (let i = 0; i < 300 && !collided; i++) {
+      const solids = [...SOLIDS, ...world.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect)];
+      input.jumpPressed = shouldJump(world.player, solids, HAZARDS);
+      world.update(dt, input);
+      if (world.player.x >= ENEMIES[0].minX) reachedZone = true;
+      if (world.deaths > 0) collided = true;
+    }
+    expect(reachedZone).toBe(true);
+    expect(collided).toBe(true);
   });
 
   it('resets falling platform, hidden block, and cleared state on restart', () => {

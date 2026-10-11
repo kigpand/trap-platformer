@@ -43,6 +43,11 @@ export class CanvasRenderer {
       if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height); }
     }
     ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
+    for (const e of world.enemies) {
+      ctx.fillStyle = '#dc2626'; ctx.fillRect(e.x, e.y, e.width, e.height);
+      ctx.fillStyle = '#16151c'; ctx.fillRect(e.x + 8, e.y + 8, 4, 4); ctx.fillRect(e.x + 16, e.y + 8, 4, 4);
+      if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
+    }
     const p = world.player;
     ctx.fillStyle = '#fa8966'; ctx.fillRect(p.x, p.y, p.width, p.height);
     ctx.fillStyle = '#16151c'; ctx.fillRect(p.x + 17, p.y + 8, 4, 4);
