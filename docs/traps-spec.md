@@ -14,9 +14,9 @@
   - [ ] 아래 "텔레그래프"가 요구하는 흔들림 애니메이션은 미구현. 현재는 트리거 시 발판 색상만 바뀜(`CanvasRenderer.ts`) — 애니메이션 추가 또는 색상 경고로 명세를 낮추는 결정이 필요
 - [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `HAZARDS`
 - [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `HIDDEN_BLOCKS`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
-- [ ] 3. 갑자기 출현하는 적
+- [x] 적 이동·충돌(위 "적 충돌 규칙") — `src/game/entities/Enemy.ts`, `src/game/world/level.ts`의 `ENEMIES`
+- [ ] 3. 갑자기 출현하는 적 — 등장 트리거·경고 이펙트 미구현, 현재는 항상 보이는 상태로 왕복만 함
 - [ ] 5. 조건부 함정 트리거
-- [ ] 적 이동(위 "적 충돌 규칙")
 
 ## 함정 5종
 
