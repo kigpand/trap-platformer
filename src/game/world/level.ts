@@ -12,3 +12,8 @@ export const SOLIDS: readonly Rect[] = [
   { x: 1130, y: 350, width: 110, height: 20 },
   { x: 1430, y: 400, width: 120, height: 20 },
 ];
+export const GOAL: Rect = { x: 1740, y: 440, width: 40, height: 60 };
+// 가짜 안전지대: 발판처럼 보이지만 닿으면 즉시 사망 (docs/traps-spec.md #4)
+export const HAZARDS: readonly Rect[] = [{ x: 990, y: 410, width: 80, height: 20 }];
+// 낙하하는 발판: 밟으면 유예 시간 후 무너짐 (docs/traps-spec.md #2)
+export const FALLING_PLATFORMS: readonly Rect[] = [{ x: 1600, y: 380, width: 100, height: 20 }];

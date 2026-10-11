@@ -17,6 +17,7 @@ React + TypeScript + Canvas 2D로 독자적인 브라우저 기반 2D 횡스크�
 - `docs/architecture.md`: 모듈 경계
 - `docs/physics-spec.md`: 충돌 및 물리 동작 규약
 - `docs/roadmap.md`: 마일스톤과 대기 과제
+- `docs/traps-spec.md`: 함정과 적 동작 규약
 - `docs/decisions/`: 주요 아키텍처 결정
 동작을 변경하기 전에 관련 명세를 읽습니다. 충돌이 있으면 조용히 규칙을 바꾸지 말고, 이를 보고하고 명시적인 결정을 구합니다.
 

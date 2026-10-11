@@ -1,4 +1,4 @@
-import { SOLIDS, WORLD_HEIGHT } from '../world/level';
+import { GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
 import { cameraX } from './Camera';
 import type { World } from '../world/World';
 
@@ -25,6 +25,18 @@ export class CanvasRenderer {
       ctx.fillStyle = '#99c577'; ctx.fillRect(p.x, p.y, p.width, Math.min(8, p.height));
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     }
+    for (const h of HAZARDS) {
+      ctx.fillStyle = '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
+      ctx.fillStyle = '#99c577'; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
+      if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(h.x, h.y, h.width, h.height); }
+    }
+    for (const fp of world.fallingPlatforms) {
+      if (!fp.solid) continue;
+      ctx.fillStyle = fp.timer !== null ? '#c2622f' : '#627e55';
+      ctx.fillRect(fp.rect.x, fp.rect.y, fp.rect.width, fp.rect.height);
+      if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(fp.rect.x, fp.rect.y, fp.rect.width, fp.rect.height); }
+    }
+    ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
     const p = world.player;
     ctx.fillStyle = '#fa8966'; ctx.fillRect(p.x, p.y, p.width, p.height);
     ctx.fillStyle = '#16151c'; ctx.fillRect(p.x + 17, p.y + 8, 4, 4);
@@ -32,5 +44,10 @@ export class CanvasRenderer {
     ctx.restore();
     ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
     ctx.fillText(`WORLD HEIGHT ${WORLD_HEIGHT}   |   ${this.debug ? 'COLLIDERS ON' : 'PRESS B FOR COLLIDERS'}`, 20, 28);
+    if (world.cleared) {
+      ctx.fillStyle = '#eab308'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('LEVEL CLEAR', VIEW_WIDTH / 2, 80);
+      ctx.textAlign = 'left';
+    }
   }
 }
