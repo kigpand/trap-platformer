@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import { FALLING_PLATFORMS, GOAL, HAZARDS, SOLIDS } from '../../../src/game/world/level';
+import { FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import type { Player } from '../../../src/game/entities/Player';
 
@@ -89,13 +89,64 @@ describe('World trap and goal rules', () => {
     expect(world.deaths).toBe(0);
   });
 
-  it('resets falling platform and cleared state on restart', () => {
+  it('collapses a hidden block after standing on top of it', () => {
+    const world = new World();
+    const block = HIDDEN_BLOCKS[0];
+    world.player.x = block.x + 10;
+    world.player.y = block.y - world.player.height;
+    world.player.grounded = true;
+    for (let i = 0; i < 15; i++) world.update(dt, noInput); // 15/60s > 0.2s delay
+    expect(world.hiddenBlocks[0].solid).toBe(false);
+  });
+
+  it('also collapses a hidden block on side contact, not just standing on top', () => {
+    const world = new World();
+    const block = HIDDEN_BLOCKS[0];
+    world.player.x = block.x - world.player.width; // flush against the left edge
+    world.player.y = block.y + 20; // mid-height, not resting on top
+    world.player.grounded = false;
+    world.update(dt, noInput);
+    expect(world.hiddenBlocks[0].timer).not.toBeNull();
+  });
+
+  it('opens a real pit once a hidden block collapses, causing a fall death', () => {
+    const world = new World();
+    const block = HIDDEN_BLOCKS[0];
+    world.player.x = block.x + 10;
+    world.player.y = block.y - world.player.height;
+    world.player.grounded = true;
+    for (let i = 0; i < 15; i++) world.update(dt, noInput);
+    expect(world.hiddenBlocks[0].solid).toBe(false);
+    for (let i = 0; i < 60 && world.deaths === 0; i++) world.update(dt, noInput);
+    expect(world.deaths).toBe(1);
+  });
+
+  it('reaches and triggers the hidden block from spawn by walking only (no teleporting)', () => {
+    const world = new World();
+    const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+    let triggered = false;
+    for (let i = 0; i < 300 && !triggered; i++) {
+      world.update(dt, input);
+      if (world.hiddenBlocks[0].timer !== null) triggered = true;
+    }
+    expect(triggered).toBe(true);
+    expect(world.deaths).toBe(0);
+  });
+
+  it('resets falling platform, hidden block, and cleared state on restart', () => {
     const world = new World();
     world.player.x = GOAL.x;
     world.player.y = GOAL.y;
     world.update(dt, noInput);
     expect(world.cleared).toBe(true);
+    const block = HIDDEN_BLOCKS[0];
+    world.player.x = block.x + 10;
+    world.player.y = block.y - world.player.height;
+    world.player.grounded = true;
+    for (let i = 0; i < 15; i++) world.update(dt, noInput);
+    expect(world.hiddenBlocks[0].solid).toBe(false);
     world.update(dt, { ...noInput, restartPressed: true });
     expect(world.cleared).toBe(false);
+    expect(world.hiddenBlocks[0].solid).toBe(true);
   });
 });

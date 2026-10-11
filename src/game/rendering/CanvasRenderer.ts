@@ -36,6 +36,12 @@ export class CanvasRenderer {
       ctx.fillRect(fp.rect.x, fp.rect.y, fp.rect.width, fp.rect.height);
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(fp.rect.x, fp.rect.y, fp.rect.width, fp.rect.height); }
     }
+    for (const hb of world.hiddenBlocks) {
+      if (!hb.solid) continue;
+      ctx.fillStyle = '#627e55'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height);
+      ctx.fillStyle = '#99c577'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, Math.min(8, hb.rect.height));
+      if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height); }
+    }
     ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
     const p = world.player;
     ctx.fillStyle = '#fa8966'; ctx.fillRect(p.x, p.y, p.width, p.height);
