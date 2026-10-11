@@ -32,18 +32,17 @@ function createEnemies(): Enemy[] {
   return ENEMIES.map((e) => createEnemy(e.minX, e.maxX, e.y));
 }
 
-// 접촉 시 타이머를 시작하고, 유예 시간이 지나면 솔리드 속성을 제거한다. 붕괴 직후 플레이어가
-// 그 위에 서 있었다면 grounded도 즉시 false로 되돌려, 사라진 발판에서 점프하는 것을 막는다
-// (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
-function updateCollapsing(state: CollapsingSolidState, player: Player, triggered: boolean, delay: number, dt: number): void {
+// 접촉 시 타이머를 시작하고, 유예 시간이 지나면 솔리드 속성을 제거한다.
+// grounded 보정은 여기서 하지 않는다 — 플레이어가 다른 솔리드에도 걸쳐 있을 수 있어
+// "이 함정 하나"만 보고 지우면 틀릴 수 있다(Codex 리뷰: ground1a와 숨겨진 블록 경계에
+// 걸쳐 서 있을 때 블록이 붕괴하면 고정 바닥이 받치고 있어도 점프가 무시되던 버그).
+// 대신 모든 붕괴 처리가 끝난 뒤 World.update에서 남아있는 솔리드 전체를 기준으로 한 번에 재확인한다.
+function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay: number, dt: number): void {
   if (!state.solid) return;
   if (state.timer === null && triggered) state.timer = delay;
   if (state.timer !== null) {
     state.timer -= dt;
-    if (state.timer <= 0) {
-      state.solid = false;
-      if (isStandingOn(player, state.rect)) player.grounded = false;
-    }
+    if (state.timer <= 0) state.solid = false;
   }
 }
 
@@ -66,11 +65,20 @@ export class World {
     if (input.restartPressed) { this.reset(); return; }
     const p = this.player;
 
-    // 점프 입력을 확인하기 전에 붕괴를 먼저 처리해, 발판이 사라진 바로 그 프레임부터
-    // grounded가 즉시 false가 되도록 한다 (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
-    for (const fp of this.fallingPlatforms) updateCollapsing(fp, p, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt);
+    // 점프 입력을 확인하기 전에 붕괴를 먼저 처리하고, 남은 솔리드 기준으로 grounded를
+    // 다시 확인해 발판이 사라진 바로 그 프레임부터 정확한 값을 쓰도록 한다
+    // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
+    for (const fp of this.fallingPlatforms) updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt);
     for (const hb of this.hiddenBlocks) {
-      updateCollapsing(hb, p, isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect), HIDDEN_BLOCK_DELAY, dt);
+      updateCollapsing(hb, isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect), HIDDEN_BLOCK_DELAY, dt);
+    }
+    // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
+    // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
+    if (p.grounded) {
+      const stillSupported = SOLIDS.some((s) => isStandingOn(p, s))
+        || this.fallingPlatforms.some((fp) => fp.solid && isStandingOn(p, fp.rect))
+        || this.hiddenBlocks.some((hb) => hb.solid && isStandingOn(p, hb.rect));
+      if (!stillSupported) p.grounded = false;
     }
 
     p.vx = input.horizontal * SPEED;
