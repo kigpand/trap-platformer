@@ -9,7 +9,7 @@
 - `game/core/InputManager.ts`: 키보드 상태와 점프 키를 새로 누르는 순간 감지
 - `game/physics/`: 순수 사각형 겹침 판정과 축별 이동 충돌 해소
 - `game/entities/Player.ts`: 플레이어 상태와 갱신 함수
-- `game/world/`: 테스트용 플랫폼과 초기화 상태
+- `game/world/`: 테스트용 플랫폼·목표·함정 배치(`level.ts`)와 `World` 상태 갱신(목표 도달, 위험지대 접촉, 낙하 발판 타이머 포함)
 - `game/rendering/`: 그리기 전용 렌더러와 카메라
 - `components/`: React 캔버스 마운트와 HUD. 프레임별 물리 처리는 담당하지 않음
 
