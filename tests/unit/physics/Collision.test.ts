@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPlayer, GRAVITY, MAX_FALL_SPEED } from '../../../src/game/entities/Player';
+import { createPlayer, GRAVITY, MAX_FALL_SPEED, SPEED } from '../../../src/game/entities/Player';
 import { moveWithCollisions } from '../../../src/game/physics/Collision';
 const ground = { x: 0, y: 100, width: 200, height: 20 };
 describe('collision resolution', () => {
@@ -15,6 +15,19 @@ describe('collision resolution', () => {
     expect(p.y).toBe(68);
     expect(p.grounded).toBe(true);
     expect(p.vy).toBe(0);
+  });
+  it('clears grounded when a later substep carries the player past the platform edge', () => {
+    // Regression for a Codex-reported bug: landing on an early substep set grounded=true
+    // and nothing reset it when a later substep (same frame) moved the player off the
+    // platform's edge, leaving a stale grounded=true over open air (and allowing a jump
+    // next frame). Repro: player at (518,466), vy=900, moving right for one frame.
+    const platform = { x: 0, y: 500, width: 520, height: 120 };
+    const p = createPlayer(518, 466);
+    p.vy = 900;
+    moveWithCollisions(p, [platform], SPEED * (1 / 60), p.vy * (1 / 60));
+    expect(p.x).toBeCloseTo(521.5);
+    expect(p.y).toBeCloseTo(478);
+    expect(p.grounded).toBe(false);
   });
   it('rests on floor across repeated steps without sinking', () => {
     const p = createPlayer(10, 68);

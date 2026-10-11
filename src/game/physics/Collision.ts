@@ -22,12 +22,14 @@ export function moveWithCollisions(player: Player, solids: readonly Rect[], dx: 
     }
     if (stepY !== 0) {
       player.y += stepY;
+      let landed = false;
       for (const solid of solids) {
         if (!overlaps(player, solid)) continue;
-        if (stepY > 0) { player.y = solid.y - player.height; player.grounded = true; }
+        if (stepY > 0) { player.y = solid.y - player.height; landed = true; }
         else player.y = solid.y + solid.height;
         player.vy = 0;
       }
+      player.grounded = landed;
     }
   }
 }
