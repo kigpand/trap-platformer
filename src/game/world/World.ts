@@ -32,21 +32,27 @@ export class World {
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
     const p = this.player;
+
+    // 점프 입력을 확인하기 전에 붕괴를 먼저 처리해, 발판이 사라진 바로 그 프레임부터
+    // grounded가 즉시 false가 되도록 한다 (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
+    for (const fp of this.fallingPlatforms) {
+      if (!fp.solid) continue;
+      if (fp.timer === null && isStandingOn(p, fp.rect)) fp.timer = FALL_TRIGGER_DELAY;
+      if (fp.timer !== null) {
+        fp.timer -= dt;
+        if (fp.timer <= 0) {
+          fp.solid = false;
+          if (isStandingOn(p, fp.rect)) p.grounded = false;
+        }
+      }
+    }
+
     p.vx = input.horizontal * SPEED;
     if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     const solids = [...SOLIDS, ...this.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect)];
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(WORLD_WIDTH - p.width, p.x));
-
-    for (const fp of this.fallingPlatforms) {
-      if (!fp.solid) continue;
-      if (fp.timer === null && isStandingOn(p, fp.rect)) fp.timer = FALL_TRIGGER_DELAY;
-      if (fp.timer !== null) {
-        fp.timer -= dt;
-        if (fp.timer <= 0) fp.solid = false;
-      }
-    }
 
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
     if (overlaps(p, GOAL)) this.cleared = true;

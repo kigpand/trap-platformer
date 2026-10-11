@@ -13,7 +13,9 @@ export const SOLIDS: readonly Rect[] = [
   { x: 1430, y: 400, width: 120, height: 20 },
 ];
 export const GOAL: Rect = { x: 1740, y: 440, width: 40, height: 60 };
-// 가짜 안전지대: 발판처럼 보이지만 닿으면 즉시 사망 (docs/traps-spec.md #4)
-export const HAZARDS: readonly Rect[] = [{ x: 990, y: 410, width: 80, height: 20 }];
-// 낙하하는 발판: 밟으면 유예 시간 후 무너짐 (docs/traps-spec.md #2)
-export const FALLING_PLATFORMS: readonly Rect[] = [{ x: 1600, y: 380, width: 100, height: 20 }];
+// 가짜 안전지대: 실제 바닥(ground2) 위에 겹쳐진 위장 타일. 걸어서 그대로 도달 가능하며
+// 시각적으로는 일반 바닥과 동일하게 그려짐 (docs/traps-spec.md #4)
+export const HAZARDS: readonly Rect[] = [{ x: 1060, y: 495, width: 80, height: 25 }];
+// 낙하하는 발판: ground2 가장자리(1190)에서 ground3 방향으로 낮게 이어지는 다리.
+// 최대 점프 높이(약 81px)보다 낮아 ground2 가장자리에서 뛰면 바로 착지한다 (docs/traps-spec.md #2)
+export const FALLING_PLATFORMS: readonly Rect[] = [{ x: 1190, y: 480, width: 150, height: 20 }];
