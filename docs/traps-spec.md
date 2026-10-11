@@ -13,7 +13,7 @@
 - [x] 2. 낙하하는 발판 — 붕괴·타이머 로직(`src/game/world/level.ts`의 `FALLING_PLATFORMS`, `src/game/world/World.ts`)
   - [ ] 아래 "텔레그래프"가 요구하는 흔들림 애니메이션은 미구현. 현재는 트리거 시 발판 색상만 바뀜(`CanvasRenderer.ts`) — 애니메이션 추가 또는 색상 경고로 명세를 낮추는 결정이 필요
 - [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `HAZARDS`
-- [ ] 1. 숨겨진 블록
+- [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `HIDDEN_BLOCKS`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
 - [ ] 3. 갑자기 출현하는 적
 - [ ] 5. 조건부 함정 트리거
 - [ ] 적 이동(위 "적 충돌 규칙")
