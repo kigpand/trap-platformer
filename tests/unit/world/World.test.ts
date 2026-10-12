@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import { ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS } from '../../../src/game/world/level';
+import { AMBUSH_ENEMIES, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import type { Player } from '../../../src/game/entities/Player';
 
@@ -209,6 +209,70 @@ describe('World trap and goal rules', () => {
     expect(collided).toBe(true);
   });
 
+  it('spawns the ambush enemy after the warning delay once the trigger zone is entered', () => {
+    const world = new World();
+    const { trigger, minX, y } = AMBUSH_ENEMIES[0];
+    world.player.x = trigger.x + 1;
+    world.player.y = trigger.y + 1;
+    world.player.grounded = false;
+    world.update(dt, noInput);
+    expect(world.ambushes[0].warningTimer).not.toBeNull();
+    expect(world.ambushes[0].enemy).toBeNull();
+    for (let i = 0; i < 20 && !world.ambushes[0].enemy; i++) world.update(dt, noInput);
+    expect(world.ambushes[0].enemy).not.toBeNull();
+    expect(world.ambushes[0].enemy?.x).toBe(minX);
+    expect(world.ambushes[0].enemy?.y).toBe(y);
+  });
+
+  it('resets with a counted death when touching a spawned ambush enemy', () => {
+    const world = new World();
+    const { trigger } = AMBUSH_ENEMIES[0];
+    world.player.x = trigger.x + 1;
+    world.player.y = trigger.y + 1;
+    world.player.grounded = false;
+    for (let i = 0; i < 20 && !world.ambushes[0].enemy; i++) world.update(dt, noInput);
+    const enemy = world.ambushes[0].enemy;
+    if (!enemy) throw new Error('ambush enemy did not spawn');
+    world.player.x = enemy.x;
+    world.player.y = enemy.y;
+    world.update(dt, noInput);
+    expect(world.deaths).toBe(1);
+  });
+
+  it('resets ambush trigger and spawned enemy on restart', () => {
+    const world = new World();
+    const { trigger } = AMBUSH_ENEMIES[0];
+    world.player.x = trigger.x + 1;
+    world.player.y = trigger.y + 1;
+    world.player.grounded = false;
+    for (let i = 0; i < 20 && !world.ambushes[0].enemy; i++) world.update(dt, noInput);
+    expect(world.ambushes[0].enemy).not.toBeNull();
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.ambushes[0].enemy).toBeNull();
+    expect(world.ambushes[0].warningTimer).toBeNull();
+  });
+
+  it('reaches and collides with the ambush enemy using only movement and jump input (no teleporting)', () => {
+    const world = new World();
+    // 낙하 발판 구간(ground2~ground3)은 전용 테스트로 이미 검증했으므로, 그 다리를 건넌 지점(1350)
+    // 에서 출발해 실제로 트리거를 지나 등장한 적과 충돌하는지만 검증한다.
+    world.player.x = 1350;
+    world.player.y = 468;
+    world.player.grounded = true;
+    const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+    let sawWarning = false;
+    let collided = false;
+    for (let i = 0; i < 300 && !collided; i++) {
+      const solids = [...SOLIDS, ...world.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect)];
+      input.jumpPressed = shouldJump(world.player, solids, HAZARDS);
+      world.update(dt, input);
+      if (world.ambushes[0].warningTimer !== null) sawWarning = true;
+      if (world.deaths > 0) collided = true;
+    }
+    expect(sawWarning).toBe(true);
+    expect(collided).toBe(true);
+  });
+
   it('reaches the goal from spawn through every trap using only movement and jump input (no teleporting)', () => {
     // 개별 함정별 reachability 테스트는 각자 그 함정 직전에서 시작해 특정 구간만 검증한다.
     // Codex 리뷰: 그것만으로는 스폰부터 끝까지 "살아서" 통과 가능한지 보장하지 않는다는 지적을
@@ -217,7 +281,8 @@ describe('World trap and goal rules', () => {
     const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
     for (let i = 0; i < 1500 && !world.cleared; i++) {
       const solids = [...SOLIDS, ...world.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect)];
-      const obstacles = [...HAZARDS, ...world.enemies];
+      const spawnedAmbushes = world.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []));
+      const obstacles = [...HAZARDS, ...world.enemies, ...spawnedAmbushes];
       input.jumpPressed = shouldJump(world.player, solids, obstacles);
       world.update(dt, input);
     }

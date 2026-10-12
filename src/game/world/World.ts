@@ -2,15 +2,22 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import { ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH } from './level';
+import {
+  AMBUSH_ENEMIES, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH,
+  type AmbushEnemy,
+} from './level';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
+const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 export interface GameSnapshot { x: number; y: number; grounded: boolean; deaths: number; cleared: boolean }
 // 낙하 발판/숨겨진 블록처럼 접촉 후 유예 시간이 지나면 솔리드 속성을 잃는 함정의 공통 상태.
 export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; timer: number | null }
+// 갑자기 출현하는 적: 트리거 진입 전(enemy=null, warningTimer=null) -> 경고 중(warningTimer 카운트다운)
+// -> 등장(enemy 생성, warningTimer=null로 복귀). 등장 후에는 일반 적과 동일하게 behaves.
+export interface AmbushState { readonly config: AmbushEnemy; warningTimer: number | null; enemy: Enemy | null }
 
 function isStandingOn(player: Player, rect: Rect): boolean {
   return player.grounded && player.x < rect.x + rect.width && player.x + player.width > rect.x
@@ -30,6 +37,10 @@ function createCollapsingSolids(rects: readonly Rect[]): CollapsingSolidState[] 
 
 function createEnemies(): Enemy[] {
   return ENEMIES.map((e) => createEnemy(e.minX, e.maxX, e.y));
+}
+
+function createAmbushes(): AmbushState[] {
+  return AMBUSH_ENEMIES.map((config) => ({ config, warningTimer: null, enemy: null }));
 }
 
 // 접촉 시 타이머를 시작하고, 유예 시간이 지나면 솔리드 속성을 제거한다.
@@ -53,6 +64,7 @@ export class World {
   fallingPlatforms: CollapsingSolidState[] = createCollapsingSolids(FALLING_PLATFORMS);
   hiddenBlocks: CollapsingSolidState[] = createCollapsingSolids(HIDDEN_BLOCKS);
   enemies: Enemy[] = createEnemies();
+  ambushes: AmbushState[] = createAmbushes();
   reset(countDeath = false): void {
     if (countDeath) this.deaths++;
     this.player = createPlayer(SPAWN.x, SPAWN.y);
@@ -60,6 +72,7 @@ export class World {
     this.fallingPlatforms = createCollapsingSolids(FALLING_PLATFORMS);
     this.hiddenBlocks = createCollapsingSolids(HIDDEN_BLOCKS);
     this.enemies = createEnemies();
+    this.ambushes = createAmbushes();
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -91,8 +104,21 @@ export class World {
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
+    for (const amb of this.ambushes) {
+      if (amb.enemy) { updateEnemy(amb.enemy, dt); continue; }
+      if (amb.warningTimer === null && overlaps(p, amb.config.trigger)) amb.warningTimer = AMBUSH_WARNING_DELAY;
+      if (amb.warningTimer !== null) {
+        amb.warningTimer -= dt;
+        if (amb.warningTimer <= 0) {
+          amb.enemy = createEnemy(amb.config.minX, amb.config.maxX, amb.config.y);
+          amb.warningTimer = null;
+        }
+      }
+    }
+    const activeEnemies = [...this.enemies, ...this.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []))];
+
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
-    if (this.enemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
+    if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (overlaps(p, GOAL)) this.cleared = true;
     if (p.y > WORLD_HEIGHT + 100) this.reset(true);
   }

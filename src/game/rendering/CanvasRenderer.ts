@@ -1,3 +1,4 @@
+import { ENEMY_HEIGHT, ENEMY_WIDTH } from '../entities/Enemy';
 import { GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
 import { cameraX } from './Camera';
 import type { World } from '../world/World';
@@ -47,6 +48,19 @@ export class CanvasRenderer {
       ctx.fillStyle = '#dc2626'; ctx.fillRect(e.x, e.y, e.width, e.height);
       ctx.fillStyle = '#16151c'; ctx.fillRect(e.x + 8, e.y + 8, 4, 4); ctx.fillRect(e.x + 16, e.y + 8, 4, 4);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
+    }
+    for (const amb of world.ambushes) {
+      if (amb.enemy) {
+        const e = amb.enemy;
+        ctx.fillStyle = '#dc2626'; ctx.fillRect(e.x, e.y, e.width, e.height);
+        ctx.fillStyle = '#16151c'; ctx.fillRect(e.x + 8, e.y + 8, 4, 4); ctx.fillRect(e.x + 16, e.y + 8, 4, 4);
+        if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
+      } else if (amb.warningTimer !== null && Math.floor(amb.warningTimer * 10) % 2 === 0) {
+        const { minX, y } = amb.config;
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3;
+        ctx.strokeRect(minX, y, ENEMY_WIDTH, ENEMY_HEIGHT);
+      }
+      if (this.debug) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(amb.config.trigger.x, amb.config.trigger.y, amb.config.trigger.width, amb.config.trigger.height); }
     }
     const p = world.player;
     ctx.fillStyle = '#fa8966'; ctx.fillRect(p.x, p.y, p.width, p.height);

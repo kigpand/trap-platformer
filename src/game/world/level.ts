@@ -27,3 +27,9 @@ export interface EnemyPatrol { minX: number; maxX: number; y: number }
 // 적: ground2 위를 왕복. y는 바닥(500)에 발이 닿는 높이(500-28), 위험지대(1060-1140)와 겹치지 않는
 // 구간을 왕복한다 (docs/traps-spec.md 적 충돌 규칙)
 export const ENEMIES: readonly EnemyPatrol[] = [{ minX: 700, maxX: 850, y: 472 }];
+export interface AmbushEnemy extends EnemyPatrol { trigger: Rect }
+// 갑자기 출현하는 적: 트리거 영역(1400-1440) 진입 시 0.3초 경고 후 등장한다. 등장 위치(1550)는
+// 트리거보다 150px 앞이라 전력 질주해도 0.3초 경고보다 먼저 들이닥치지 않는다 (docs/traps-spec.md #3)
+export const AMBUSH_ENEMIES: readonly AmbushEnemy[] = [
+  { trigger: { x: 1400, y: 440, width: 40, height: 80 }, minX: 1550, maxX: 1650, y: 472 },
+];
