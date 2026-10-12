@@ -27,3 +27,9 @@ export interface EnemyPatrol { minX: number; maxX: number; y: number }
 // 적: ground2 위를 왕복. y는 바닥(500)에 발이 닿는 높이(500-28), 위험지대(1060-1140)와 겹치지 않는
 // 구간을 왕복한다 (docs/traps-spec.md 적 충돌 규칙)
 export const ENEMIES: readonly EnemyPatrol[] = [{ minX: 700, maxX: 850, y: 472 }];
+export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
+// 중간 체크포인트: 적 구간(850)과 위험지대(1060) 사이 평지에 배치. 접촉하면 이후 사망 시
+// 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
+export const CHECKPOINTS: readonly Checkpoint[] = [
+  { zone: { x: 950, y: 440, width: 40, height: 80 }, respawnX: 950, respawnY: 350 },
+];

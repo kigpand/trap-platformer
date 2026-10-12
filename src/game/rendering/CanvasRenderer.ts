@@ -1,4 +1,4 @@
-import { GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
+import { CHECKPOINTS, GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
 import { cameraX } from './Camera';
 import type { World } from '../world/World';
 
@@ -41,6 +41,18 @@ export class CanvasRenderer {
       ctx.fillStyle = '#627e55'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height);
       ctx.fillStyle = '#99c577'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, Math.min(8, hb.rect.height));
       if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height); }
+    }
+    for (const cp of CHECKPOINTS) {
+      const reached = world.activeCheckpoint?.x === cp.respawnX && world.activeCheckpoint?.y === cp.respawnY;
+      ctx.fillStyle = reached ? '#4ade80' : '#64748b';
+      ctx.fillRect(cp.zone.x + cp.zone.width / 2 - 2, cp.zone.y, 4, cp.zone.height);
+      ctx.beginPath();
+      ctx.moveTo(cp.zone.x + cp.zone.width / 2 + 2, cp.zone.y);
+      ctx.lineTo(cp.zone.x + cp.zone.width / 2 + 22, cp.zone.y + 10);
+      ctx.lineTo(cp.zone.x + cp.zone.width / 2 + 2, cp.zone.y + 20);
+      ctx.closePath();
+      ctx.fill();
+      if (this.debug) { ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2; ctx.strokeRect(cp.zone.x, cp.zone.y, cp.zone.width, cp.zone.height); }
     }
     ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
     for (const e of world.enemies) {

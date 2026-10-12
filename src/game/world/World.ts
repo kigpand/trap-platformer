@@ -2,13 +2,15 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import { ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH } from './level';
+import {
+  CHECKPOINTS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH,
+} from './level';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
-export interface GameSnapshot { x: number; y: number; grounded: boolean; deaths: number; cleared: boolean }
+export interface GameSnapshot { x: number; y: number; grounded: boolean; deaths: number; cleared: boolean; checkpoint: boolean }
 // 낙하 발판/숨겨진 블록처럼 접촉 후 유예 시간이 지나면 솔리드 속성을 잃는 함정의 공통 상태.
 export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; timer: number | null }
 
@@ -53,9 +55,12 @@ export class World {
   fallingPlatforms: CollapsingSolidState[] = createCollapsingSolids(FALLING_PLATFORMS);
   hiddenBlocks: CollapsingSolidState[] = createCollapsingSolids(HIDDEN_BLOCKS);
   enemies: Enemy[] = createEnemies();
+  activeCheckpoint: { x: number; y: number } | null = null;
   reset(countDeath = false): void {
     if (countDeath) this.deaths++;
-    this.player = createPlayer(SPAWN.x, SPAWN.y);
+    else this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
+    const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : SPAWN;
+    this.player = createPlayer(spawn.x, spawn.y);
     this.cleared = false;
     this.fallingPlatforms = createCollapsingSolids(FALLING_PLATFORMS);
     this.hiddenBlocks = createCollapsingSolids(HIDDEN_BLOCKS);
@@ -91,6 +96,10 @@ export class World {
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
+    for (const cp of CHECKPOINTS) {
+      if (overlaps(p, cp.zone)) this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
+    }
+
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
     if (this.enemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (overlaps(p, GOAL)) this.cleared = true;
@@ -98,6 +107,9 @@ export class World {
   }
   snapshot(): GameSnapshot {
     const p = this.player;
-    return { x: Math.round(p.x), y: Math.round(p.y), grounded: p.grounded, deaths: this.deaths, cleared: this.cleared };
+    return {
+      x: Math.round(p.x), y: Math.round(p.y), grounded: p.grounded, deaths: this.deaths, cleared: this.cleared,
+      checkpoint: this.activeCheckpoint !== null,
+    };
   }
 }
