@@ -3,13 +3,14 @@ import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player }
 import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
 import {
-  AMBUSH_ENEMIES, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN, WORLD_HEIGHT, WORLD_WIDTH,
-  type AmbushEnemy,
+  AMBUSH_ENEMIES, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS, SPAWN,
+  WORLD_HEIGHT, WORLD_WIDTH, type AmbushEnemy,
 } from './level';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
 const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
+const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 export interface GameSnapshot { x: number; y: number; grounded: boolean; deaths: number; cleared: boolean }
@@ -18,6 +19,9 @@ export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; tim
 // 갑자기 출현하는 적: 트리거 진입 전(enemy=null, warningTimer=null) -> 경고 중(warningTimer 카운트다운)
 // -> 등장(enemy 생성, warningTimer=null로 복귀). 등장 후에는 일반 적과 동일하게 behaves.
 export interface AmbushState { readonly config: AmbushEnemy; warningTimer: number | null; enemy: Enemy | null }
+// 조건부 함정 트리거: 영역에 겹쳐 있는 동안 dwellTime이 누적되고, 벗어나면 0으로 되돌아간다
+// ("체류" 조건이므로 연속으로 머물러야 한다). 기준 시간을 넘기면 발동.
+export interface ConditionalTrapState { readonly zone: Rect; dwellTime: number }
 
 function isStandingOn(player: Player, rect: Rect): boolean {
   return player.grounded && player.x < rect.x + rect.width && player.x + player.width > rect.x
@@ -43,6 +47,10 @@ function createAmbushes(): AmbushState[] {
   return AMBUSH_ENEMIES.map((config) => ({ config, warningTimer: null, enemy: null }));
 }
 
+function createConditionalTraps(): ConditionalTrapState[] {
+  return CONDITIONAL_TRAPS.map((c) => ({ zone: c.zone, dwellTime: 0 }));
+}
+
 // 접촉 시 타이머를 시작하고, 유예 시간이 지나면 솔리드 속성을 제거한다.
 // grounded 보정은 여기서 하지 않는다 — 플레이어가 다른 솔리드에도 걸쳐 있을 수 있어
 // "이 함정 하나"만 보고 지우면 틀릴 수 있다(Codex 리뷰: ground1a와 숨겨진 블록 경계에
@@ -65,6 +73,7 @@ export class World {
   hiddenBlocks: CollapsingSolidState[] = createCollapsingSolids(HIDDEN_BLOCKS);
   enemies: Enemy[] = createEnemies();
   ambushes: AmbushState[] = createAmbushes();
+  conditionalTraps: ConditionalTrapState[] = createConditionalTraps();
   reset(countDeath = false): void {
     if (countDeath) this.deaths++;
     this.player = createPlayer(SPAWN.x, SPAWN.y);
@@ -73,6 +82,7 @@ export class World {
     this.hiddenBlocks = createCollapsingSolids(HIDDEN_BLOCKS);
     this.enemies = createEnemies();
     this.ambushes = createAmbushes();
+    this.conditionalTraps = createConditionalTraps();
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -117,8 +127,11 @@ export class World {
     }
     const activeEnemies = [...this.enemies, ...this.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []))];
 
+    for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
+
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
     if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
+    if (this.conditionalTraps.some((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD)) { this.reset(true); return; }
     if (overlaps(p, GOAL)) this.cleared = true;
     if (p.y > WORLD_HEIGHT + 100) this.reset(true);
   }

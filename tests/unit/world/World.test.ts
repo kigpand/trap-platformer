@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import { AMBUSH_ENEMIES, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS } from '../../../src/game/world/level';
+import {
+  AMBUSH_ENEMIES, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS,
+} from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import type { Player } from '../../../src/game/entities/Player';
 
@@ -271,6 +273,57 @@ describe('World trap and goal rules', () => {
     }
     expect(sawWarning).toBe(true);
     expect(collided).toBe(true);
+  });
+
+  it('triggers the conditional trap only after dwelling past the threshold', () => {
+    const world = new World();
+    const zone = CONDITIONAL_TRAPS[0].zone;
+    world.player.x = zone.x + 1;
+    world.player.y = zone.y + 1;
+    // 59프레임(< 1초)까지는 안전해야 한다.
+    for (let i = 0; i < 59; i++) {
+      world.update(dt, noInput);
+      expect(world.deaths).toBe(0);
+    }
+    world.update(dt, noInput); // 60번째 프레임(1초)에서 발동
+    expect(world.deaths).toBe(1);
+  });
+
+  it('resets dwell time when the player leaves the conditional trap zone before the threshold', () => {
+    const world = new World();
+    const zone = CONDITIONAL_TRAPS[0].zone;
+    world.player.x = zone.x + 1;
+    world.player.y = zone.y + 1;
+    for (let i = 0; i < 40; i++) world.update(dt, noInput); // 0.67s 체류, 아직 안전
+    world.player.x = zone.x - 100; // 영역 이탈
+    world.update(dt, noInput);
+    expect(world.deaths).toBe(0);
+    world.player.x = zone.x + 1; // 재진입 — 누적되지 않고 처음부터 다시 세어야 한다
+    for (let i = 0; i < 40; i++) world.update(dt, noInput);
+    expect(world.deaths).toBe(0);
+  });
+
+  it('passing through the conditional trap zone quickly is safe', () => {
+    const world = new World();
+    const zone = CONDITIONAL_TRAPS[0].zone;
+    world.player.x = zone.x - 10;
+    world.player.y = 468;
+    world.player.grounded = true;
+    const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+    for (let i = 0; i < 60; i++) world.update(dt, input); // 1초간 평범하게 걸어서 통과
+    expect(world.deaths).toBe(0);
+    expect(world.player.x).toBeGreaterThan(zone.x + zone.width);
+  });
+
+  it('resets conditional trap dwell time on restart', () => {
+    const world = new World();
+    const zone = CONDITIONAL_TRAPS[0].zone;
+    world.player.x = zone.x + 1;
+    world.player.y = zone.y + 1;
+    for (let i = 0; i < 40; i++) world.update(dt, noInput);
+    expect(world.conditionalTraps[0].dwellTime).toBeGreaterThan(0);
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.conditionalTraps[0].dwellTime).toBe(0);
   });
 
   it('reaches the goal from spawn through every trap using only movement and jump input (no teleporting)', () => {

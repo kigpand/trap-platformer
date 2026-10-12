@@ -43,6 +43,14 @@ export class CanvasRenderer {
       ctx.fillStyle = '#99c577'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, Math.min(8, hb.rect.height));
       if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height); }
     }
+    for (const ct of world.conditionalTraps) {
+      ctx.fillStyle = 'rgba(248,113,113,0.15)';
+      ctx.fillRect(ct.zone.x, ct.zone.y, ct.zone.width, ct.zone.height);
+      if (Math.floor(performance.now() / 150) % 2 === 0) {
+        ctx.strokeStyle = '#f87171'; ctx.lineWidth = 3;
+        ctx.strokeRect(ct.zone.x, ct.zone.y, ct.zone.width, ct.zone.height);
+      }
+    }
     ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
     for (const e of world.enemies) {
       ctx.fillStyle = '#dc2626'; ctx.fillRect(e.x, e.y, e.width, e.height);

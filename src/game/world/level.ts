@@ -33,3 +33,10 @@ export interface AmbushEnemy extends EnemyPatrol { trigger: Rect }
 export const AMBUSH_ENEMIES: readonly AmbushEnemy[] = [
   { trigger: { x: 1400, y: 440, width: 40, height: 80 }, minX: 1550, maxX: 1650, y: 472 },
 ];
+export interface ConditionalTrap { zone: Rect }
+// 조건부 함정 트리거: "영역 내 1초 이상 체류" 조건(docs/traps-spec.md #5의 두 예시 중 선택 —
+// 스위치 순서 조합은 상태 머신이 필요해 범위를 벗어남). 폭 50px은 210px/s로 지나가면 약 0.24초라
+// 평범하게 통과하면 안전하고, 멈춰 서 있을 때만 위험하다. 발동 시 가짜 안전지대와 같은 즉시 사망.
+export const CONDITIONAL_TRAPS: readonly ConditionalTrap[] = [
+  { zone: { x: 1670, y: 440, width: 50, height: 80 } },
+];
