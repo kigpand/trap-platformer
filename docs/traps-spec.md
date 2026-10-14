@@ -11,7 +11,6 @@
 
 ## 구현 현황
 - [x] 2. 낙하하는 발판 — 붕괴·타이머 로직(`src/game/world/level.ts`의 `FALLING_PLATFORMS`, `src/game/world/World.ts`)
-  - [ ] 아래 "텔레그래프"가 요구하는 흔들림 애니메이션은 미구현. 현재는 트리거 시 발판 색상만 바뀜(`CanvasRenderer.ts`) — 애니메이션 추가 또는 색상 경고로 명세를 낮추는 결정이 필요
 - [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `HAZARDS`
 - [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `HIDDEN_BLOCKS`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
 - [x] 적 이동·충돌(위 "적 충돌 규칙") — `src/game/entities/Enemy.ts`, `src/game/world/level.ts`의 `ENEMIES`
@@ -30,8 +29,8 @@
 - 실패 결과: 낙사 처리(월드 높이를 넘어 떨어지는 경우와 동일한 리셋 경로).
 
 ### 2. 낙하하는 발판
-- 정의: 밟으면 흔들리다가 무너지는 발판.
-- 텔레그래프: grounded 진입 즉시 흔들림 애니메이션 시작, 0.4초의 유예 시간.
+- 정의: 밟으면 무너지는 발판.
+- 텔레그래프: grounded 진입 즉시 발판 색상이 경고색(주황)으로 바뀜(`CanvasRenderer.ts`), 0.4초의 유예 시간. (초기 명세는 흔들림 애니메이션이었으나, 작은 렌더링 로직으로 같은 학습 효과를 내는 색상 경고로 낮췄습니다.)
 - 트리거: 플레이어가 발판 위에 grounded 상태로 진입.
 - 동작: 유예 시간 종료 시 솔리드 속성 제거.
 - 실패 결과: 낙사 처리.
