@@ -27,6 +27,19 @@ export interface EnemyPatrol { minX: number; maxX: number; y: number }
 // 적: ground2 위를 왕복. y는 바닥(500)에 발이 닿는 높이(500-28), 위험지대(1060-1140)와 겹치지 않는
 // 구간을 왕복한다 (docs/traps-spec.md 적 충돌 규칙)
 export const ENEMIES: readonly EnemyPatrol[] = [{ minX: 700, maxX: 850, y: 472 }];
+export interface AmbushEnemy extends EnemyPatrol { trigger: Rect }
+// 갑자기 출현하는 적: 트리거 영역(1400-1440) 진입 시 0.3초 경고 후 등장한다. 등장 위치(1550)는
+// 트리거보다 150px 앞이라 전력 질주해도 0.3초 경고보다 먼저 들이닥치지 않는다 (docs/traps-spec.md #3)
+export const AMBUSH_ENEMIES: readonly AmbushEnemy[] = [
+  { trigger: { x: 1400, y: 440, width: 40, height: 80 }, minX: 1550, maxX: 1650, y: 472 },
+];
+export interface ConditionalTrap { zone: Rect }
+// 조건부 함정 트리거: "영역 내 1초 이상 체류" 조건(docs/traps-spec.md #5의 두 예시 중 선택 —
+// 스위치 순서 조합은 상태 머신이 필요해 범위를 벗어남). 폭 50px은 210px/s로 지나가면 약 0.24초라
+// 평범하게 통과하면 안전하고, 멈춰 서 있을 때만 위험하다. 발동 시 가짜 안전지대와 같은 즉시 사망.
+export const CONDITIONAL_TRAPS: readonly ConditionalTrap[] = [
+  { zone: { x: 1670, y: 440, width: 50, height: 80 } },
+];
 export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
 // 중간 체크포인트: 적 구간(850)과 위험지대(1060) 사이 평지에 배치. 접촉하면 이후 사망 시
 // 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
