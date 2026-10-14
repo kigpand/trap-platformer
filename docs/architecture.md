@@ -5,7 +5,7 @@
 
 ## 모듈
 - `game/core/GameController.ts`: 생명주기, 스케줄러, 입력 및 월드 조율
-- `game/core/GameLoop.ts`: 고정 시간 간격 처리를 위한 RAF 누적기와 최대 따라잡기 한도
+- `game/core/GameLoop.ts`: 고정 시간 간격 처리를 위한 RAF 누적기와 최대 따라잡기 한도. 렌더 콜백에 디버그용 프레임 지표(FPS, 프레임당 스텝 수)를 함께 전달
 - `game/core/InputManager.ts`: 키보드 상태와 점프 키를 새로 누르는 순간 감지
 - `game/physics/`: 순수 사각형 겹침 판정과 축별 이동 충돌 해소
 - `game/entities/Player.ts`: 플레이어 상태와 갱신 함수

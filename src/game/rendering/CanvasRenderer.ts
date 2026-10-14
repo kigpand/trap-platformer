@@ -5,10 +5,13 @@ import type { World } from '../world/World';
 
 export const VIEW_WIDTH = 960;
 export const VIEW_HEIGHT = 540;
+// game/core가 이 모양으로 넘겨준다(FrameMetrics) — 타입만 필요하므로 core -> rendering
+// 의존 방향을 만들지 않게 구조적으로만 맞춘다.
+export interface RenderMetrics { fps: number; steps: number }
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
-  render(world: World): void {
+  render(world: World, metrics: RenderMetrics): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -89,6 +92,10 @@ export class CanvasRenderer {
     ctx.restore();
     ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
     ctx.fillText(`WORLD HEIGHT ${WORLD_HEIGHT}   |   ${this.debug ? 'COLLIDERS ON' : 'PRESS B FOR COLLIDERS'}`, 20, 28);
+    if (this.debug) {
+      const vx = p.vx.toFixed(0), vy = p.vy.toFixed(0);
+      ctx.fillText(`FPS ${metrics.fps.toFixed(0)}   |   STEPS/FRAME ${metrics.steps}   |   VX ${vx}   |   VY ${vy}`, 20, 48);
+    }
     if (world.cleared) {
       ctx.fillStyle = '#eab308'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
       ctx.fillText('LEVEL CLEAR', VIEW_WIDTH / 2, 80);
