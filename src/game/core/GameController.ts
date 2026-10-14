@@ -17,7 +17,7 @@ export class GameController {
       const snapshot = this.world.snapshot();
       const serialized = JSON.stringify(snapshot);
       if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
-    }, () => this.renderer.render(this.world));
+    }, (metrics) => this.renderer.render(this.world, metrics));
   }
   start(): void { this.onSnapshot(this.world.snapshot()); this.loop.start(); }
   dispose(): void { this.loop.stop(); this.input.dispose(); }
