@@ -12,6 +12,7 @@ export class InputManager {
   }
   private onDown = (event: KeyboardEvent): void => {
     if (!this.keys.has(event.code)) return;
+    if (event.ctrlKey || event.metaKey) return; // 브라우저 단축키(예: Ctrl/Cmd+R 새로고침)를 가로채지 않는다
     const active = document.activeElement;
     if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return;
     event.preventDefault();
