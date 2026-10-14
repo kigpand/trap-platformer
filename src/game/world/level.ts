@@ -2,16 +2,13 @@ import type { Rect } from '../physics/AABB';
 export const WORLD_WIDTH = 1800;
 export const WORLD_HEIGHT = 620;
 export const SPAWN = { x: 65, y: 350 };
+// ground1a/ground1b: 숨겨진 블록(HIDDEN_BLOCKS)이 메우는 틈(300-380)으로 나뉜 시작 구간.
+// ground2: 적·체크포인트·위험지대·gap1 점프 착지 구간. ground3: 낙하 발판 다리 너머, 목표 구간.
 export const SOLIDS: readonly Rect[] = [
   { x: 0, y: 500, width: 300, height: 120 },
   { x: 380, y: 500, width: 140, height: 120 },
   { x: 620, y: 500, width: 570, height: 120 },
   { x: 1290, y: 500, width: 510, height: 120 },
-  { x: 250, y: 420, width: 110, height: 20 },
-  { x: 480, y: 350, width: 130, height: 20 },
-  { x: 830, y: 410, width: 120, height: 20 },
-  { x: 1130, y: 350, width: 110, height: 20 },
-  { x: 1430, y: 400, width: 120, height: 20 },
 ];
 export const GOAL: Rect = { x: 1740, y: 440, width: 40, height: 60 };
 // 가짜 안전지대: 실제 바닥(ground2) 위에 겹쳐진 위장 타일. 걸어서 그대로 도달 가능하며
