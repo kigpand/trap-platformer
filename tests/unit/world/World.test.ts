@@ -24,6 +24,17 @@ function shouldJump(player: Player, solids: readonly Rect[], obstacles: readonly
 }
 
 describe('World trap and goal rules', () => {
+  it('updates facing on horizontal input and keeps it while idle', () => {
+    const world = new World();
+    expect(world.player.facing).toBe(1); // 기본값(오른쪽)
+    world.update(dt, { horizontal: -1, jumpPressed: false, restartPressed: false });
+    expect(world.player.facing).toBe(-1);
+    world.update(dt, noInput); // 입력이 없어도 마지막으로 바라본 방향을 유지해야 한다
+    expect(world.player.facing).toBe(-1);
+    world.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
+    expect(world.player.facing).toBe(1);
+  });
+
   it('resets with a counted death when touching a hazard', () => {
     const world = new World();
     const hazard = HAZARDS[0];
