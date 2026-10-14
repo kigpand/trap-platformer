@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import {
-  AMBUSH_ENEMIES, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS,
+  AMBUSH_ENEMIES, CHECKPOINTS, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS,
 } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import type { Player } from '../../../src/game/entities/Player';
@@ -341,6 +341,46 @@ describe('World trap and goal rules', () => {
     }
     expect(world.cleared).toBe(true);
     expect(world.deaths).toBe(0);
+    expect(world.activeCheckpoint).not.toBeNull(); // 가는 길에 체크포인트도 실제로 밟았어야 한다
+  });
+
+  it('sets the active checkpoint on contact', () => {
+    const world = new World();
+    const cp = CHECKPOINTS[0];
+    world.player.x = cp.zone.x + 1;
+    world.player.y = cp.zone.y + 1;
+    world.update(dt, noInput);
+    expect(world.activeCheckpoint).toEqual({ x: cp.respawnX, y: cp.respawnY });
+    expect(world.snapshot().checkpoint).toBe(true);
+  });
+
+  it('respawns at the checkpoint (not the level start) after a death once one was reached', () => {
+    const world = new World();
+    const cp = CHECKPOINTS[0];
+    world.player.x = cp.zone.x + 1;
+    world.player.y = cp.zone.y + 1;
+    world.update(dt, noInput);
+    // 체크포인트를 지난 뒤 위험지대에서 사망
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+    expect(world.deaths).toBe(1);
+    expect(world.player.x).toBe(cp.respawnX);
+    expect(world.player.y).toBe(cp.respawnY);
+  });
+
+  it('manual restart (R) clears the checkpoint and respawns at the level start', () => {
+    const world = new World();
+    const cp = CHECKPOINTS[0];
+    world.player.x = cp.zone.x + 1;
+    world.player.y = cp.zone.y + 1;
+    world.update(dt, noInput);
+    expect(world.activeCheckpoint).not.toBeNull();
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.activeCheckpoint).toBeNull();
+    expect(world.player.x).toBe(65);
+    expect(world.player.y).toBe(350);
   });
 
   it('resets falling platform, hidden block, and cleared state on restart', () => {

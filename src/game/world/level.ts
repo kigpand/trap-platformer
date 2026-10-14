@@ -40,3 +40,9 @@ export interface ConditionalTrap { zone: Rect }
 export const CONDITIONAL_TRAPS: readonly ConditionalTrap[] = [
   { zone: { x: 1670, y: 440, width: 50, height: 80 } },
 ];
+export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
+// 중간 체크포인트: 적 구간(850)과 위험지대(1060) 사이 평지에 배치. 접촉하면 이후 사망 시
+// 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
+export const CHECKPOINTS: readonly Checkpoint[] = [
+  { zone: { x: 950, y: 440, width: 40, height: 80 }, respawnX: 950, respawnY: 350 },
+];
