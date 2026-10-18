@@ -32,4 +32,31 @@ describe('InputManager', () => {
     expect(input.consume().input.horizontal).toBe(1);
     input.dispose();
   });
+
+  it('treats a P press as a pause toggle request', () => {
+    const input = new InputManager(window);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+    expect(input.consume().togglePause).toBe(true);
+    input.dispose();
+  });
+
+  it('only reports the pause toggle once per press (edge-triggered, not held)', () => {
+    const input = new InputManager(window);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' })); // 키를 누르고 있는 동안 반복 발생하는 keydown
+    expect(input.consume().togglePause).toBe(true);
+    expect(input.consume().togglePause).toBe(false);
+    input.dispose();
+  });
+
+  it('clears held keys and queued actions on blur so a key stuck from before a tab switch does not persist', () => {
+    const input = new InputManager(window);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight' }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+    window.dispatchEvent(new Event('blur'));
+    const state = input.consume();
+    expect(state.input.horizontal).toBe(0);
+    expect(state.togglePause).toBe(false);
+    input.dispose();
+  });
 });

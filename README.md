@@ -12,7 +12,7 @@ React + TypeScript + Canvas 2D 기반의 **독자적인 2D 함정 플랫포머**
 - `pnpm exec playwright install chromium` (최초 1회)
 - `pnpm test:e2e`
 
-게임 화면 클릭 후 ←/→ 또는 A/D 이동, Space/↑/W 점프, R 재시작, B 충돌 박스 전환. 우측 HUD로 진행 상태 확인.
+게임 화면 클릭 후 ←/→ 또는 A/D 이동, Space/↑/W 점프, R 재시작, B 충돌 박스 전환, P 일시 정지/재개. 우측 HUD로 진행 상태 확인. 탭이 백그라운드로 가면 자동으로 일시 정지되며, 돌아와도 자동으로 재개되지 않습니다(P로 직접 재개).
 
 ## AI 협업
 
