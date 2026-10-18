@@ -15,14 +15,22 @@ export class GameController {
       const state = this.input.consume();
       if (state.toggleDebug) this.renderer.debug = !this.renderer.debug;
       if (state.togglePause) this.paused = !this.paused;
-      if (!this.paused) {
+      // 정지 중에는 world.update를 건너뛰지만, 재시작(R)은 World.update 안에서만
+      // 처리되므로 그대로 두면 정지 중 R 입력이 사라진다. 재시작은 정지 여부와
+      // 무관하게 별도로 처리한다.
+      if (this.paused) {
+        if (state.input.restartPressed) this.world.reset();
+      } else {
         this.world.update(dt, state.input);
-        const snapshot = this.world.snapshot();
-        const serialized = JSON.stringify(snapshot);
-        if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
       }
+      this.publishSnapshot();
     }, (metrics) => this.renderer.render(this.world, metrics, this.paused));
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+  }
+  private publishSnapshot(): void {
+    const snapshot = this.world.snapshot();
+    const serialized = JSON.stringify(snapshot);
+    if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
   }
   // 탭이 백그라운드로 가면 강제로 일시 정지한다 — 보이지 않는 동안 쌓인 큰 dt가
   // 물리 스텝을 몰아서 처리하며 순간이동/관통을 일으키는 것을 막는다. 탭이 다시
