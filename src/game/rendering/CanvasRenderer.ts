@@ -30,7 +30,7 @@ export interface RenderMetrics { fps: number; steps: number }
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
-  render(world: World, metrics: RenderMetrics): void {
+  render(world: World, metrics: RenderMetrics, paused = false): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -115,6 +115,14 @@ export class CanvasRenderer {
     if (world.cleared) {
       ctx.fillStyle = '#eab308'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
       ctx.fillText('LEVEL CLEAR', VIEW_WIDTH / 2, 80);
+      ctx.textAlign = 'left';
+    }
+    if (paused) {
+      ctx.fillStyle = 'rgba(16,23,41,0.7)'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+      ctx.fillStyle = '#d5dee7'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', VIEW_WIDTH / 2, VIEW_HEIGHT / 2);
+      ctx.font = '14px system-ui';
+      ctx.fillText('P를 눌러 재개', VIEW_WIDTH / 2, VIEW_HEIGHT / 2 + 28);
       ctx.textAlign = 'left';
     }
   }
