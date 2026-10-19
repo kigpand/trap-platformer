@@ -108,6 +108,7 @@ export class World {
     }
 
     p.vx = input.horizontal * SPEED;
+    if (input.horizontal !== 0) p.facing = input.horizontal;
     if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     const collapsing = [...this.fallingPlatforms, ...this.hiddenBlocks].filter((s) => s.solid).map((s) => s.rect);

@@ -1,17 +1,36 @@
-import { ENEMY_HEIGHT, ENEMY_WIDTH } from '../entities/Enemy';
+import { ENEMY_HEIGHT, ENEMY_WIDTH, type Enemy } from '../entities/Enemy';
+import type { Player } from '../entities/Player';
 import { CHECKPOINTS, GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
 import { cameraX } from './Camera';
+import {
+  drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
+} from './Sprites';
 import type { World } from '../world/World';
 
 export const VIEW_WIDTH = 960;
 export const VIEW_HEIGHT = 540;
+const WALK_CYCLE_MS = 160; // 걷기 2프레임 전환 주기 — 렌더링 전용 타이밍(시뮬레이션 상태 아님)
+
+function playerFrame(p: Player) {
+  if (!p.grounded) return PLAYER_JUMP;
+  if (p.vx === 0) return PLAYER_IDLE;
+  return Math.floor(performance.now() / WALK_CYCLE_MS) % 2 === 0 ? PLAYER_WALK_1 : PLAYER_WALK_2;
+}
+
+function enemyFrame() {
+  return Math.floor(performance.now() / WALK_CYCLE_MS) % 2 === 0 ? ENEMY_WALK_1 : ENEMY_WALK_2;
+}
+
+function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
+  drawPixelSprite(ctx, enemyFrame(), e.x, e.y, e.width, e.height, e.vx < 0);
+}
 // game/core가 이 모양으로 넘겨준다(FrameMetrics) — 타입만 필요하므로 core -> rendering
 // 의존 방향을 만들지 않게 구조적으로만 맞춘다.
 export interface RenderMetrics { fps: number; steps: number }
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
-  render(world: World, metrics: RenderMetrics): void {
+  render(world: World, metrics: RenderMetrics, paused = false): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -68,15 +87,13 @@ export class CanvasRenderer {
     }
     ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
     for (const e of world.enemies) {
-      ctx.fillStyle = '#dc2626'; ctx.fillRect(e.x, e.y, e.width, e.height);
-      ctx.fillStyle = '#16151c'; ctx.fillRect(e.x + 8, e.y + 8, 4, 4); ctx.fillRect(e.x + 16, e.y + 8, 4, 4);
+      drawEnemy(ctx, e);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
     }
     for (const amb of world.ambushes) {
       if (amb.enemy) {
         const e = amb.enemy;
-        ctx.fillStyle = '#dc2626'; ctx.fillRect(e.x, e.y, e.width, e.height);
-        ctx.fillStyle = '#16151c'; ctx.fillRect(e.x + 8, e.y + 8, 4, 4); ctx.fillRect(e.x + 16, e.y + 8, 4, 4);
+        drawEnemy(ctx, e);
         if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
       } else if (amb.warningTimer !== null && Math.floor(amb.warningTimer * 10) % 2 === 0) {
         const { minX, y } = amb.config;
@@ -86,8 +103,7 @@ export class CanvasRenderer {
       if (this.debug) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(amb.config.trigger.x, amb.config.trigger.y, amb.config.trigger.width, amb.config.trigger.height); }
     }
     const p = world.player;
-    ctx.fillStyle = '#fa8966'; ctx.fillRect(p.x, p.y, p.width, p.height);
-    ctx.fillStyle = '#16151c'; ctx.fillRect(p.x + 17, p.y + 8, 4, 4);
+    drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     ctx.restore();
     ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
@@ -99,6 +115,14 @@ export class CanvasRenderer {
     if (world.cleared) {
       ctx.fillStyle = '#eab308'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
       ctx.fillText('LEVEL CLEAR', VIEW_WIDTH / 2, 80);
+      ctx.textAlign = 'left';
+    }
+    if (paused) {
+      ctx.fillStyle = 'rgba(16,23,41,0.7)'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
+      ctx.fillStyle = '#d5dee7'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', VIEW_WIDTH / 2, VIEW_HEIGHT / 2);
+      ctx.font = '14px system-ui';
+      ctx.fillText('P를 눌러 재개', VIEW_WIDTH / 2, VIEW_HEIGHT / 2 + 28);
       ctx.textAlign = 'left';
     }
   }
