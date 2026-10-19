@@ -2,6 +2,10 @@
 
 React + TypeScript + Canvas 2D 기반의 **독자적인 2D 함정 플랫포머** 스타터입니다. 클래식 플랫폼 게임의 장르적 구조만 참고하며 기존 게임의 캐릭터·레벨·음악·그래픽은 복제하지 않습니다.
 
+**데모:** https://kigpand.github.io/trap-platformer/ (GitHub Pages — 리포지토리 Settings → Pages → Source를 "GitHub Actions"로 설정해야 `master` 푸시마다 자동 배포됩니다. `.github/workflows/deploy.yml` 참고.)
+
+![플레이 화면](docs/assets/screenshot.jpg)
+
 ## 실행
 
 - Node.js 22 이상, pnpm 10 이상 권장
@@ -12,7 +16,7 @@ React + TypeScript + Canvas 2D 기반의 **독자적인 2D 함정 플랫포머**
 - `pnpm exec playwright install chromium` (최초 1회)
 - `pnpm test:e2e`
 
-게임 화면 클릭 후 ←/→ 또는 A/D 이동, Space/↑/W 점프, R 재시작, B 충돌 박스 전환, P 일시 정지/재개. 우측 HUD로 진행 상태 확인. 탭이 백그라운드로 가면 자동으로 일시 정지되며, 돌아와도 자동으로 재개되지 않습니다(P로 직접 재개).
+게임 화면 클릭 후 ←/→ 또는 A/D 이동, Space/↑/W 점프, R 재시작, B 충돌 박스 전환, P 일시 정지/재개. 캔버스 아래의 "일시정지/재개"·"재시작" 버튼은 키보드 단축키와 동일하게 동작하며 터치·마우스·스크린 리더로도 쓸 수 있습니다(이동·점프의 터치 조작은 `docs/game-design.md`에 명시된 추가 목표로 아직 미구현). 우측 HUD로 진행 상태 확인하고, 사망·클리어는 화면에 보이지 않는 `aria-live` 영역으로도 알립니다. 탭이 백그라운드로 가면 자동으로 일시 정지되며, 돌아와도 자동으로 재개되지 않습니다(P 또는 버튼으로 직접 재개).
 
 ## AI 협업
 

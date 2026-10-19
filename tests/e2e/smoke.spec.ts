@@ -75,3 +75,31 @@ test('R restarts the run back to spawn', async ({ page }) => {
   await expect(grounded).toHaveText('GROUNDED YES');
   await expect(position).toHaveText(/^POSITION 65, \d+$/);
 });
+
+test('the on-screen pause/restart buttons work the same as the keyboard shortcuts', async ({ page }) => {
+  // 키보드가 없는(터치) 사용자와 스크린 리더 사용자를 위한 버튼 — docs/game-design.md는
+  // 가상 D-패드 등 이동 조작의 터치 지원은 추가 목표로 미루지만, 정지/재시작 버튼은
+  // 이번 접근성 작업의 범위다.
+  await page.goto('/');
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  const pauseButton = page.getByRole('button', { name: '일시정지/재개 (P)' });
+  const restartButton = page.getByRole('button', { name: '재시작 (R)' });
+  await expect(position).toBeVisible();
+
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  const moved = await position.textContent();
+  expect(moved).not.toMatch(/^POSITION 65, /);
+
+  await pauseButton.click();
+  await page.waitForTimeout(50);
+  const pausedBaseline = await position.textContent();
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  expect(await position.textContent()).toBe(pausedBaseline); // 정지 버튼을 누른 뒤에는 입력이 반영되지 않는다
+
+  await restartButton.click(); // 정지 중에도 재시작 버튼은 바로 적용된다
+  expect(await position.textContent()).toMatch(/^POSITION 65, /);
+});

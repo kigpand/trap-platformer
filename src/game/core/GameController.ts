@@ -38,6 +38,10 @@ export class GameController {
   private onVisibilityChange = (): void => {
     if (document.hidden) { this.paused = true; this.input.clearInput(); }
   };
+  // 키보드(R/P) 외에 화면의 버튼에서도 같은 동작을 호출할 수 있도록 공개한다 —
+  // 터치/마우스로만 조작하는 사용자나 스크린 리더 사용자를 위한 접근성 통로.
+  restart(): void { this.world.reset(); this.publishSnapshot(); }
+  togglePause(): void { this.paused = !this.paused; }
   start(): void { this.onSnapshot(this.world.snapshot()); this.loop.start(); }
   dispose(): void {
     this.loop.stop();

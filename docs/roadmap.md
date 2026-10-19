@@ -24,4 +24,4 @@
 ## 4주 차 — 완성도 개선 및 출시
 - [x] 입력 경계 사례, 브라우저 표시 상태, 일시 정지·재개 (`InputManager.ts`의 P 키·`clearInput()`, `GameController.ts`의 `visibilitychange` 강제 일시정지)
 - [x] 성능 분석, 충돌 회귀 테스트 및 E2E 테스트 (`GameLoop.ts`의 프레임 델타 상한·스텝 상한·누적기 리셋 회귀 테스트, 좌/우 벽 충돌 테스트 보강, 재시작 E2E 테스트)
-- [ ] 반응형 레이아웃 개선, 접근성, 배포 및 README 데모
+- [x] 반응형 레이아웃 개선, 접근성, 배포 및 README 데모 (모바일 뷰포트 레이아웃 확인, 정지·재시작 버튼과 `aria-live` 상태 알림 — 이동·점프의 터치 조작은 `docs/game-design.md`의 추가 목표로 남겨둠, GitHub Pages 배포 워크플로 `.github/workflows/deploy.yml`, README 데모 스크린샷)
