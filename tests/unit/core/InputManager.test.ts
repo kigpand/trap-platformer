@@ -59,4 +59,20 @@ describe('InputManager', () => {
     expect(state.togglePause).toBe(false);
     input.dispose();
   });
+
+  it('leaves Space/Enter alone when a <button> (e.g. the on-screen pause/restart controls) has focus', () => {
+    // 코덱스 리뷰: 버튼에 포커스가 있어도 전역 리스너가 Space를 가로채 점프로 소비하고
+    // preventDefault()까지 호출해서, 포커스된 버튼을 Space/Enter로 "누르는" 표준 키보드
+    // 동작이 깨졌다.
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    button.focus();
+    const input = new InputManager(window);
+    const event = new KeyboardEvent('keydown', { code: 'Space', cancelable: true });
+    window.dispatchEvent(event);
+    expect(input.consume().input.jumpPressed).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
+    input.dispose();
+    button.remove();
+  });
 });

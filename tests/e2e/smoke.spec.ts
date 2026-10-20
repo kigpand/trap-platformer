@@ -103,3 +103,18 @@ test('the on-screen pause/restart buttons work the same as the keyboard shortcut
   await restartButton.click(); // 정지 중에도 재시작 버튼은 바로 적용된다
   expect(await position.textContent()).toMatch(/^POSITION 65, /);
 });
+
+test('Space activates a focused button instead of being swallowed as a jump', async ({ page }) => {
+  // 코덱스 리뷰: 전역 입력 리스너가 포커스된 버튼에서도 Space를 가로채 점프로 소비하고
+  // preventDefault()를 호출해서, 키보드 사용자가 버튼을 Space로 "누를" 수 없었다.
+  await page.goto('/');
+  const pauseButton = page.getByRole('button', { name: '일시정지/재개 (P)' });
+  await pauseButton.focus();
+  await page.keyboard.press('Space');
+  // 버튼의 기본 클릭 동작이 그대로 일어나 일시정지가 토글됐는지 확인한다(=preventDefault되지 않음).
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  await expect(position).toHaveText(/^POSITION 65, /); // 정지된 상태라 이동 입력이 반영되지 않는다
+});

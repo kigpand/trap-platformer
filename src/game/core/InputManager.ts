@@ -15,7 +15,7 @@ export class InputManager {
     if (!this.keys.has(event.code)) return;
     if (event.ctrlKey || event.metaKey) return; // 브라우저 단축키(예: Ctrl/Cmd+R 새로고침)를 가로채지 않는다
     const active = document.activeElement;
-    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement || active instanceof HTMLButtonElement) return;
     event.preventDefault();
     if (!this.down.has(event.code)) {
       if (['Space', 'ArrowUp', 'KeyW'].includes(event.code)) this.jumpQueued = true;
