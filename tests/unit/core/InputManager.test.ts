@@ -75,4 +75,18 @@ describe('InputManager', () => {
     input.dispose();
     button.remove();
   });
+
+  it('still captures movement keys while a <button> has focus', () => {
+    // 마우스로 정지/재시작 버튼을 누르면 포커스가 버튼에 남는다 — 그 상태에서도 방향키 이동은 막히지 않아야 한다.
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    button.focus();
+    const input = new InputManager(window);
+    const event = new KeyboardEvent('keydown', { code: 'ArrowRight', cancelable: true });
+    window.dispatchEvent(event);
+    expect(input.consume().input.horizontal).toBe(1);
+    expect(event.defaultPrevented).toBe(true);
+    input.dispose();
+    button.remove();
+  });
 });
