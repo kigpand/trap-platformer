@@ -140,3 +140,35 @@ test('movement keys still work after clicking an on-screen button with the mouse
   await page.keyboard.up('ArrowRight');
   await expect(position).not.toHaveText(/^POSITION 65, /);
 });
+
+test('pause and mute state are shown in the HUD and on the buttons', async ({ page }) => {
+  // 정지 표시가 캔버스 안에만 있으면 스크린 리더와 HUD에서 상태를 알 수 없었다.
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/');
+  const status = page.locator('.hud span', { hasText: 'STATUS' });
+  const sound = page.locator('.hud span', { hasText: 'SOUND' });
+  const pauseButton = page.getByRole('button', { name: '일시정지/재개 (P)' });
+  const muteButton = page.getByRole('button', { name: '음소거 (M)' });
+  await expect(status).toHaveText('STATUS PLAYING');
+  await expect(sound).toHaveText('SOUND ON');
+
+  await pauseButton.click();
+  await expect(status).toHaveText('STATUS PAUSED');
+  await expect(pauseButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('status')).toHaveText(/일시정지됨/);
+  await page.keyboard.press('KeyP');
+  await expect(status).toHaveText('STATUS PLAYING');
+  await expect(pauseButton).toHaveAttribute('aria-pressed', 'false');
+
+  await muteButton.click();
+  await expect(sound).toHaveText('SOUND OFF');
+  await expect(muteButton).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('KeyM');
+  await expect(sound).toHaveText('SOUND ON');
+
+  await page.getByLabel('2D 횡스크롤 게임 화면').click(); // 버튼 포커스를 해제해 Space가 버튼이 아닌 점프로 가게 한다
+  await page.keyboard.press('Space'); // 첫 키 입력에서 AudioContext를 준비하고 점프 효과음을 재생해도 오류가 없어야 한다
+  await page.waitForTimeout(200);
+  expect(errors).toEqual([]);
+});

@@ -1,8 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { GameController } from '../game/core/GameController';
-import type { GameSnapshot } from '../game/world/World';
-export interface GameHandle { restart(): void; togglePause(): void }
-export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: GameSnapshot) => void }>(
+import { GameController, type HudSnapshot } from '../game/core/GameController';
+export interface GameHandle { restart(): void; togglePause(): void; toggleMute(): void }
+export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: HudSnapshot) => void }>(
   function GameCanvas({ onSnapshot }, ref) {
     const canvas = useRef<HTMLCanvasElement>(null);
     const controller = useRef<GameController | null>(null);
@@ -17,6 +16,7 @@ export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: GameSnapshot)
     useImperativeHandle(ref, () => ({
       restart: () => controller.current?.restart(),
       togglePause: () => controller.current?.togglePause(),
+      toggleMute: () => controller.current?.toggleMute(),
     }), []);
     return <canvas ref={canvas} aria-label="2D 횡스크롤 게임 화면" width={960} height={540} />;
   },

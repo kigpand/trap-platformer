@@ -19,7 +19,7 @@
 - [x] 독자적인 완성 레벨 1개 (시작-목표, 함정 5종, 적, 체크포인트 모두 배치 — `src/game/world/level.ts`)
 - [ ] 여건이 되면 맵 2–4개 추가
 - [x] 독자적인 스프라이트와 프레임 애니메이션 (코드로 정의한 픽셀 스프라이트, 걷기 2프레임 + idle/jump, 좌우 반전 — `game/rendering/Sprites.ts`)
-- [ ] 독자적인 효과음·배경 음악과 음소거·음량 설정
+- [x] 독자적인 효과음과 음소거 (`game/audio/SoundPlayer.ts` — Web Audio 합성, 점프·사망·체크포인트·클리어, M 키/버튼으로 음소거). 배경 음악과 음량 조절은 미구현
 
 ## 4주 차 — 완성도 개선 및 출시
 - [x] 입력 경계 사례, 브라우저 표시 상태, 일시 정지·재개 (`InputManager.ts`의 P 키·`clearInput()`, `GameController.ts`의 `visibilitychange` 강제 일시정지)
@@ -28,7 +28,6 @@
 - [x] PR 단위 CI 게이트 (`.github/workflows/ci.yml` — `pull_request` 트리거로 lint/typecheck/test/build/e2e를 머지 전에 자동 검증. 기존 `deploy.yml`은 `master` 푸시 후에만 검증했어서 머지 전 자동 게이트가 없었음)
 
 ## 백로그 (우선순위 미정)
-- 사운드 효과음 + 음소거 토글 — `docs/game-design.md`의 MVP 완료 기준("HUD와 소리 켜기/끄기 기능", "독자적인 시각·음향 자료")에 명시된 항목이라 "여건이 되면"처럼 선택사항은 아님. 외부 에셋 없이 Web Audio API로 직접 합성하는 방향을 검토.
 - 모바일 터치 컨트롤(가상 D-패드 + 점프 버튼) — `docs/game-design.md`가 추가 목표로 명시. 레이아웃은 이미 반응형이라 모바일에서 보이긴 하지만 이동·점프를 할 수 없음.
 - 런타임 에러 바운더리 — 게임 루프(RAF 콜백) 안에서 예외가 나면 현재는 조용히 멈추고 흰 화면만 남는다. 공개 배포(GitHub Pages) 상태라 React ErrorBoundary + 복구 안내 UI를 고려.
 - 클리어 타임/최소 사망 기록을 localStorage에 저장 — 리플레이 동기부여. 백엔드 불필요.
