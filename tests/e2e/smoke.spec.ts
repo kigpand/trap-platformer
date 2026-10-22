@@ -103,3 +103,40 @@ test('the on-screen pause/restart buttons work the same as the keyboard shortcut
   await restartButton.click(); // 정지 중에도 재시작 버튼은 바로 적용된다
   expect(await position.textContent()).toMatch(/^POSITION 65, /);
 });
+
+test('Space activates a focused button instead of being swallowed as a jump', async ({ page }) => {
+  // 코덱스 리뷰: 전역 입력 리스너가 포커스된 버튼에서도 Space를 가로채 점프로 소비하고
+  // preventDefault()를 호출해서, 키보드 사용자가 버튼을 Space로 "누를" 수 없었다.
+  // 버튼 포커스 중에도 방향키는 게임으로 전달되므로, 위치 변화로 정지 여부를 구분할 수 있다.
+  await page.goto('/');
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  const pauseButton = page.getByRole('button', { name: '일시정지/재개 (P)' });
+  await expect(position).toBeVisible();
+  await pauseButton.focus();
+
+  await page.keyboard.press('Space'); // 버튼 활성화 → 정지
+  await page.waitForTimeout(50);
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  await expect(position).toHaveText(/^POSITION 65, /); // 정지 상태라 이동하지 않는다
+
+  await page.keyboard.press('Space'); // 다시 활성화 → 재개
+  await page.waitForTimeout(50);
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  await expect(position).not.toHaveText(/^POSITION 65, /); // 버튼에 포커스가 남아 있어도 이동 입력이 반영된다
+});
+
+test('movement keys still work after clicking an on-screen button with the mouse', async ({ page }) => {
+  // 클릭 후 포커스가 버튼에 남아도 방향키 입력이 게임에 전달되어야 한다.
+  await page.goto('/');
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  await expect(position).toBeVisible();
+  await page.getByRole('button', { name: '재시작 (R)' }).click();
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  await expect(position).not.toHaveText(/^POSITION 65, /);
+});

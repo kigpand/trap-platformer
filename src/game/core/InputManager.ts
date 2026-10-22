@@ -16,6 +16,7 @@ export class InputManager {
     if (event.ctrlKey || event.metaKey) return; // 브라우저 단축키(예: Ctrl/Cmd+R 새로고침)를 가로채지 않는다
     const active = document.activeElement;
     if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return;
+    if (active instanceof HTMLButtonElement && event.code === 'Space') return; // 포커스된 버튼의 Space 활성화는 보존하되, 이동 키는 계속 게임으로 보낸다
     event.preventDefault();
     if (!this.down.has(event.code)) {
       if (['Space', 'ArrowUp', 'KeyW'].includes(event.code)) this.jumpQueued = true;
