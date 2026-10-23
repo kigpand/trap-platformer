@@ -172,3 +172,29 @@ test('pause and mute state are shown in the HUD and on the buttons', async ({ pa
   await page.waitForTimeout(200);
   expect(errors).toEqual([]);
 });
+
+test('a crash inside the game loop shows a recovery screen instead of a frozen page, and restart recovers', async ({ page }) => {
+  // RAF 콜백 안의 예외는 이전에는 아무 안내 없이 게임을 멈춘 채 남겼다.
+  await page.goto('/');
+  await expect(page.locator('.hud span', { hasText: 'POSITION' })).toBeVisible();
+  // 테스트 전용 훅 없이 실제 그리기 단계에서 예외를 일으킨다.
+  await page.evaluate(() => {
+    const proto = CanvasRenderingContext2D.prototype as CanvasRenderingContext2D & { __fillRect?: typeof CanvasRenderingContext2D.prototype.fillRect };
+    proto.__fillRect = proto.fillRect;
+    proto.fillRect = () => { throw new Error('forced render failure'); };
+  });
+  const alert = page.getByRole('alert');
+  await expect(alert).toContainText('문제가 발생했습니다');
+
+  await page.evaluate(() => {
+    const proto = CanvasRenderingContext2D.prototype as CanvasRenderingContext2D & { __fillRect?: typeof CanvasRenderingContext2D.prototype.fillRect };
+    if (proto.__fillRect) proto.fillRect = proto.__fillRect;
+  });
+  await alert.getByRole('button', { name: '다시 시작' }).click();
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  await expect(position).toBeVisible();
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  await expect(position).not.toHaveText(/^POSITION 65, /); // 새 게임 루프가 실제로 돌고 있다
+});

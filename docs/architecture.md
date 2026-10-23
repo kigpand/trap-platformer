@@ -5,7 +5,7 @@
 
 ## 모듈
 - `game/core/GameController.ts`: 생명주기, 스케줄러, 입력 및 월드 조율
-- `game/core/GameLoop.ts`: 고정 시간 간격 처리를 위한 RAF 누적기와 최대 따라잡기 한도. 렌더 콜백에 디버그용 프레임 지표(FPS, 프레임당 스텝 수)를 함께 전달
+- `game/core/GameLoop.ts`: 고정 시간 간격 처리를 위한 RAF 누적기와 최대 따라잡기 한도. 렌더 콜백에 디버그용 프레임 지표(FPS, 프레임당 스텝 수)를 함께 전달. update/render 중 예외가 나면 루프를 멈추고 `onError`로 알린다
 - `game/core/InputManager.ts`: 키보드 상태와 점프 키를 새로 누르는 순간 감지
 - `game/physics/`: 순수 사각형 겹침 판정과 축별 이동 충돌 해소
 - `game/entities/Player.ts`: 플레이어 상태와 갱신 함수
@@ -13,7 +13,7 @@
 - `game/world/`: 레벨 배치(플랫폼·목표·체크포인트·함정(5종)·적, `level.ts`)와 `World` 상태 갱신(목표 도달, 위험지대/적 접촉, 붕괴 타이머, 갑자기 출현하는 적의 경고·등장, 조건부 트리거의 체류 시간, 체크포인트 기반 재시작 위치 포함)
 - `game/rendering/`: 그리기 전용 렌더러와 카메라
 - `game/audio/SoundPlayer.ts`: Web Audio 오실레이터로 합성한 효과음(외부 음원 없음)과 음소거 상태. `World`는 소리를 모르고 update 중 일어난 일(`WorldEvent`: 점프·사망·체크포인트·클리어)만 기록하며, `GameController`가 `drainEvents()`로 꺼내 재생한다
-- `components/`: React 캔버스 마운트와 HUD. 프레임별 물리 처리는 담당하지 않음
+- `components/`: React 캔버스 마운트와 HUD. 프레임별 물리 처리는 담당하지 않음. `ErrorBoundary`는 렌더 오류와 게임 루프 오류(`GameCanvas`가 렌더 단계로 다시 던진 것)를 잡아 복구 안내와 "다시 시작"(하위 트리 재마운트)을 보여줌
 
 ## 의존성 방향
 `React -> GameController -> World / Physics / Renderer` 구조이며, 물리 로직은 렌더링에 의존하지 않습니다. 월드와 물리 로직은 TypeScript만 사용합니다. `GameController`가 브라우저 의존 API를 조율합니다.
