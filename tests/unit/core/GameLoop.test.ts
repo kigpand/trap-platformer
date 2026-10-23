@@ -34,7 +34,7 @@ describe('GameLoop', () => {
     globalThis.requestAnimationFrame = stub.raf as typeof requestAnimationFrame;
     globalThis.cancelAnimationFrame = stub.caf as typeof cancelAnimationFrame;
     const steps: number[] = [];
-    const loop = new GameLoop((dt) => steps.push(dt), () => {});
+    const loop = new GameLoop((dt) => steps.push(dt), () => {}, () => {});
     loop.start();
     stub.fire(0); // 첫 프레임은 기준 시각(previous)만 세운다
     stub.fire((1000 / 60) * 3); // 정확히 3스텝 분량의 실제 시간 경과
@@ -47,7 +47,7 @@ describe('GameLoop', () => {
     globalThis.requestAnimationFrame = stub.raf as typeof requestAnimationFrame;
     globalThis.cancelAnimationFrame = stub.caf as typeof cancelAnimationFrame;
     let stepCount = 0;
-    const loop = new GameLoop(() => { stepCount++; }, () => {});
+    const loop = new GameLoop(() => { stepCount++; }, () => {}, () => {});
     loop.start();
     stub.fire(0);
     stub.fire(5000); // 5초가 한 프레임 사이에 흘렀다고 보고 — 보정 없이 따라잡으면 수백 스텝이 된다
@@ -59,7 +59,7 @@ describe('GameLoop', () => {
     globalThis.requestAnimationFrame = stub.raf as typeof requestAnimationFrame;
     globalThis.cancelAnimationFrame = stub.caf as typeof cancelAnimationFrame;
     let stepCount = 0;
-    const loop = new GameLoop(() => { stepCount++; }, () => {});
+    const loop = new GameLoop(() => { stepCount++; }, () => {}, () => {});
     loop.start();
     stub.fire(0);
     stub.fire(8); // 8ms(한 스텝 미만) — 누적기에 ~0.008s가 정상적으로 남는다
@@ -78,7 +78,7 @@ describe('GameLoop', () => {
     globalThis.requestAnimationFrame = stub.raf as typeof requestAnimationFrame;
     globalThis.cancelAnimationFrame = stub.caf as typeof cancelAnimationFrame;
     let lastSteps = -1;
-    const loop = new GameLoop(() => {}, (metrics) => { lastSteps = metrics.steps; });
+    const loop = new GameLoop(() => {}, (metrics) => { lastSteps = metrics.steps; }, () => {});
     loop.start();
     stub.fire(0);
     stub.fire((1000 / 60) * 2);
@@ -90,7 +90,7 @@ describe('GameLoop', () => {
     globalThis.requestAnimationFrame = stub.raf as typeof requestAnimationFrame;
     globalThis.cancelAnimationFrame = stub.caf as typeof cancelAnimationFrame;
     let stepCount = 0;
-    const loop = new GameLoop(() => { stepCount++; }, () => {});
+    const loop = new GameLoop(() => { stepCount++; }, () => {}, () => {});
     loop.start();
     stub.fire(0);
     loop.stop();
@@ -98,5 +98,25 @@ describe('GameLoop', () => {
     loop.start();
     stub.fire(10000); // 재시작 후 첫 프레임은 임의의 later now 값이어도 그냥 기준 시각만 다시 세운다
     expect(stepCount).toBe(0);
+  });
+
+  it('stops the loop and reports the error instead of silently freezing when a step throws', () => {
+    // 예외가 나면 다음 RAF가 예약되지 않아 게임이 아무 안내 없이 멈춘 채 남았다.
+    const stub = stubRaf();
+    globalThis.requestAnimationFrame = stub.raf as typeof requestAnimationFrame;
+    globalThis.cancelAnimationFrame = stub.caf as typeof cancelAnimationFrame;
+    const boom = new Error('boom');
+    const errors: unknown[] = [];
+    let renders = 0;
+    const loop = new GameLoop(() => { throw boom; }, () => { renders++; }, (error) => errors.push(error));
+    loop.start();
+    stub.fire(0);
+    const rafCallsBefore = stub.raf.mock.calls.length;
+    stub.fire(1000 / 60);
+    expect(errors).toEqual([boom]);
+    expect(renders).toBe(1); // 실패한 프레임은 그리지 않는다
+    expect(stub.raf.mock.calls.length).toBe(rafCallsBefore); // 실패 후 다음 프레임을 예약하지 않는다
+    loop.start(); // stop()으로 정리됐으므로 다시 시작할 수 있다
+    expect(stub.raf.mock.calls.length).toBe(rafCallsBefore + 1);
   });
 });

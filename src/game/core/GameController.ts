@@ -13,7 +13,11 @@ export class GameController {
   private readonly loop: GameLoop;
   private lastSnapshot = '';
   private paused = false;
-  constructor(canvas: HTMLCanvasElement, private readonly onSnapshot: (snapshot: HudSnapshot) => void) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    private readonly onSnapshot: (snapshot: HudSnapshot) => void,
+    onError: (error: unknown) => void,
+  ) {
     this.renderer = new CanvasRenderer(canvas);
     this.loop = new GameLoop((dt) => {
       const state = this.input.consume();
@@ -30,7 +34,7 @@ export class GameController {
       }
       for (const event of this.world.drainEvents()) this.sound.play(event);
       this.publishSnapshot();
-    }, (metrics) => this.renderer.render(this.world, metrics, this.paused));
+    }, (metrics) => this.renderer.render(this.world, metrics, this.paused), onError);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
   private publishSnapshot(): void {
