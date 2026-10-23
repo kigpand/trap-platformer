@@ -13,6 +13,9 @@ const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
+// 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
+// GameController가 drainEvents()로 꺼내 SoundPlayer에 넘긴다.
+export type WorldEvent = 'jump' | 'death' | 'checkpoint' | 'clear';
 export interface GameSnapshot { x: number; y: number; grounded: boolean; deaths: number; cleared: boolean; checkpoint: boolean }
 // 낙하 발판/숨겨진 블록처럼 접촉 후 유예 시간이 지나면 솔리드 속성을 잃는 함정의 공통 상태.
 export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; timer: number | null }
@@ -75,8 +78,14 @@ export class World {
   ambushes: AmbushState[] = createAmbushes();
   conditionalTraps: ConditionalTrapState[] = createConditionalTraps();
   activeCheckpoint: { x: number; y: number } | null = null;
+  private events: WorldEvent[] = [];
+  drainEvents(): WorldEvent[] {
+    const drained = this.events;
+    this.events = [];
+    return drained;
+  }
   reset(countDeath = false): void {
-    if (countDeath) this.deaths++;
+    if (countDeath) { this.deaths++; this.events.push('death'); }
     else this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : SPAWN;
     this.player = createPlayer(spawn.x, spawn.y);
@@ -109,7 +118,7 @@ export class World {
 
     p.vx = input.horizontal * SPEED;
     if (input.horizontal !== 0) p.facing = input.horizontal;
-    if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; }
+    if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; this.events.push('jump'); }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     const collapsing = [...this.fallingPlatforms, ...this.hiddenBlocks].filter((s) => s.solid).map((s) => s.rect);
     const solids = [...SOLIDS, ...collapsing];
@@ -134,13 +143,16 @@ export class World {
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
 
     for (const cp of CHECKPOINTS) {
-      if (overlaps(p, cp.zone)) this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
+      if (!overlaps(p, cp.zone)) continue;
+      const current = this.activeCheckpoint;
+      if (current?.x !== cp.respawnX || current.y !== cp.respawnY) this.events.push('checkpoint'); // 새로 활성화될 때만
+      this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
 
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
     if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (this.conditionalTraps.some((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD)) { this.reset(true); return; }
-    if (overlaps(p, GOAL)) this.cleared = true;
+    if (overlaps(p, GOAL) && !this.cleared) { this.cleared = true; this.events.push('clear'); }
     if (p.y > WORLD_HEIGHT + 100) this.reset(true);
   }
   snapshot(): GameSnapshot {

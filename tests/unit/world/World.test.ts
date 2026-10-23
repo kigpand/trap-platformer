@@ -411,3 +411,57 @@ describe('World trap and goal rules', () => {
     expect(world.hiddenBlocks[0].solid).toBe(true);
   });
 });
+
+describe('World sound events', () => {
+  it('reports a jump only when the jump actually happens (grounded)', () => {
+    const world = new World();
+    world.update(dt, { ...noInput, jumpPressed: true }); // 스폰 직후는 공중이라 점프가 일어나지 않는다
+    expect(world.drainEvents()).toEqual([]);
+    world.player.x = 100;
+    world.player.y = SOLIDS[0].y - world.player.height;
+    world.player.grounded = true;
+    world.update(dt, { ...noInput, jumpPressed: true });
+    expect(world.drainEvents()).toEqual(['jump']);
+  });
+
+  it('reports a death, and drainEvents empties the queue', () => {
+    const world = new World();
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+    expect(world.drainEvents()).toEqual(['death']);
+    expect(world.drainEvents()).toEqual([]);
+  });
+
+  it('does not report a death on manual restart', () => {
+    const world = new World();
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.drainEvents()).toEqual([]);
+  });
+
+  it('reports a checkpoint only when it is newly activated, not every frame inside the zone', () => {
+    const world = new World();
+    const cp = CHECKPOINTS[0];
+    world.player.x = cp.zone.x + 1;
+    world.player.y = cp.zone.y + 1;
+    world.update(dt, noInput);
+    expect(world.drainEvents()).toContain('checkpoint');
+    world.player.x = cp.zone.x + 1;
+    world.player.y = cp.zone.y + 1;
+    world.update(dt, noInput);
+    expect(world.drainEvents()).not.toContain('checkpoint');
+  });
+
+  it('reports the clear once, not on every frame spent at the goal', () => {
+    const world = new World();
+    world.player.x = GOAL.x;
+    world.player.y = GOAL.y;
+    world.update(dt, noInput);
+    expect(world.drainEvents()).toEqual(['clear']);
+    world.player.x = GOAL.x;
+    world.player.y = GOAL.y;
+    world.update(dt, noInput);
+    expect(world.drainEvents()).toEqual([]);
+  });
+});

@@ -40,6 +40,14 @@ describe('InputManager', () => {
     input.dispose();
   });
 
+  it('treats an M press as a mute toggle request', () => {
+    const input = new InputManager(window);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' }));
+    expect(input.consume().toggleMute).toBe(true);
+    expect(input.consume().toggleMute).toBe(false);
+    input.dispose();
+  });
+
   it('only reports the pause toggle once per press (edge-triggered, not held)', () => {
     const input = new InputManager(window);
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
