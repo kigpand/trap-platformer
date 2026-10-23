@@ -19,7 +19,7 @@
 - [x] 독자적인 완성 레벨 1개 (시작-목표, 함정 5종, 적, 체크포인트 모두 배치 — `src/game/world/level.ts`)
 - [ ] 여건이 되면 맵 2–4개 추가
 - [x] 독자적인 스프라이트와 프레임 애니메이션 (코드로 정의한 픽셀 스프라이트, 걷기 2프레임 + idle/jump, 좌우 반전 — `game/rendering/Sprites.ts`)
-- [x] 독자적인 효과음과 음소거 (`game/audio/SoundPlayer.ts` — Web Audio 합성, 점프·사망·체크포인트·클리어, M 키/버튼으로 음소거). 배경 음악과 음량 조절은 미구현
+- [x] 독자적인 효과음과 음소거 (`game/audio/SoundPlayer.ts` — Web Audio 합성, 점프·사망·체크포인트·클리어, M 키/버튼으로 음소거, 음소거 설정은 localStorage에 저장). 배경 음악과 음량 조절은 미구현
 
 ## 4주 차 — 완성도 개선 및 출시
 - [x] 입력 경계 사례, 브라우저 표시 상태, 일시 정지·재개 (`InputManager.ts`의 P 키·`clearInput()`, `GameController.ts`의 `visibilitychange` 강제 일시정지)
