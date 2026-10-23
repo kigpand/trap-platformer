@@ -5,6 +5,15 @@ import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type GameSnapshot } from '../world/World';
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거 상태.
 export interface HudSnapshot extends GameSnapshot { paused: boolean; muted: boolean }
+const MUTED_STORAGE_KEY = 'trap-runner:muted';
+// 음소거 설정은 새로고침 후에도 유지한다. 시크릿 모드·저장소 차단 등으로 localStorage
+// 접근이 예외를 던질 수 있으므로, 실패하면 기본값(소리 켬)으로 동작하고 저장은 건너뛴다.
+function loadMuted(): boolean {
+  try { return localStorage.getItem(MUTED_STORAGE_KEY) === '1'; } catch { return false; }
+}
+function saveMuted(muted: boolean): void {
+  try { localStorage.setItem(MUTED_STORAGE_KEY, muted ? '1' : '0'); } catch { /* 저장 실패 시 이번 세션에만 적용 */ }
+}
 export class GameController {
   private readonly world = new World();
   private readonly renderer: CanvasRenderer;
@@ -19,11 +28,12 @@ export class GameController {
     onError: (error: unknown) => void,
   ) {
     this.renderer = new CanvasRenderer(canvas);
+    this.sound.muted = loadMuted();
     this.loop = new GameLoop((dt) => {
       const state = this.input.consume();
       if (state.toggleDebug) this.renderer.debug = !this.renderer.debug;
       if (state.togglePause) this.paused = !this.paused;
-      if (state.toggleMute) this.sound.muted = !this.sound.muted;
+      if (state.toggleMute) this.setMuted(!this.sound.muted);
       // 정지 중에는 world.update를 건너뛰지만, 재시작(R)은 World.update 안에서만
       // 처리되므로 그대로 두면 정지 중 R 입력이 사라진다. 재시작은 정지 여부와
       // 무관하게 별도로 처리한다.
@@ -52,7 +62,8 @@ export class GameController {
   // 터치/마우스로만 조작하는 사용자나 스크린 리더 사용자를 위한 접근성 통로.
   restart(): void { this.world.reset(); this.publishSnapshot(); }
   togglePause(): void { this.paused = !this.paused; this.publishSnapshot(); }
-  toggleMute(): void { this.sound.muted = !this.sound.muted; this.publishSnapshot(); }
+  toggleMute(): void { this.setMuted(!this.sound.muted); this.publishSnapshot(); }
+  private setMuted(muted: boolean): void { this.sound.muted = muted; saveMuted(muted); }
   start(): void { this.publishSnapshot(); this.loop.start(); }
   dispose(): void {
     this.loop.stop();

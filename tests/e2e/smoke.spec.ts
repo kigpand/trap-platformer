@@ -198,3 +198,31 @@ test('a crash inside the game loop shows a recovery screen instead of a frozen p
   await page.keyboard.up('ArrowRight');
   await expect(position).not.toHaveText(/^POSITION 65, /); // 새 게임 루프가 실제로 돌고 있다
 });
+
+test('the mute setting survives a page reload', async ({ page }) => {
+  await page.goto('/');
+  const sound = page.locator('.hud span', { hasText: 'SOUND' });
+  await expect(sound).toHaveText('SOUND ON');
+  await page.getByRole('button', { name: '음소거 (M)' }).click();
+  await expect(sound).toHaveText('SOUND OFF');
+  await page.reload();
+  await expect(sound).toHaveText('SOUND OFF');
+  await expect(page.getByRole('button', { name: '음소거 (M)' })).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('KeyM');
+  await expect(sound).toHaveText('SOUND ON');
+  await page.reload();
+  await expect(sound).toHaveText('SOUND ON');
+});
+
+test('the game still runs and mute still toggles when localStorage is blocked', async ({ page }) => {
+  // 시크릿 모드·사이트 데이터 차단 환경에서는 localStorage 접근 자체가 예외를 던진다.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('blocked', 'SecurityError'); } });
+  });
+  await page.goto('/');
+  const sound = page.locator('.hud span', { hasText: 'SOUND' });
+  await expect(sound).toHaveText('SOUND ON');
+  await page.keyboard.press('KeyM');
+  await expect(sound).toHaveText('SOUND OFF');
+  await expect(page.getByRole('alert')).toHaveCount(0); // 오류 복구 화면으로 넘어가지 않는다
+});
