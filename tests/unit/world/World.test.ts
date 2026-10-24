@@ -514,3 +514,92 @@ describe('World run time and run deaths (best record inputs)', () => {
   });
 });
 
+describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
+  function dieOnHazard(world: World): void {
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+  }
+
+  it('highlights the hazard that caused the death right after respawn', () => {
+    const world = new World();
+    dieOnHazard(world);
+    expect(world.hazardReveal?.rect).toBe(HAZARDS[0]);
+  });
+
+  function reachCheckpoint(world: World): void {
+    const cp = CHECKPOINTS[0];
+    world.player.x = cp.zone.x + 1;
+    world.player.y = cp.zone.y + 1;
+    world.update(dt, noInput);
+  }
+
+  it('clears the highlight after 2 seconds of play while the tile is on screen', () => {
+    const world = new World();
+    reachCheckpoint(world); // 체크포인트(950)에서 재시작하면 위험지대(1060)가 화면 안에 있다
+    dieOnHazard(world);
+    for (let i = 0; i < 119; i++) world.update(dt, noInput);
+    expect(world.hazardReveal).not.toBeNull(); // 2초가 되기 직전까지는 유지
+    world.update(dt, noInput);
+    expect(world.hazardReveal).toBeNull();
+  });
+
+  it('manual restart (R) clears the highlight', () => {
+    const world = new World();
+    dieOnHazard(world);
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.hazardReveal).toBeNull();
+  });
+
+  it('does not highlight anything for other causes of death, and a later death clears an active highlight', () => {
+    const world = new World();
+    const enemy = world.enemies[0];
+    world.player.x = enemy.x;
+    world.player.y = enemy.y;
+    world.update(dt, noInput);
+    expect(world.deaths).toBe(1);
+    expect(world.hazardReveal).toBeNull();
+
+    dieOnHazard(world);
+    expect(world.hazardReveal).not.toBeNull();
+    const e = world.enemies[0];
+    world.player.x = e.x;
+    world.player.y = e.y;
+    world.update(dt, noInput);
+    expect(world.hazardReveal).toBeNull(); // 원인이 다른 사망이면 이전 표시를 남기지 않는다
+  });
+
+  it('keeps the highlight while the tile is off screen and only counts down once it is visible', () => {
+    // 코덱스 리뷰: 체크포인트를 건너뛰고 죽으면 시작점에서 재시작해 위험지대가 화면 밖에 있는데,
+    // 2초가 그대로 흘러 플레이어가 보지 못한 채 표시가 사라졌다.
+    const world = new World();
+    dieOnHazard(world); // 체크포인트 없이 사망 → 시작점(65)에서 재시작, 위험지대(1060)는 화면 밖
+    expect(world.activeCheckpoint).toBeNull();
+    for (let i = 0; i < 240; i++) world.update(dt, noInput);
+    expect(world.hazardReveal?.remaining).toBeCloseTo(2); // 화면 밖에서는 줄지 않는다
+    world.player.x = 900; world.player.y = SOLIDS[2].y - world.player.height; // 위험지대가 보이는 곳까지 이동
+    for (let i = 0; i < 120; i++) world.update(dt, noInput);
+    expect(world.hazardReveal).toBeNull();
+  });
+});
+
+describe('checkpoint placement before the fake safe zone', () => {
+  it('cannot be jumped over: a running jump from any spot before it still reaches the checkpoint', () => {
+    // 코덱스 리뷰: 실제 입력으로 체크포인트를 점프해 건너뛸 수 있어, 가짜 안전지대 사망 후 시작점에서 재시작했다.
+    const cp = CHECKPOINTS[0];
+    const ground = SOLIDS.find((s) => s.x <= cp.zone.x && s.x + s.width >= cp.zone.x + cp.zone.width);
+    if (!ground) throw new Error('checkpoint is not over solid ground');
+    for (let start = cp.zone.x - 160; start <= cp.zone.x - 30; start += 5) {
+      const world = new World();
+      world.enemies = []; world.ambushes = []; // 점프 궤적만 검증한다
+      world.player.x = start;
+      world.player.y = ground.y - world.player.height;
+      world.player.grounded = true;
+      world.update(dt, { horizontal: 1, jumpPressed: true, restartPressed: false });
+      for (let i = 0; i < 90 && world.player.x < cp.zone.x + cp.zone.width + 10; i++) world.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
+      expect(world.activeCheckpoint, `jump started at x=${start}`).not.toBeNull();
+    }
+  });
+});
+

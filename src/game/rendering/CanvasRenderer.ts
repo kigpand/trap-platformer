@@ -1,13 +1,12 @@
 import { ENEMY_HEIGHT, ENEMY_WIDTH, type Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 import { CHECKPOINTS, GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
-import { cameraX } from './Camera';
+import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
 import type { World } from '../world/World';
 
-export const VIEW_WIDTH = 960;
 export const VIEW_HEIGHT = 540;
 const WALK_CYCLE_MS = 160; // 걷기 2프레임 전환 주기 — 렌더링 전용 타이밍(시뮬레이션 상태 아님)
 
@@ -27,6 +26,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
 // game/core가 이 모양으로 넘겨준다(FrameMetrics) — 타입만 필요하므로 core -> rendering
 // 의존 방향을 만들지 않게 구조적으로만 맞춘다.
 export interface RenderMetrics { fps: number; steps: number }
+export const HAZARD_REVEAL_FILL = '#b91c1c';
+const HAZARD_REVEAL_TOP = '#fca5a5';
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
@@ -49,8 +50,11 @@ export class CanvasRenderer {
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     }
     for (const h of HAZARDS) {
-      ctx.fillStyle = '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
-      ctx.fillStyle = '#99c577'; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
+      // 평소엔 일반 바닥과 똑같이 그리고, 이 타일로 사망한 직후에만 경고색으로 원인을 드러낸다(traps-spec #4).
+      const revealed = world.hazardReveal?.rect === h;
+      ctx.fillStyle = revealed ? HAZARD_REVEAL_FILL : '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
+      ctx.fillStyle = revealed ? HAZARD_REVEAL_TOP : '#99c577'; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
+      if (revealed) { ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(h.x, h.y, h.width, h.height); }
       if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(h.x, h.y, h.width, h.height); }
     }
     for (const fp of world.fallingPlatforms) {
