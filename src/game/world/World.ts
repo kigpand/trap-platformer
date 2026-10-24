@@ -16,7 +16,10 @@ export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; rest
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
 // GameController가 drainEvents()로 꺼내 SoundPlayer에 넘긴다.
 export type WorldEvent = 'jump' | 'death' | 'checkpoint' | 'clear';
-export interface GameSnapshot { x: number; y: number; grounded: boolean; deaths: number; cleared: boolean; checkpoint: boolean }
+// time은 이번 런의 경과 시간(초, 0.1초 단위 내림). runDeaths는 이번 런의 사망 수 — deaths(FALLS)는 수동 재시작에도 누적된다.
+export interface GameSnapshot {
+  x: number; y: number; grounded: boolean; deaths: number; cleared: boolean; checkpoint: boolean; time: number; runDeaths: number;
+}
 // 낙하 발판/숨겨진 블록처럼 접촉 후 유예 시간이 지나면 솔리드 속성을 잃는 함정의 공통 상태.
 export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; timer: number | null }
 // 갑자기 출현하는 적: 트리거 진입 전(enemy=null, warningTimer=null) -> 경고 중(warningTimer 카운트다운)
@@ -78,6 +81,11 @@ export class World {
   ambushes: AmbushState[] = createAmbushes();
   conditionalTraps: ConditionalTrapState[] = createConditionalTraps();
   activeCheckpoint: { x: number; y: number } | null = null;
+  // 기록용 "런": 수동 재시작(R)으로만 새로 시작한다. 사망은 체크포인트에서 이어 가므로 런을 끊지 않는다.
+  // 시간은 update(고정 스텝)에서만 쌓이므로 일시정지 중에는 흐르지 않는다. 클리어하면 런이 끝나 더 쌓이지 않는다.
+  runTime = 0;
+  runDeaths = 0;
+  private runComplete = false;
   private events: WorldEvent[] = [];
   drainEvents(): WorldEvent[] {
     const drained = this.events;
@@ -85,8 +93,13 @@ export class World {
     return drained;
   }
   reset(countDeath = false): void {
-    if (countDeath) { this.deaths++; this.events.push('death'); }
-    else this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
+    if (countDeath) {
+      this.deaths++; this.events.push('death');
+      if (!this.runComplete) this.runDeaths++;
+    } else {
+      this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
+      this.runTime = 0; this.runDeaths = 0; this.runComplete = false;
+    }
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : SPAWN;
     this.player = createPlayer(spawn.x, spawn.y);
     this.cleared = false;
@@ -98,6 +111,7 @@ export class World {
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
+    if (!this.runComplete) this.runTime += dt;
     const p = this.player;
 
     // 점프 입력을 확인하기 전에 붕괴를 먼저 처리하고, 남은 솔리드 기준으로 grounded를
@@ -152,7 +166,7 @@ export class World {
     if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
     if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (this.conditionalTraps.some((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD)) { this.reset(true); return; }
-    if (overlaps(p, GOAL) && !this.cleared) { this.cleared = true; this.events.push('clear'); }
+    if (overlaps(p, GOAL) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
     if (p.y > WORLD_HEIGHT + 100) this.reset(true);
   }
   snapshot(): GameSnapshot {
@@ -160,6 +174,8 @@ export class World {
     return {
       x: Math.round(p.x), y: Math.round(p.y), grounded: p.grounded, deaths: this.deaths, cleared: this.cleared,
       checkpoint: this.activeCheckpoint !== null,
+      time: Math.floor(this.runTime * 10 + 1e-6) / 10, // 1/60 누적 오차로 1.0초가 0.9초로 보이지 않게
+      runDeaths: this.runDeaths,
     };
   }
 }

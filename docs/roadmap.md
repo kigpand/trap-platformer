@@ -27,7 +27,7 @@
 - [x] 반응형 레이아웃 개선, 접근성, 배포 및 README 데모 (모바일 뷰포트 레이아웃 확인, 정지·재시작 버튼과 `aria-live` 상태 알림 — 이동·점프의 터치 조작은 `docs/game-design.md`의 추가 목표로 남겨둠, GitHub Pages 배포 워크플로 `.github/workflows/deploy.yml`, README 데모 스크린샷)
 - [x] PR 단위 CI 게이트 (`.github/workflows/ci.yml` — `pull_request` 트리거로 lint/typecheck/test/build/e2e를 머지 전에 자동 검증. 기존 `deploy.yml`은 `master` 푸시 후에만 검증했어서 머지 전 자동 게이트가 없었음)
 - [x] 런타임 오류 복구 (`GameLoop`이 예외 시 루프를 멈추고 `onError`로 알림 → `components/ErrorBoundary.tsx`가 복구 안내와 "다시 시작" 표시). 배포 워크플로에도 E2E 단계 추가(수동 배포 시에도 검증)
+- [x] 최고 기록 저장 (클리어 시간·최소 사망 수를 각각 갱신해 localStorage `trap-runner:best`에 저장, HUD TIME/BEST 표시, 갱신 시 STATUS `NEW RECORD!`와 `aria-live` 알림). "런"은 수동 재시작(R)으로만 새로 시작하고 사망은 체크포인트에서 이어 가며, 시간은 고정 스텝에서만 쌓여 일시정지 중엔 흐르지 않음
 
 ## 백로그 (우선순위 미정)
 - 모바일 터치 컨트롤(가상 D-패드 + 점프 버튼) — `docs/game-design.md`가 추가 목표로 명시. 레이아웃은 이미 반응형이라 모바일에서 보이긴 하지만 이동·점프를 할 수 없음.
-- 클리어 타임/최소 사망 기록을 localStorage에 저장 — 리플레이 동기부여. 백엔드 불필요.

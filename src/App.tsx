@@ -4,7 +4,10 @@ import type { HudSnapshot } from './game/core/GameController';
 import './style.css';
 
 export default function App() {
-  const [snapshot, setSnapshot] = useState<HudSnapshot>({ x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, paused: false, muted: false });
+  const [snapshot, setSnapshot] = useState<HudSnapshot>({
+    x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0,
+    paused: false, muted: false, best: null, newRecord: false,
+  });
   const [announcement, setAnnouncement] = useState('');
   const game = useRef<GameHandle>(null);
   const prevDeaths = useRef(snapshot.deaths);
@@ -14,12 +17,16 @@ export default function App() {
   // 스크린 리더 사용자에게도 사망/클리어 같은 중요한 전환을 알린다 — HUD는 시각적으로만
   // 갱신되고 캔버스 안의 상태 변화는 스크린 리더가 감지할 수 없다.
   useEffect(() => {
-    if (snapshot.cleared) { setAnnouncement('레벨 클리어!'); return; }
+    if (snapshot.cleared) {
+      const record = snapshot.newRecord ? ' — 최고 기록 갱신!' : '';
+      setAnnouncement(`레벨 클리어! 기록 ${snapshot.time.toFixed(1)}초, 사망 ${snapshot.runDeaths}회${record}`);
+      return;
+    }
     if (snapshot.deaths !== prevDeaths.current) {
       prevDeaths.current = snapshot.deaths;
       setAnnouncement(`사망 ${snapshot.deaths}번째 — ${snapshot.checkpoint ? '체크포인트에서' : '처음부터'} 다시 시작합니다`);
     }
-  }, [snapshot.cleared, snapshot.deaths, snapshot.checkpoint]);
+  }, [snapshot.cleared, snapshot.deaths, snapshot.checkpoint, snapshot.time, snapshot.runDeaths, snapshot.newRecord]);
 
   // 탭 전환으로 자동 정지될 때도 캔버스 오버레이만으로는 스크린 리더가 알 수 없다.
   useEffect(() => {
@@ -48,7 +55,9 @@ export default function App() {
         <span>GROUNDED <b>{snapshot.grounded ? 'YES' : 'NO'}</b></span>
         <span>FALLS <b>{snapshot.deaths}</b></span>
         <span>CHECKPOINT <b>{snapshot.checkpoint ? 'SAVED' : 'NONE'}</b></span>
-        <span>STATUS <b>{snapshot.paused ? 'PAUSED' : snapshot.cleared ? 'CLEAR!' : 'PLAYING'}</b></span>
+        <span>STATUS <b>{snapshot.paused ? 'PAUSED' : snapshot.cleared ? (snapshot.newRecord ? 'NEW RECORD!' : 'CLEAR!') : 'PLAYING'}</b></span>
+        <span>TIME <b>{snapshot.time.toFixed(1)}s</b></span>
+        <span>BEST <b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
         <span>SOUND <b>{snapshot.muted ? 'OFF' : 'ON'}</b></span>
       </section>
       <p className="help">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거</p>
