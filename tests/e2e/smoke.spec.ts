@@ -284,6 +284,30 @@ test.describe('on a touch device', () => {
     expect(await position.textContent()).toBe(afterRelease); // 손을 떼면 멈춘다(입력이 눌린 채 남지 않는다)
   });
 
+  test('lifting one of two fingers on the same move button keeps moving until the last finger lifts', async ({ page }) => {
+    // 코덱스 리뷰: 포인터를 구분하지 않고 해제해서, ▶를 두 손가락으로 누른 뒤 하나만 떼도 이동이 멈췄다.
+    await page.goto('/');
+    const position = page.locator('.hud span', { hasText: 'POSITION' });
+    await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
+    const box = await page.getByRole('button', { name: '오른쪽으로 이동' }).boundingBox();
+    if (!box) throw new Error('right button is not visible');
+    const first = { x: box.x + box.width * 0.3, y: box.y + box.height / 2, id: 1 };
+    const second = { x: box.x + box.width * 0.7, y: box.y + box.height / 2, id: 2 };
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [first] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [first, second] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [second] }); // 첫 손가락만 뗀다
+    await page.waitForTimeout(100);
+    const oneFingerLeft = await position.textContent();
+    await page.waitForTimeout(300);
+    expect(await position.textContent()).not.toBe(oneFingerLeft); // 남은 손가락으로 계속 이동한다
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); // 마지막 손가락
+    await page.waitForTimeout(100);
+    const released = await position.textContent();
+    await page.waitForTimeout(300);
+    expect(await position.textContent()).toBe(released);
+  });
+
   test('tapping the on-screen jump button jumps', async ({ page }) => {
     await page.goto('/');
     const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
