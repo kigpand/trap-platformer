@@ -62,7 +62,9 @@ export default function App() {
         <span>BEST <b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
         <span>SOUND <b>{snapshot.muted ? 'OFF' : 'ON'}</b></span>
       </section>
-      <p className="help">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거</p>
+      {/* 입력 방식에 맞는 안내만 보인다(style.css의 pointer: coarse 미디어 쿼리) */}
+      <p className="help help-keys">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거</p>
+      <p className="help help-touch">◀ ▶ 버튼을 누르고 있는 동안 이동 · ▲ 점프 · 일시정지·재시작·음소거는 화면의 버튼으로</p>
       <p className="visually-hidden" role="status" aria-live="polite">{announcement}</p>
     </main>
   );

@@ -122,7 +122,7 @@ export class CanvasRenderer {
       ctx.fillStyle = '#d5dee7'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
       ctx.fillText('PAUSED', VIEW_WIDTH / 2, VIEW_HEIGHT / 2);
       ctx.font = '14px system-ui';
-      ctx.fillText('P를 눌러 재개', VIEW_WIDTH / 2, VIEW_HEIGHT / 2 + 28);
+      ctx.fillText('P 또는 일시정지/재개 버튼으로 재개', VIEW_WIDTH / 2, VIEW_HEIGHT / 2 + 28); // 터치 기기엔 P 키가 없다
       ctx.textAlign = 'left';
     }
   }
