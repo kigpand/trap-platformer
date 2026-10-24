@@ -12,13 +12,13 @@
 ## 구현 현황
 - [x] 2. 낙하하는 발판 — 붕괴·타이머 로직(`src/game/world/level.ts`의 `FALLING_PLATFORMS`, `src/game/world/World.ts`)
 - [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `HAZARDS`
-  - [ ] 사망 후 위치 표시(아래 "텔레그래프") — 명세 확정, 구현 대기(다음 릴리스 항목 1)
+  - [x] 사망 후 위치 표시(아래 "텔레그래프") — `World.hazardReveal`(2초, 고정 스텝에서만 감소), `CanvasRenderer`가 경고색으로 그림
 - [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `HIDDEN_BLOCKS`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
 - [x] 적 이동·충돌(위 "적 충돌 규칙") — `src/game/entities/Enemy.ts`, `src/game/world/level.ts`의 `ENEMIES`
 - [x] 3. 갑자기 출현하는 적 — `src/game/world/level.ts`의 `AMBUSH_ENEMIES`, `World.ts`의 `AmbushState`
 - [x] 5. 조건부 함정 트리거 — "영역 내 1초 이상 체류" 조건만 구현(`CONDITIONAL_TRAPS`). "스위치 순서" 조건은 미구현(아래 "미정 사항" 참고)
 
-함정 5종의 핵심 작동과 적 이동·충돌은 구현 완료했습니다. 가짜 안전지대의 학습 가능 표시(사망 후 위치 표시)는 구현 대기 중이며, 그 전까지는 "공통 규칙"의 학습 가능 요건을 모두 충족하지 않습니다(`docs/roadmap.md` "다음 릴리스" 1번).
+함정 5종(가짜 안전지대의 사망 후 위치 표시 포함)과 적 이동·충돌 모두 구현 완료했으며, "공통 규칙"의 학습 가능 요건을 충족합니다.
 
 ## 함정 5종
 

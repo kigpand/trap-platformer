@@ -11,6 +11,7 @@ const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
 const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
+const HAZARD_REVEAL_DURATION = 2.0; // docs/traps-spec.md #4 "재시작 직후 2초 동안" 강조 표시
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -71,6 +72,10 @@ function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay
   }
 }
 
+// 가짜 안전지대로 사망한 직후, 원인이 된 타일을 강조 표시하는 상태(docs/traps-spec.md #4 텔레그래프).
+// remaining은 update(고정 스텝)에서만 줄어들어 일시정지 중에는 소모되지 않는다.
+export interface HazardRevealState { readonly rect: Rect; remaining: number }
+
 export class World {
   player: Player = createPlayer(SPAWN.x, SPAWN.y);
   deaths = 0;
@@ -81,6 +86,7 @@ export class World {
   ambushes: AmbushState[] = createAmbushes();
   conditionalTraps: ConditionalTrapState[] = createConditionalTraps();
   activeCheckpoint: { x: number; y: number } | null = null;
+  hazardReveal: HazardRevealState | null = null;
   // 기록용 "런": 수동 재시작(R)으로만 새로 시작한다. 사망은 체크포인트에서 이어 가므로 런을 끊지 않는다.
   // 시간은 update(고정 스텝)에서만 쌓이므로 일시정지 중에는 흐르지 않는다. 클리어하면 런이 끝나 더 쌓이지 않는다.
   runTime = 0;
@@ -100,6 +106,7 @@ export class World {
       this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
       this.runTime = 0; this.runDeaths = 0; this.runComplete = false;
     }
+    this.hazardReveal = null; // 모든 재시작에서 지우고, 가짜 안전지대 사망만 update에서 다시 건다
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : SPAWN;
     this.player = createPlayer(spawn.x, spawn.y);
     this.cleared = false;
@@ -112,6 +119,10 @@ export class World {
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
     if (!this.runComplete) this.runTime += dt;
+    if (this.hazardReveal) {
+      this.hazardReveal.remaining -= dt;
+      if (this.hazardReveal.remaining <= 1e-6) this.hazardReveal = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
+    }
     const p = this.player;
 
     // 점프 입력을 확인하기 전에 붕괴를 먼저 처리하고, 남은 솔리드 기준으로 grounded를
@@ -163,7 +174,12 @@ export class World {
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
 
-    if (HAZARDS.some((h) => overlaps(p, h))) { this.reset(true); return; }
+    const hazard = HAZARDS.find((h) => overlaps(p, h));
+    if (hazard) {
+      this.reset(true);
+      this.hazardReveal = { rect: hazard, remaining: HAZARD_REVEAL_DURATION };
+      return;
+    }
     if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (this.conditionalTraps.some((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD)) { this.reset(true); return; }
     if (overlaps(p, GOAL) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }

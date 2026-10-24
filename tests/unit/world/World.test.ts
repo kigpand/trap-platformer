@@ -514,3 +514,52 @@ describe('World run time and run deaths (best record inputs)', () => {
   });
 });
 
+describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
+  function dieOnHazard(world: World): void {
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+  }
+
+  it('highlights the hazard that caused the death right after respawn', () => {
+    const world = new World();
+    dieOnHazard(world);
+    expect(world.hazardReveal?.rect).toBe(HAZARDS[0]);
+  });
+
+  it('clears the highlight after 2 seconds of play', () => {
+    const world = new World();
+    dieOnHazard(world);
+    for (let i = 0; i < 119; i++) world.update(dt, noInput);
+    expect(world.hazardReveal).not.toBeNull(); // 2초가 되기 직전까지는 유지
+    world.update(dt, noInput);
+    expect(world.hazardReveal).toBeNull();
+  });
+
+  it('manual restart (R) clears the highlight', () => {
+    const world = new World();
+    dieOnHazard(world);
+    world.update(dt, { ...noInput, restartPressed: true });
+    expect(world.hazardReveal).toBeNull();
+  });
+
+  it('does not highlight anything for other causes of death, and a later death clears an active highlight', () => {
+    const world = new World();
+    const enemy = world.enemies[0];
+    world.player.x = enemy.x;
+    world.player.y = enemy.y;
+    world.update(dt, noInput);
+    expect(world.deaths).toBe(1);
+    expect(world.hazardReveal).toBeNull();
+
+    dieOnHazard(world);
+    expect(world.hazardReveal).not.toBeNull();
+    const e = world.enemies[0];
+    world.player.x = e.x;
+    world.player.y = e.y;
+    world.update(dt, noInput);
+    expect(world.hazardReveal).toBeNull(); // 원인이 다른 사망이면 이전 표시를 남기지 않는다
+  });
+});
+
