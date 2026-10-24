@@ -333,3 +333,29 @@ test.describe('help text on a touch device', () => {
     await expect(page.getByText('Space / ↑ / W 점프')).toBeHidden();
   });
 });
+
+test('the volume slider setting survives a reload, and a broken stored value falls back to the default', async ({ page }) => {
+  await page.goto('/');
+  const slider = page.getByRole('slider', { name: /음량/ });
+  await expect(slider).toHaveValue('80');
+  await slider.fill('35');
+  await expect(page.getByText('음량 35%')).toBeVisible();
+  await page.reload();
+  await expect(slider).toHaveValue('35');
+
+  await page.evaluate(() => localStorage.setItem('trap-runner:volume', 'loud'));
+  await page.reload();
+  await expect(slider).toHaveValue('80');
+});
+
+test('arrow keys still move the player after adjusting the volume slider with the mouse', async ({ page }) => {
+  // 슬라이더에 포커스가 남으면 방향키가 음량을 바꾸고 이동 입력은 무시된다.
+  await page.goto('/');
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
+  await page.getByRole('slider', { name: /음량/ }).click();
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(300);
+  await page.keyboard.up('ArrowRight');
+  await expect(position).not.toHaveText(/^POSITION 65, /);
+});

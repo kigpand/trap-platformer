@@ -7,8 +7,10 @@ import { World, type GameSnapshot } from '../world/World';
 export interface BestRecord { time: number; deaths: number }
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·최고 기록 상태.
 // newRecord는 마지막 클리어가 기록을 하나라도 갱신했는지(수동 재시작 시 해제).
-export interface HudSnapshot extends GameSnapshot { paused: boolean; muted: boolean; best: BestRecord | null; newRecord: boolean }
+export interface HudSnapshot extends GameSnapshot { paused: boolean; muted: boolean; volume: number; best: BestRecord | null; newRecord: boolean }
 const MUTED_STORAGE_KEY = 'trap-runner:muted';
+const VOLUME_STORAGE_KEY = 'trap-runner:volume';
+const DEFAULT_VOLUME = 0.8;
 const BEST_STORAGE_KEY = 'trap-runner:best';
 // 음소거 설정은 새로고침 후에도 유지한다. 시크릿 모드·저장소 차단 등으로 localStorage
 // 접근이 예외를 던질 수 있으므로, 실패하면 기본값(소리 켬)으로 동작하고 저장은 건너뛴다.
@@ -17,6 +19,17 @@ function loadMuted(): boolean {
 }
 function saveMuted(muted: boolean): void {
   try { localStorage.setItem(MUTED_STORAGE_KEY, muted ? '1' : '0'); } catch { /* 저장 실패 시 이번 세션에만 적용 */ }
+}
+// 음량(0~1)도 같은 방식으로 저장한다. 값이 없거나 범위를 벗어나면 기본값을 쓴다.
+function loadVolume(): number {
+  try {
+    const raw = localStorage.getItem(VOLUME_STORAGE_KEY);
+    const value = raw === null ? NaN : Number(raw);
+    return value >= 0 && value <= 1 ? value : DEFAULT_VOLUME;
+  } catch { return DEFAULT_VOLUME; }
+}
+function saveVolume(volume: number): void {
+  try { localStorage.setItem(VOLUME_STORAGE_KEY, String(volume)); } catch { /* 저장 실패 시 이번 세션에만 적용 */ }
 }
 // 저장된 값이 깨졌거나(수동 편집 등) 형식이 다르면 기록이 없는 것으로 본다.
 function loadBest(): BestRecord | null {
@@ -55,6 +68,7 @@ export class GameController {
   ) {
     this.renderer = new CanvasRenderer(canvas);
     this.sound.muted = loadMuted();
+    this.sound.volume = loadVolume();
     this.loop = new GameLoop((dt) => {
       const state = this.input.consume();
       if (state.toggleDebug) this.renderer.debug = !this.renderer.debug;
@@ -73,20 +87,27 @@ export class GameController {
         if (event === 'clear') this.recordClear();
         this.sound.play(event);
       }
+      this.sound.updateMusic(!this.paused); // 일시정지(탭 숨김 포함) 중에는 배경 음악도 멈춘다
       this.publishSnapshot();
     }, (metrics) => this.renderer.render(this.world, metrics, this.paused), onError);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
   private publishSnapshot(): void {
-    const snapshot = { ...this.world.snapshot(), paused: this.paused, muted: this.sound.muted, best: this.best, newRecord: this.newRecord };
+    const snapshot = { ...this.world.snapshot(), paused: this.paused, muted: this.sound.muted, volume: this.sound.volume, best: this.best, newRecord: this.newRecord };
     const serialized = JSON.stringify(snapshot);
     if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
   }
   // 탭이 백그라운드로 가면 강제로 일시 정지한다 — 보이지 않는 동안 쌓인 큰 dt가
   // 물리 스텝을 몰아서 처리하며 순간이동/관통을 일으키는 것을 막는다. 탭이 다시
   // 보여도 자동으로 재생하지 않고, 사용자가 P로 직접 재개하게 한다.
+  // 숨겨진 탭에서는 RAF가 멈춰 다음 스텝의 updateMusic(false)가 오지 않는다 — 여기서 바로 음악을 끊어야
+  // 이미 예약된 구간이 숨겨진 뒤에도 재생되지 않는다.
   private onVisibilityChange = (): void => {
-    if (document.hidden) { this.paused = true; this.input.clearInput(); this.publishSnapshot(); }
+    if (!document.hidden) return;
+    this.paused = true;
+    this.input.clearInput();
+    this.sound.updateMusic(false);
+    this.publishSnapshot();
   };
   // 키보드(R/P) 외에 화면의 버튼에서도 같은 동작을 호출할 수 있도록 공개한다 —
   // 터치/마우스로만 조작하는 사용자나 스크린 리더 사용자를 위한 접근성 통로.
@@ -106,6 +127,7 @@ export class GameController {
   togglePause(): void { this.paused = !this.paused; this.publishSnapshot(); }
   setTouch(action: TouchAction, pressed: boolean): void { this.input.setTouch(action, pressed); }
   toggleMute(): void { this.setMuted(!this.sound.muted); this.publishSnapshot(); }
+  setVolume(volume: number): void { this.sound.volume = volume; saveVolume(this.sound.volume); this.publishSnapshot(); }
   private setMuted(muted: boolean): void { this.sound.muted = muted; saveMuted(muted); }
   start(): void { this.publishSnapshot(); this.loop.start(); }
   dispose(): void {
