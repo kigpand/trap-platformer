@@ -465,3 +465,52 @@ describe('World sound events', () => {
     expect(world.drainEvents()).toEqual([]);
   });
 });
+
+describe('World run time and run deaths (best record inputs)', () => {
+  it('accumulates run time per fixed step and reports it in tenths of a second', () => {
+    const world = new World();
+    for (let i = 0; i < 60; i++) world.update(dt, noInput);
+    expect(world.snapshot().time).toBe(1); // 1/60 누적 오차로 0.9가 되지 않는다
+  });
+
+  it('keeps the run going through a death: time keeps counting and only this run\'s deaths are counted', () => {
+    const world = new World();
+    for (let i = 0; i < 30; i++) world.update(dt, noInput);
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+    expect(world.snapshot().runDeaths).toBe(1);
+    expect(world.runTime).toBeCloseTo(31 / 60);
+  });
+
+  it('manual restart starts a new run but keeps the lifetime FALLS counter', () => {
+    const world = new World();
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+    world.update(dt, { ...noInput, restartPressed: true });
+    const snap = world.snapshot();
+    expect(snap.time).toBe(0);
+    expect(snap.runDeaths).toBe(0);
+    expect(snap.deaths).toBe(1);
+  });
+
+  it('freezes the run once cleared: time stops and later deaths do not change the run result', () => {
+    const world = new World();
+    for (let i = 0; i < 30; i++) world.update(dt, noInput);
+    world.player.x = GOAL.x;
+    world.player.y = GOAL.y;
+    world.update(dt, noInput);
+    const atClear = world.snapshot();
+    for (let i = 0; i < 30; i++) world.update(dt, noInput);
+    const hazard = HAZARDS[0];
+    world.player.x = hazard.x + 1;
+    world.player.y = hazard.y - world.player.height + 1;
+    world.update(dt, noInput);
+    expect(world.snapshot().time).toBe(atClear.time);
+    expect(world.snapshot().runDeaths).toBe(atClear.runDeaths);
+  });
+});
+

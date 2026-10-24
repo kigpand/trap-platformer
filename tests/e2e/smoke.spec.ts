@@ -226,3 +226,28 @@ test('the game still runs and mute still toggles when localStorage is blocked', 
   await expect(sound).toHaveText('SOUND OFF');
   await expect(page.getByRole('alert')).toHaveCount(0); // 오류 복구 화면으로 넘어가지 않는다
 });
+
+test('the run timer counts while playing and stops while paused', async ({ page }) => {
+  await page.goto('/');
+  const time = page.locator('.hud span', { hasText: 'TIME' });
+  await expect(time).not.toHaveText('TIME 0.0s'); // 시작하면 흐른다
+  await page.keyboard.press('KeyP');
+  await page.waitForTimeout(100);
+  const paused = await time.textContent();
+  await page.waitForTimeout(500);
+  expect(await time.textContent()).toBe(paused); // 정지 중에는 멈춘다
+  await page.keyboard.press('KeyR'); // 정지 중 재시작도 새 런으로 시간을 되돌린다
+  await expect(time).toHaveText('TIME 0.0s');
+});
+
+test('shows the stored best record, and ignores a corrupted one', async ({ page }) => {
+  const best = page.locator('.hud span', { hasText: 'BEST' });
+  await page.addInitScript(() => localStorage.setItem('trap-runner:best', JSON.stringify({ time: 12.3, deaths: 2 })));
+  await page.goto('/');
+  await expect(best).toHaveText('BEST 12.3s / 2 FALLS');
+
+  await page.addInitScript(() => localStorage.setItem('trap-runner:best', '{not json'));
+  await page.reload();
+  await expect(best).toHaveText('BEST —');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
