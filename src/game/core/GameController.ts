@@ -1,5 +1,5 @@
 import { GameLoop } from './GameLoop';
-import { InputManager } from './InputManager';
+import { InputManager, type TouchAction } from './InputManager';
 import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type GameSnapshot } from '../world/World';
@@ -104,6 +104,7 @@ export class GameController {
     if (improved) saveBest(best);
   }
   togglePause(): void { this.paused = !this.paused; this.publishSnapshot(); }
+  setTouch(action: TouchAction, pressed: boolean): void { this.input.setTouch(action, pressed); }
   toggleMute(): void { this.setMuted(!this.sound.muted); this.publishSnapshot(); }
   private setMuted(muted: boolean): void { this.sound.muted = muted; saveMuted(muted); }
   start(): void { this.publishSnapshot(); this.loop.start(); }

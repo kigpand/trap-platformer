@@ -97,4 +97,44 @@ describe('InputManager', () => {
     input.dispose();
     button.remove();
   });
+
+  it('treats a held touch direction like a held key', () => {
+    const input = new InputManager(window);
+    input.setTouch('left', true);
+    expect(input.consume().input.horizontal).toBe(-1);
+    expect(input.consume().input.horizontal).toBe(-1); // 떼기 전까지 유지
+    input.setTouch('left', false);
+    expect(input.consume().input.horizontal).toBe(0);
+    input.dispose();
+  });
+
+  it('jumps once per touch press, not every frame the jump button is held', () => {
+    const input = new InputManager(window);
+    input.setTouch('jump', true);
+    input.setTouch('jump', true); // 같은 손가락의 중복 pointerdown
+    expect(input.consume().input.jumpPressed).toBe(true);
+    expect(input.consume().input.jumpPressed).toBe(false);
+    input.setTouch('jump', false);
+    input.setTouch('jump', true);
+    expect(input.consume().input.jumpPressed).toBe(true);
+    input.dispose();
+  });
+
+  it('releasing a touch direction does not release the same direction held on the keyboard', () => {
+    const input = new InputManager(window);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight' }));
+    input.setTouch('right', true);
+    input.setTouch('right', false);
+    expect(input.consume().input.horizontal).toBe(1);
+    input.dispose();
+  });
+
+  it('clears held touch input on blur, like held keys', () => {
+    const input = new InputManager(window);
+    input.setTouch('right', true);
+    window.dispatchEvent(new Event('blur'));
+    expect(input.consume().input.horizontal).toBe(0);
+    input.dispose();
+  });
 });
+

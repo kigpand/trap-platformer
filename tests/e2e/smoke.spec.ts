@@ -251,3 +251,44 @@ test('shows the stored best record, and ignores a corrupted one', async ({ page 
   await expect(best).toHaveText('BEST —');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
+
+test('touch controls are hidden on a desktop (fine pointer) layout', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '오른쪽으로 이동' })).toBeHidden();
+});
+
+test.describe('on a touch device', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  // 실제 터치 이벤트(CDP)로 누르고 있다가 뗀다 — 합성 PointerEvent로는 포인터 캡처를 검증할 수 없다.
+  async function holdTouch(page: import('@playwright/test').Page, name: string, ms: number): Promise<void> {
+    const box = await page.getByRole('button', { name }).boundingBox();
+    if (!box) throw new Error(`${name} button is not visible`);
+    const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+    await page.waitForTimeout(ms);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  }
+
+  test('holding the on-screen right button moves the player, and releasing stops it', async ({ page }) => {
+    await page.goto('/');
+    const position = page.locator('.hud span', { hasText: 'POSITION' });
+    const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
+    await expect(grounded).toHaveText('GROUNDED YES');
+    await holdTouch(page, '오른쪽으로 이동', 300);
+    await expect(position).not.toHaveText(/^POSITION 65, /);
+    await page.waitForTimeout(100); // touchEnd가 다음 프레임에 반영될 때까지 한 프레임(약 4px) 이동이 남을 수 있다
+    const afterRelease = await position.textContent();
+    await page.waitForTimeout(300);
+    expect(await position.textContent()).toBe(afterRelease); // 손을 떼면 멈춘다(입력이 눌린 채 남지 않는다)
+  });
+
+  test('tapping the on-screen jump button jumps', async ({ page }) => {
+    await page.goto('/');
+    const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
+    await expect(grounded).toHaveText('GROUNDED YES');
+    await holdTouch(page, '점프', 50);
+    await expect(grounded).toHaveText('GROUNDED NO');
+  });
+});
