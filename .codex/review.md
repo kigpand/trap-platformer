@@ -7,7 +7,7 @@
 - `AGENTS.md`
 - `docs/`의 관련 파일. 특히 이동·충돌은 `docs/physics-spec.md` 참조
 - 변경 주변의 코드와 테스트
-- 요청된 Git 변경 내역 (예: `git diff main...HEAD`)
+- 요청된 Git 변경 내역 (예: `git diff master...HEAD`)
 
 ## 리뷰 우선순위
 - P0: 심각한 안전 문제, 데이터 손상, 복구 불가능한 실패
