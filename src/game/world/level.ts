@@ -40,6 +40,8 @@ export const CONDITIONAL_TRAPS: readonly ConditionalTrap[] = [
 export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
 // 중간 체크포인트: 적 구간(850)과 위험지대(1060) 사이 평지에 배치. 접촉하면 이후 사망 시
 // 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
+// 영역 위쪽(360)은 바닥(500)에서 최대 점프 높이(81.375px)로 올라간 발 위치(약 419)보다 높아, 점프로
+// 넘어가도 반드시 닿는다 — 가짜 안전지대 사망 후 표시가 재시작 화면 안에 들어오도록(physics-spec "레벨 배치 제약").
 export const CHECKPOINTS: readonly Checkpoint[] = [
-  { zone: { x: 950, y: 440, width: 40, height: 80 }, respawnX: 950, respawnY: 350 },
+  { zone: { x: 950, y: 360, width: 40, height: 160 }, respawnX: 950, respawnY: 350 },
 ];

@@ -6,12 +6,13 @@ import {
   AMBUSH_ENEMIES, CHECKPOINTS, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS,
   SPAWN, WORLD_HEIGHT, WORLD_WIDTH, type AmbushEnemy,
 } from './level';
+import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
 const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
-const HAZARD_REVEAL_DURATION = 2.0; // docs/traps-spec.md #4 "재시작 직후 2초 동안" 강조 표시
+const HAZARD_REVEAL_DURATION = 2.0; // docs/traps-spec.md #4 "화면에 보이는 동안 2초" 강조 표시
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -73,8 +74,14 @@ function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay
 }
 
 // 가짜 안전지대로 사망한 직후, 원인이 된 타일을 강조 표시하는 상태(docs/traps-spec.md #4 텔레그래프).
-// remaining은 update(고정 스텝)에서만 줄어들어 일시정지 중에는 소모되지 않는다.
+// remaining은 update(고정 스텝)에서, 그리고 그 타일이 화면에 보이는 동안에만 줄어든다 — 일시정지 중이나
+// 체크포인트 없이 먼 시작점에서 재시작해 타일이 화면 밖에 있을 때는 플레이어가 볼 때까지 남는다.
 export interface HazardRevealState { readonly rect: Rect; remaining: number }
+
+function isOnScreen(rect: Rect, playerX: number): boolean {
+  const left = cameraX(playerX, VIEW_WIDTH);
+  return rect.x < left + VIEW_WIDTH && rect.x + rect.width > left;
+}
 
 export class World {
   player: Player = createPlayer(SPAWN.x, SPAWN.y);
@@ -119,7 +126,7 @@ export class World {
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
     if (!this.runComplete) this.runTime += dt;
-    if (this.hazardReveal) {
+    if (this.hazardReveal && isOnScreen(this.hazardReveal.rect, this.player.x)) {
       this.hazardReveal.remaining -= dt;
       if (this.hazardReveal.remaining <= 1e-6) this.hazardReveal = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
     }

@@ -11,7 +11,8 @@
 - `game/entities/Player.ts`: 플레이어 상태와 갱신 함수
 - `game/entities/Enemy.ts`: 적 패트롤 상태와 갱신 함수(중력 없는 단순 왕복)
 - `game/world/`: 레벨 배치(플랫폼·목표·체크포인트·함정(5종)·적, `level.ts`)와 `World` 상태 갱신(목표 도달, 위험지대/적 접촉과 가짜 안전지대 사망 후 위치 표시, 붕괴 타이머, 갑자기 출현하는 적의 경고·등장, 조건부 트리거의 체류 시간, 체크포인트 기반 재시작 위치 포함)
-- `game/rendering/`: 그리기 전용 렌더러와 카메라
+- `game/rendering/`: 그리기 전용 렌더러
+- `game/world/viewport.ts`: 화면 폭과 카메라 위치 계산. 렌더러(그릴 영역)와 `World`(플레이어가 지금 볼 수 있는 영역 판단)가 같은 계산을 써야 해서, 월드가 렌더링에 의존하지 않도록 월드 쪽에 둔다
 - `game/audio/SoundPlayer.ts`: Web Audio 오실레이터로 합성한 효과음과 배경 음악 루프(외부 음원 없음), 음소거·음량 상태. 배경 음악은 `GameController`가 매 스텝 `updateMusic(!paused)`로 짧게 앞서 예약하며, 멈출 때는 음악 버스를 페이드아웃해 예약된 음까지 끊는다. `World`는 소리를 모르고 update 중 일어난 일(`WorldEvent`: 점프·사망·체크포인트·클리어)만 기록하며, `GameController`가 `drainEvents()`로 꺼내 재생한다
 - `components/`: React 캔버스 마운트와 HUD. 프레임별 물리 처리는 담당하지 않음. `TouchControls`는 터치 기기용 이동·점프 버튼(포인터 캡처로 누름/뗌을 추적해 `InputManager.setTouch`로 전달). `ErrorBoundary`는 렌더 오류와 게임 루프 오류(`GameCanvas`가 렌더 단계로 다시 던진 것)를 잡아 복구 안내와 "다시 시작"(하위 트리 재마운트)을 보여줌
 
