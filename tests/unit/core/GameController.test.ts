@@ -62,5 +62,37 @@ describe('GameController best record', () => {
     expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 0, deaths: 0 });
     controller.dispose();
   });
+
+  it('does not overwrite a better record saved by another tab after this one started', () => {
+    // 코덱스 리뷰: 시작 시 한 번 읽은 기록만 비교해서, 먼저 열어 둔 B 탭이 A 탭의 더 좋은 기록
+    // (10초·0회)을 모른 채 20초·3회로 덮어쓰고 NEW RECORD!를 띄웠다.
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextId = 0;
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { frames.set(++nextId, cb); return nextId; });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id); });
+    const fire = (now: number): void => { const pending = [...frames.values()]; frames.clear(); for (const cb of pending) cb(now); };
+    let run = { time: 10, runDeaths: 0 };
+    vi.spyOn(World.prototype, 'snapshot').mockImplementation(() => ({
+      x: 0, y: 0, grounded: true, deaths: run.runDeaths, cleared: true, checkpoint: false, ...run,
+    }));
+    const drain = vi.spyOn(World.prototype, 'drainEvents');
+    const snapshotsB: HudSnapshot[] = [];
+    const tabB = new GameController(document.createElement('canvas'), (s) => snapshotsB.push(s), (e) => { throw e; }); // 기록 없음으로 시작
+
+    const tabA = new GameController(document.createElement('canvas'), () => {}, (e) => { throw e; });
+    drain.mockReturnValueOnce(['clear']);
+    tabA.start(); fire(0); fire(1000 / 60);
+    tabA.dispose();
+    expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 10, deaths: 0 });
+
+    run = { time: 20, runDeaths: 3 };
+    drain.mockReturnValueOnce(['clear']);
+    tabB.start(); fire(2000); fire(2000 + 1000 / 60);
+    expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 10, deaths: 0 });
+    const last = snapshotsB[snapshotsB.length - 1];
+    expect(last.newRecord).toBe(false);
+    expect(last.best).toEqual({ time: 10, deaths: 0 }); // 다른 탭의 기록이 이 탭 HUD에도 반영된다
+    tabB.dispose();
+  });
 });
 

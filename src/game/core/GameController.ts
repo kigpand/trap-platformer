@@ -94,7 +94,11 @@ export class GameController {
   private restartRun(): void { this.world.reset(); this.newRecord = false; }
   private recordClear(): void {
     const snap = this.world.snapshot();
-    const { best, improved } = mergeBest(this.best, { time: snap.time, deaths: snap.runDeaths });
+    // 다른 탭이 그사이 더 좋은 기록을 저장했을 수 있다 — 시작 시 읽은 기록만 믿으면 더 나쁜
+    // 기록으로 덮어쓰고 NEW RECORD!까지 띄운다. 비교·저장 직전에 저장소를 다시 읽어 합친다.
+    const stored = loadBest();
+    const known = stored ? mergeBest(this.best, stored).best : this.best;
+    const { best, improved } = mergeBest(known, { time: snap.time, deaths: snap.runDeaths });
     this.best = best;
     this.newRecord = improved;
     if (improved) saveBest(best);
