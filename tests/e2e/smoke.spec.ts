@@ -316,3 +316,20 @@ test.describe('on a touch device', () => {
     await expect(grounded).toHaveText('GROUNDED NO');
   });
 });
+
+test('shows the keyboard help on a desktop layout, not the touch help', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('Space / ↑ / W 점프')).toBeVisible();
+  await expect(page.getByText('◀ ▶ 버튼을 누르고 있는 동안 이동')).toBeHidden();
+});
+
+test.describe('help text on a touch device', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test('shows the touch help instead of keyboard shortcuts', async ({ page }) => {
+    // 터치 기기에는 키보드가 없어 단축키 안내가 쓸모없었다.
+    await page.goto('/');
+    await expect(page.getByText('◀ ▶ 버튼을 누르고 있는 동안 이동')).toBeVisible();
+    await expect(page.getByText('Space / ↑ / W 점프')).toBeHidden();
+  });
+});
