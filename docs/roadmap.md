@@ -19,7 +19,7 @@
 - [x] 독자적인 완성 레벨 1개 (시작-목표, 함정 5종, 적, 체크포인트 모두 배치 — `src/game/world/level.ts`)
 - [ ] 여건이 되면 맵 2–4개 추가
 - [x] 독자적인 스프라이트와 프레임 애니메이션 (코드로 정의한 픽셀 스프라이트, 걷기 2프레임 + idle/jump, 좌우 반전 — `game/rendering/Sprites.ts`)
-- [x] 독자적인 효과음과 음소거 (`game/audio/SoundPlayer.ts` — Web Audio 합성, 점프·사망·체크포인트·클리어, M 키/버튼으로 음소거, 음소거 설정은 localStorage에 저장). 배경 음악과 음량 조절은 미구현
+- [x] 독자적인 효과음과 음소거 (`game/audio/SoundPlayer.ts` — Web Audio 합성, 점프·사망·체크포인트·클리어, M 키/버튼으로 음소거, 음소거 설정은 localStorage에 저장). 배경 음악 루프와 음량 슬라이더(`trap-runner:volume`)도 추가 — 일시정지·음소거 중엔 음악 정지
 
 ## 4주 차 — 완성도 개선 및 출시
 - [x] 입력 경계 사례, 브라우저 표시 상태, 일시 정지·재개 (`InputManager.ts`의 P 키·`clearInput()`, `GameController.ts`의 `visibilitychange` 강제 일시정지)
@@ -31,5 +31,4 @@
 - [x] 모바일 터치 컨트롤 (`components/TouchControls.tsx` — `pointer: coarse` 기기에서만 ◀/▶ 이동·▲ 점프 버튼 표시, 포인터 캡처로 손가락이 버튼 밖으로 미끄러져도 떼는 순간 해제, 키보드와 별도 입력 코드로 처리)
 
 ## 백로그 (우선순위 미정)
-- 배경 음악과 음량 조절 — 효과음과 음소거만 구현됨(3주 차 항목에서 분리).
 - 다른 탭에서 갱신한 최고 기록의 실시간 반영(`storage` 이벤트) — 현재는 이 탭에서 클리어할 때 합쳐진다.

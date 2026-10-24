@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { GameController, type HudSnapshot } from '../game/core/GameController';
 import type { TouchAction } from '../game/core/InputManager';
-export interface GameHandle { restart(): void; togglePause(): void; toggleMute(): void; setTouch(action: TouchAction, pressed: boolean): void }
+export interface GameHandle { restart(): void; togglePause(): void; toggleMute(): void; setVolume(volume: number): void; setTouch(action: TouchAction, pressed: boolean): void }
 export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: HudSnapshot) => void }>(
   function GameCanvas({ onSnapshot }, ref) {
     const canvas = useRef<HTMLCanvasElement>(null);
@@ -21,6 +21,7 @@ export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: HudSnapshot) 
       restart: () => controller.current?.restart(),
       togglePause: () => controller.current?.togglePause(),
       toggleMute: () => controller.current?.toggleMute(),
+      setVolume: (volume) => controller.current?.setVolume(volume),
       setTouch: (action, pressed) => controller.current?.setTouch(action, pressed),
     }), []);
     return <canvas ref={canvas} aria-label="2D 횡스크롤 게임 화면" width={960} height={540} />;

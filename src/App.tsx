@@ -7,7 +7,7 @@ import './style.css';
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
     x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0,
-    paused: false, muted: false, best: null, newRecord: false,
+    paused: false, muted: false, volume: 0.8, best: null, newRecord: false,
   });
   const [announcement, setAnnouncement] = useState('');
   const game = useRef<GameHandle>(null);
@@ -51,6 +51,17 @@ export default function App() {
         <button type="button" aria-pressed={snapshot.paused} onClick={() => game.current?.togglePause()}>일시정지/재개 (P)</button>
         <button type="button" onClick={() => game.current?.restart()}>재시작 (R)</button>
         <button type="button" aria-pressed={snapshot.muted} onClick={() => game.current?.toggleMute()}>음소거 (M)</button>
+        <label className="volume">
+          음량 {Math.round(snapshot.volume * 100)}%
+          {/* 마우스·터치로 조절한 뒤 포커스가 남으면 방향키가 슬라이더로 가서 이동이 막힌다 — 손을 떼면 포커스를 놓는다.
+              키보드로 탭해 들어온 경우엔 방향키 조절을 그대로 쓸 수 있다. */}
+          <input
+            type="range" min={0} max={100} step={5}
+            value={Math.round(snapshot.volume * 100)}
+            onChange={(event) => game.current?.setVolume(Number(event.currentTarget.value) / 100)}
+            onPointerUp={(event) => event.currentTarget.blur()}
+          />
+        </label>
       </div>
       <section className="hud" aria-label="게임 상태">
         <span>POSITION <b>{snapshot.x}, {snapshot.y}</b></span>

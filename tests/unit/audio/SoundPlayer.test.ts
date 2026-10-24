@@ -6,6 +6,7 @@ import { SoundPlayer } from '../../../src/game/audio/SoundPlayer';
 class FakeParam {
   constructor(public value: number) {}
   setValueAtTime(value: number): void { this.value = value; }
+  setTargetAtTime(value: number): void { this.value = value; } // 페이드 곡선 대신 목표값만 기록한다
   exponentialRampToValueAtTime(): void {} // 페이드아웃 곡선은 이 테스트의 관심사가 아니다
 }
 class FakeNode {
@@ -78,4 +79,50 @@ describe('SoundPlayer', () => {
     expect(FakeAudioContext.last?.oscillators).toHaveLength(0);
     player.dispose();
   });
+
+  it('applies the volume to the master gain, and mute still overrides it', () => {
+    const { player, ctx } = unlockedPlayer();
+    player.volume = 0.5;
+    player.play('jump');
+    const master = ctx.oscillators[0].outputs[0].outputs[0];
+    expect(master.gain.value).toBe(0.5);
+    player.muted = true;
+    expect(master.gain.value).toBe(0);
+    player.muted = false;
+    expect(master.gain.value).toBe(0.5); // 음소거를 풀면 이전 음량으로 돌아온다
+    player.dispose();
+  });
+
+  it('schedules background music ahead while playing and silences it when stopped', () => {
+    const { player, ctx } = unlockedPlayer();
+    player.updateMusic(true);
+    const scheduled = ctx.oscillators.length;
+    expect(scheduled).toBeGreaterThan(0);
+    expect(ctx.oscillators.every((osc) => isAudible(osc, ctx.destination))).toBe(true);
+    player.updateMusic(true); // 시간이 흐르지 않았으면 이미 예약한 구간을 다시 예약하지 않는다
+    expect(ctx.oscillators).toHaveLength(scheduled);
+    player.updateMusic(false); // 일시정지: 이미 예약된 음까지 들리지 않아야 한다
+    expect(ctx.oscillators.some((osc) => isAudible(osc, ctx.destination))).toBe(false);
+    player.dispose();
+  });
+
+  it('does not schedule music while muted', () => {
+    const { player, ctx } = unlockedPlayer();
+    player.muted = true;
+    player.updateMusic(true);
+    expect(ctx.oscillators).toHaveLength(0);
+    player.dispose();
+  });
+
+  it('does not burst out a backlog of notes after a long stall', () => {
+    const { player, ctx } = unlockedPlayer();
+    player.updateMusic(true);
+    const before = ctx.oscillators.length;
+    ctx.currentTime += 10; // 10초 동안 호출되지 않았다고 가정
+    player.updateMusic(true);
+    // 10초 분량(약 47스텝)을 따라잡지 않고 앞으로의 짧은 구간만 예약한다
+    expect(ctx.oscillators.length - before).toBeLessThanOrEqual(before + 2);
+    player.dispose();
+  });
 });
+
