@@ -1,4 +1,8 @@
 import type { InputState } from '../world/World';
+// 화면의 터치 버튼. 키보드 키와 같은 눌림 집합(down)에 별도 코드로 넣어, 키보드로 같은 방향을
+// 누르고 있다가 터치를 떼도 키보드 입력이 풀리지 않게 한다.
+export type TouchAction = 'left' | 'right' | 'jump';
+const TOUCH_CODES: Record<TouchAction, string> = { left: 'TouchLeft', right: 'TouchRight', jump: 'TouchJump' };
 export class InputManager {
   private down = new Set<string>();
   private jumpQueued = false;
@@ -29,6 +33,12 @@ export class InputManager {
     this.down.add(event.code);
   };
   private onUp = (event: KeyboardEvent): void => { this.down.delete(event.code); };
+  setTouch(action: TouchAction, pressed: boolean): void {
+    const code = TOUCH_CODES[action];
+    if (!pressed) { this.down.delete(code); return; }
+    if (action === 'jump' && !this.down.has(code)) this.jumpQueued = true; // 키보드와 같이 새로 누르는 순간에만 점프
+    this.down.add(code);
+  }
   private onBlur = (): void => { this.clearInput(); };
   // 탭이 백그라운드로 가거나 포커스를 잃었을 때 눌림 상태를 모두 비운다 —
   // 그렇지 않으면 포커스를 되찾았을 때 떼지 않은 키가 계속 눌린 것으로 남는다.
@@ -37,8 +47,8 @@ export class InputManager {
     this.jumpQueued = false; this.restartQueued = false; this.debugQueued = false; this.pauseQueued = false; this.muteQueued = false;
   }
   consume(): { input: InputState; toggleDebug: boolean; togglePause: boolean; toggleMute: boolean } {
-    const left = this.down.has('ArrowLeft') || this.down.has('KeyA');
-    const right = this.down.has('ArrowRight') || this.down.has('KeyD');
+    const left = this.down.has('ArrowLeft') || this.down.has('KeyA') || this.down.has(TOUCH_CODES.left);
+    const right = this.down.has('ArrowRight') || this.down.has('KeyD') || this.down.has(TOUCH_CODES.right);
     const horizontal = left === right ? 0 : left ? -1 : 1;
     const value = {
       input: { horizontal, jumpPressed: this.jumpQueued, restartPressed: this.restartQueued },

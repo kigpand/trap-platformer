@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas, type GameHandle } from './components/GameCanvas';
+import { TouchControls } from './components/TouchControls';
 import type { HudSnapshot } from './game/core/GameController';
 import './style.css';
 
@@ -45,6 +46,7 @@ export default function App() {
       <div className="game-shell">
         <GameCanvas ref={game} onSnapshot={onSnapshot} />
       </div>
+      <TouchControls onTouch={(action, pressed) => game.current?.setTouch(action, pressed)} />
       <div className="controls">
         <button type="button" aria-pressed={snapshot.paused} onClick={() => game.current?.togglePause()}>일시정지/재개 (P)</button>
         <button type="button" onClick={() => game.current?.restart()}>재시작 (R)</button>
