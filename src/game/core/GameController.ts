@@ -100,8 +100,14 @@ export class GameController {
   // 탭이 백그라운드로 가면 강제로 일시 정지한다 — 보이지 않는 동안 쌓인 큰 dt가
   // 물리 스텝을 몰아서 처리하며 순간이동/관통을 일으키는 것을 막는다. 탭이 다시
   // 보여도 자동으로 재생하지 않고, 사용자가 P로 직접 재개하게 한다.
+  // 숨겨진 탭에서는 RAF가 멈춰 다음 스텝의 updateMusic(false)가 오지 않는다 — 여기서 바로 음악을 끊어야
+  // 이미 예약된 구간이 숨겨진 뒤에도 재생되지 않는다.
   private onVisibilityChange = (): void => {
-    if (document.hidden) { this.paused = true; this.input.clearInput(); this.publishSnapshot(); }
+    if (!document.hidden) return;
+    this.paused = true;
+    this.input.clearInput();
+    this.sound.updateMusic(false);
+    this.publishSnapshot();
   };
   // 키보드(R/P) 외에 화면의 버튼에서도 같은 동작을 호출할 수 있도록 공개한다 —
   // 터치/마우스로만 조작하는 사용자나 스크린 리더 사용자를 위한 접근성 통로.

@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameController, mergeBest, type HudSnapshot } from '../../../src/game/core/GameController';
 import { World } from '../../../src/game/world/World';
+import { SoundPlayer } from '../../../src/game/audio/SoundPlayer';
 
 describe('mergeBest', () => {
   it('takes the first clear as the best record', () => {
@@ -93,6 +94,30 @@ describe('GameController best record', () => {
     expect(last.newRecord).toBe(false);
     expect(last.best).toEqual({ time: 10, deaths: 0 }); // 다른 탭의 기록이 이 탭 HUD에도 반영된다
     tabB.dispose();
+  });
+});
+
+describe('GameController tab visibility', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it('stops the background music immediately when the tab is hidden, without waiting for another frame', () => {
+    // 코덱스 리뷰: 음악 중단이 다음 고정 스텝의 updateMusic 호출에만 의존해서, 숨겨진 탭에서 RAF가
+    // 멈추면 이미 예약된 음악이 페이드아웃되지 않고 끝까지 재생됐다.
+    vi.stubGlobal('requestAnimationFrame', () => 1); // 프레임을 한 번도 실행하지 않는다
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    const updateMusic = vi.spyOn(SoundPlayer.prototype, 'updateMusic');
+    const snapshots: HudSnapshot[] = [];
+    const controller = new GameController(document.createElement('canvas'), (s) => snapshots.push(s), (e) => { throw e; });
+    controller.start();
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+      expect(updateMusic).toHaveBeenCalledWith(false);
+      expect(snapshots[snapshots.length - 1].paused).toBe(true);
+    } finally {
+      controller.dispose();
+      Reflect.deleteProperty(document, 'hidden'); // 인스턴스에 정의한 값을 지워 프로토타입의 기본값으로 되돌린다
+    }
   });
 });
 
