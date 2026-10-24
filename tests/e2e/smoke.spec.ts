@@ -37,23 +37,25 @@ test('P pauses and resumes the simulation', async ({ page }) => {
 test('R still restarts the run while paused', async ({ page }) => {
   // 코덱스 리뷰: 이동 -> P(정지) -> R(재시작) -> P(재개) 순서로 재현되는
   // "정지 중 재시작 요청이 사라지는" 버그의 회귀 테스트.
+  // 스폰(Y 350)은 공중이라 시작 직후의 좌표는 낙하 중 값이다. 그 값을 기준으로 저장하면 재시작 후
+  // 정확히 같은 낙하 프레임을 잡아야만 통과해 부하가 걸리면 실패했다 — 착지를 기다린 뒤 X만 비교한다.
   await page.goto('/');
   const position = page.locator('.hud span', { hasText: 'POSITION' });
-  await expect(position).toBeVisible();
-  const spawnPosition = await position.textContent();
+  const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
+  await expect(grounded).toHaveText('GROUNDED YES');
 
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(300);
   await page.keyboard.up('ArrowRight');
-  const moved = await position.textContent();
-  expect(moved).not.toBe(spawnPosition);
+  await expect(position).not.toHaveText(/^POSITION 65, /);
 
   await page.keyboard.press('KeyP'); // 정지
   await page.keyboard.press('KeyR'); // 정지 중 재시작
   await page.waitForTimeout(100);
   await page.keyboard.press('KeyP'); // 재개
 
-  await expect(position).toHaveText(spawnPosition!);
+  await expect(grounded).toHaveText('GROUNDED YES');
+  await expect(position).toHaveText(/^POSITION 65, \d+$/); // 재시작 요청이 사라졌다면 이동한 X에 그대로 남는다
 });
 
 test('R restarts the run back to spawn', async ({ page }) => {
