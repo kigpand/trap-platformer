@@ -10,7 +10,8 @@ export class InputManager {
   private debugQueued = false;
   private pauseQueued = false;
   private muteQueued = false;
-  private readonly keys = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'KeyA', 'KeyD', 'KeyW', 'Space', 'KeyR', 'KeyB', 'KeyP', 'KeyM']);
+  private nextLevelQueued = false;
+  private readonly keys = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'KeyA', 'KeyD', 'KeyW', 'Space', 'KeyR', 'KeyB', 'KeyP', 'KeyM', 'KeyN']);
   constructor(private readonly target: Window) {
     target.addEventListener('keydown', this.onDown);
     target.addEventListener('keyup', this.onUp);
@@ -29,6 +30,7 @@ export class InputManager {
       if (event.code === 'KeyB') this.debugQueued = true;
       if (event.code === 'KeyP') this.pauseQueued = true;
       if (event.code === 'KeyM') this.muteQueued = true;
+      if (event.code === 'KeyN') this.nextLevelQueued = true;
     }
     this.down.add(event.code);
   };
@@ -44,9 +46,9 @@ export class InputManager {
   // 그렇지 않으면 포커스를 되찾았을 때 떼지 않은 키가 계속 눌린 것으로 남는다.
   clearInput(): void {
     this.down.clear();
-    this.jumpQueued = false; this.restartQueued = false; this.debugQueued = false; this.pauseQueued = false; this.muteQueued = false;
+    this.jumpQueued = false; this.restartQueued = false; this.debugQueued = false; this.pauseQueued = false; this.muteQueued = false; this.nextLevelQueued = false;
   }
-  consume(): { input: InputState; toggleDebug: boolean; togglePause: boolean; toggleMute: boolean } {
+  consume(): { input: InputState; toggleDebug: boolean; togglePause: boolean; toggleMute: boolean; nextLevel: boolean } {
     const left = this.down.has('ArrowLeft') || this.down.has('KeyA') || this.down.has(TOUCH_CODES.left);
     const right = this.down.has('ArrowRight') || this.down.has('KeyD') || this.down.has(TOUCH_CODES.right);
     const horizontal = left === right ? 0 : left ? -1 : 1;
@@ -55,8 +57,9 @@ export class InputManager {
       toggleDebug: this.debugQueued,
       togglePause: this.pauseQueued,
       toggleMute: this.muteQueued,
+      nextLevel: this.nextLevelQueued,
     } as const;
-    this.jumpQueued = false; this.restartQueued = false; this.debugQueued = false; this.pauseQueued = false; this.muteQueued = false;
+    this.jumpQueued = false; this.restartQueued = false; this.debugQueued = false; this.pauseQueued = false; this.muteQueued = false; this.nextLevelQueued = false;
     return value;
   }
   dispose(): void { this.target.removeEventListener('keydown', this.onDown); this.target.removeEventListener('keyup', this.onUp); this.target.removeEventListener('blur', this.onBlur); }

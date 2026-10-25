@@ -4,7 +4,7 @@
 `GameCanvas (React)` 마운트 -> `GameController`가 캔버스·입력·RAF 연결 -> `World`의 `update`를 고정 시간 간격으로 실행 -> `CanvasRenderer`가 `World`를 그림 -> 값이 변경될 때만 스냅샷 콜백이 React HUD 갱신.
 
 ## 모듈
-- `game/core/GameController.ts`: 생명주기, 스케줄러, 입력 및 월드 조율
+- `game/core/GameController.ts`: 생명주기, 스케줄러, 입력 및 월드 조율. 현재 레벨 번호를 들고, 클리어 후 다음 레벨 요청이 오면 `LEVELS`의 다음 레벨로 새 `World`를 만든다. 레벨별 최고 기록 저장도 맡는다
 - `game/core/GameLoop.ts`: 고정 시간 간격 처리를 위한 RAF 누적기와 최대 따라잡기 한도. 렌더 콜백에 디버그용 프레임 지표(FPS, 프레임당 스텝 수)를 함께 전달. update/render 중 예외가 나면 루프를 멈추고 `onError`로 알린다
 - `game/core/InputManager.ts`: 키보드 상태와 점프 키를 새로 누르는 순간 감지
 - `game/physics/`: 순수 사각형 겹침 판정과 축별 이동 충돌 해소

@@ -103,3 +103,6 @@ export const LEVEL_2: Level = {
     { zone: { x: 1100, y: 360, width: 40, height: 160 }, respawnX: 1100, respawnY: 350 },
   ],
 };
+
+// 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
+export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2];

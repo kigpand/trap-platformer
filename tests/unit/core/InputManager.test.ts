@@ -40,6 +40,15 @@ describe('InputManager', () => {
     input.dispose();
   });
 
+  it('treats an N press as a next-level request, once per press', () => {
+    const input = new InputManager(window);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyN' }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyN' })); // 누르고 있는 동안의 반복 keydown
+    expect(input.consume().nextLevel).toBe(true);
+    expect(input.consume().nextLevel).toBe(false);
+    input.dispose();
+  });
+
   it('treats an M press as a mute toggle request', () => {
     const input = new InputManager(window);
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' }));
