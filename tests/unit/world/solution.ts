@@ -64,3 +64,13 @@ export function playSolution(world: World, steps: readonly Step[]): number {
   }
   return steps.length;
 }
+
+// 하늘에서 쏟아지는 적(#13) 하나를 넘는 해법: 착지해 순찰 중인 적이 먼 끝에서 돌아올 때까지 기다렸다가(순찰 구간 밖에서),
+// 마주 오는 적을 45px 앞에서 뛰어 넘는다. 순찰 위상에 상관없이 같은 방식으로 넘을 수 있다.
+export function jumpSkyDropHeadOn(group: number, index: number): Step[] {
+  return [
+    { waitUntil: (w) => { const se = w.skyDrops[group].enemies[index]; return se.phase === 'patrolling' && !!se.enemy && se.enemy.vx < 0 && se.enemy.x >= se.drop.maxX - 40; } },
+    { runUntil: (w) => { const e = w.skyDrops[group].enemies[index].enemy; return !!e && w.player.grounded && e.x - (w.player.x + w.player.width) <= 45; } },
+    { jump: true },
+  ];
+}

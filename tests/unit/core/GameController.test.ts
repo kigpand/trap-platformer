@@ -170,6 +170,21 @@ describe('GameController level progression', () => {
     expect(last().best).toBeNull(); // 레벨 2는 아직 기록 없음
     clearCurrentLevel();
     expect(localStorage.getItem('trap-runner:best:2')).not.toBeNull();
+    expect(last().bests.slice(0, 2).every((b) => b !== null)).toBe(true); // 클리어한 레벨 1·2의 기록이 완료 화면용 목록에 있다
+    controller.dispose();
+  });
+
+  it('saves the last level\'s record under its own key and marks the final clear before wrapping', () => {
+    // 코덱스 리뷰: 레벨이 3개가 된 뒤에도 마지막 레벨의 기록 키와 완료 상태를 검증하는 테스트가 없었다.
+    const { controller, clearCurrentLevel, last } = setup();
+    const count = last().levelCount;
+    for (let i = 1; i < count; i++) { clearCurrentLevel(); controller.nextLevel(); }
+    expect(last().level).toBe(count);
+    clearCurrentLevel();
+    expect(last().cleared).toBe(true);
+    expect(last().level).toBe(last().levelCount); // 완료 화면 조건(App: cleared && level === levelCount)
+    expect(localStorage.getItem(`trap-runner:best:${count}`)).not.toBeNull();
+    expect(last().bests).toHaveLength(count);
     expect(last().bests.every((b) => b !== null)).toBe(true); // 완료 화면에 모든 레벨 기록이 있다
     controller.dispose();
   });

@@ -175,5 +175,62 @@ export const LEVEL_2: Level = {
   skyDrops: [],
 };
 
+// 레벨 3(어려움): 새 함정 8종을 명세 기본 크기로, 쉴 틈 없이 이어 붙인다(docs/game-design.md "난이도 곡선").
+// 출발 구간 실측: 40px 가시 10px, 높이 60px 가짜 체크포인트 12px, 투명 블록을 피하는 이른 점프 23px.
+// 해법과 도달 가능성은 tests/unit/world/Level3.test.ts가 검증한다.
+export const LEVEL_3: Level = {
+  width: 5600,
+  height: 620,
+  spawn: { x: 65, y: 350 },
+  solids: [
+    { x: 0, y: 500, width: 500, height: 120 }, // groundA: 시작
+    { x: 900, y: 500, width: 400, height: 120 }, // groundB: 사라지는 땅 바로 뒤 가시
+    { x: 1400, y: 500, width: 1500, height: 120 }, // groundC: 투명 블록 구덩이 너머 — 쏟아지는 적·가짜 체크포인트·천장·가시
+    { x: 3160, y: 500, width: 240, height: 120 }, // groundD: 도망가는 발판 너머 짧은 발판
+    { x: 3800, y: 500, width: 1200, height: 120 }, // groundE: 사라지는 땅 뒤 가짜 안전지대·쏟아지는 적
+    { x: 5100, y: 500, width: 500, height: 120 }, // groundF: 마지막 구덩이 너머 — 가시와 도망가는 목표
+  ],
+  goal: { x: 4950, y: 440, width: 40, height: 60 }, // 다가가면 두 번 달아난다(goalHops)
+  // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다. 체크포인트 3(3350)에서
+  // 재시작한 화면(오른쪽 끝 3926) 안에 들어오도록 둔다 — 사망 원인 표시를 재시작 직후 바로 본다(physics-spec 배치 제약).
+  hazards: [{ x: 3840, y: 495, width: 80, height: 25 }],
+  fallingPlatforms: [],
+  hiddenBlocks: [],
+  enemies: [],
+  ambushes: [],
+  conditionalTraps: [],
+  checkpoints: [
+    { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
+    { zone: { x: 2080, y: 360, width: 40, height: 140 }, respawnX: 2080, respawnY: 350 },
+    { zone: { x: 3350, y: 360, width: 40, height: 140 }, respawnX: 3350, respawnY: 350 }, // groundD 끝, 가짜 안전지대가 화면 안
+    { zone: { x: 4100, y: 360, width: 40, height: 140 }, respawnX: 4100, respawnY: 350 },
+  ],
+  vanishingGrounds: [{ x: 500, y: 500, width: 400, height: 120 }, { x: 3400, y: 500, width: 400, height: 120 }],
+  // 투명 블록: groundB 끝(1300)의 100px 구덩이. 가장자리 점프는 찧고, 가장자리 46~24px 앞의 이른 점프(23px)만 지나간다.
+  invisibleBlocks: [{ x: 1290, y: 420, width: 80, height: 20 }],
+  fallingCeilings: [{ block: { x: 2500, y: 380, width: 40, height: 40 }, trigger: { x: 2450, y: 380, width: 90, height: 120 } }],
+  dodgingPlatforms: [{ platform: { x: 2930, y: 480, width: 60, height: 20 }, trigger: { x: 2860, y: 380, width: 40, height: 100 }, to: { x: 3020, y: 480 } }],
+  // 솟아오르는 가시(40px, 명세 기본 크기): 사라지는 땅 직후, 천장 직후, 마지막 구간.
+  popUpSpikes: [
+    { spikes: { x: 1000, y: 476, width: 40, height: 24 }, trigger: { x: 940, y: 400, width: 60, height: 100 } },
+    { spikes: { x: 2700, y: 476, width: 40, height: 24 }, trigger: { x: 2640, y: 400, width: 60, height: 100 } },
+    { spikes: { x: 5400, y: 476, width: 40, height: 24 }, trigger: { x: 5340, y: 400, width: 60, height: 100 } },
+  ],
+  fakeCheckpoints: [{ x: 2300, y: 440, width: 40, height: 60 }],
+  goalHops: [
+    { trigger: { x: 4870, y: 400, width: 40, height: 100 }, to: { x: 5240, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 5200, y: 400, width: 40, height: 100 }, to: { x: 5540, y: 440, width: 40, height: 60 } },
+  ],
+  // 하늘에서 쏟아지는 적: 순찰 구간 사이에 기다릴 자리(160px)를 둔다(traps-spec #13 배치 제약).
+  skyDrops: [
+    { trigger: { x: 1450, y: 400, width: 40, height: 100 }, drops: [
+      { x: 1600, delay: 0, minX: 1560, maxX: 1680 }, { x: 1880, delay: 0.25, minX: 1840, maxX: 1960 },
+    ] },
+    { trigger: { x: 4200, y: 400, width: 40, height: 100 }, drops: [
+      { x: 4400, delay: 0, minX: 4360, maxX: 4480 }, { x: 4700, delay: 0.25, minX: 4660, maxX: 4780 },
+    ] },
+  ],
+};
+
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
-export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2];
+export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2, LEVEL_3];
