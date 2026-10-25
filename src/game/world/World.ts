@@ -1,8 +1,8 @@
 import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
-import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
+import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, DodgingPlatform, FallingCeiling, Level, PopUpSpike } from './level';
+import type { AmbushEnemy, DodgingPlatform, FallingCeiling, Level, PopUpSpike, SkyDrop, SkyDropGroup } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -16,6 +16,7 @@ const VANISH_SPEED = 150; // #6 붕괴 전선 속도(플레이어 210px/s보다 
 const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지
 const DODGE_DURATION = 0.2; // #8 발판이 미끄러지는 시간
 const GOAL_HOP_DURATION = 0.25; // #12 목표가 다음 위치로 이동하는 시간
+const SKY_DROP_WARNING = 0.4; // #13 경고 시작부터 떨어지기까지
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -96,6 +97,12 @@ export interface PopUpSpikeState { readonly config: PopUpSpike; raised: boolean 
 // #12 도망가는 목표: 현재 목표 위치와, 이동 중이면 출발·도착과 경과 시간. hopIndex는 다음에 쓸 goalHops 번호.
 export interface GoalState { rect: Rect; hopIndex: number; move: { from: Rect; to: Rect; elapsed: number } | null }
 
+// #13 하늘에서 쏟아지는 적. 그룹은 트리거 진입 뒤 경과 시간(elapsed)을 세고, 적마다
+// idle → warning(delay부터 0.4초) → falling(중력) → patrolling(착지 후 일반 적처럼 왕복) 또는 gone(구덩이 아래).
+// 중력은 이 적의 등장 단계에만 있다 — 일반 왕복 적·갑자기 출현하는 적에는 없다(traps-spec "적 충돌 규칙").
+export interface SkyDropEnemyState { readonly drop: SkyDrop; phase: 'idle' | 'warning' | 'falling' | 'patrolling' | 'gone'; enemy: Enemy | null; vy: number }
+export interface SkyDropGroupState { readonly config: SkyDropGroup; elapsed: number | null; readonly enemies: SkyDropEnemyState[] }
+
 export function vanishingTileCount(rect: Rect): number { return Math.ceil(rect.width / VANISH_TILE); }
 export function vanishingTile(rect: Rect, i: number): Rect {
   return { x: rect.x + i * VANISH_TILE, y: rect.y, width: Math.min(VANISH_TILE, rect.width - i * VANISH_TILE), height: rect.height };
@@ -110,6 +117,15 @@ function createPopUpSpikes(level: Level): PopUpSpikeState[] {
   return level.popUpSpikes.map((config) => ({ config, raised: false }));
 }
 function createGoal(level: Level): GoalState { return { rect: level.goal, hopIndex: 0, move: null }; }
+function createSkyDrops(level: Level): SkyDropGroupState[] {
+  return level.skyDrops.map((config) => ({
+    config, elapsed: null, enemies: config.drops.map((drop) => ({ drop, phase: 'idle', enemy: null, vy: 0 })),
+  }));
+}
+// 사망 원인 표시 영역: 움직이는 적 대신 트리거와 떨어지는 x 위치들(트리거 높이만큼)을 합친 영역.
+function skyDropArea(group: SkyDropGroup): Rect {
+  return group.drops.reduce<Rect>((area, d) => union(area, { x: d.x, y: group.trigger.y, width: ENEMY_WIDTH, height: group.trigger.height }), group.trigger);
+}
 
 function createVanishingGrounds(level: Level): VanishingGroundState[] {
   return level.vanishingGrounds.map((rect) => ({ rect, elapsed: null, tilesGone: 0 }));
@@ -156,6 +172,7 @@ export class World {
   dodgingPlatforms: DodgingPlatformState[];
   popUpSpikes: PopUpSpikeState[];
   goal: GoalState;
+  skyDrops: SkyDropGroupState[];
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
@@ -183,6 +200,7 @@ export class World {
     this.dodgingPlatforms = createDodgingPlatforms(level);
     this.popUpSpikes = createPopUpSpikes(level);
     this.goal = createGoal(level);
+    this.skyDrops = createSkyDrops(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -226,6 +244,7 @@ export class World {
     this.dodgingPlatforms = createDodgingPlatforms(this.level);
     this.popUpSpikes = createPopUpSpikes(this.level);
     this.goal = createGoal(this.level);
+    this.skyDrops = createSkyDrops(this.level);
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -328,6 +347,34 @@ export class World {
       }
     }
 
+    // #13 하늘에서 쏟아지는 적: 트리거 스텝부터 시간을 세고(다른 함정과 같이 그 스텝도 포함), 적마다 delay가 지나면
+    // 경고, 경고 0.4초 뒤 화면 맨 위 바깥(y = -적 높이)에서 생성해 떨어뜨린다. 착지 판정은 플레이어와 같은 솔리드 목록을 쓴다.
+    for (const g of this.skyDrops) {
+      if (g.elapsed === null) {
+        if (!overlaps(p, g.config.trigger)) continue;
+        g.elapsed = 0;
+      }
+      g.elapsed += dt;
+      for (const se of g.enemies) {
+        if (se.phase === 'idle' && g.elapsed >= se.drop.delay - 1e-6) se.phase = 'warning';
+        if (se.phase === 'warning' && g.elapsed >= se.drop.delay + SKY_DROP_WARNING - 1e-6) {
+          se.enemy = { ...createEnemy(se.drop.minX, se.drop.maxX, -ENEMY_HEIGHT), x: se.drop.x };
+          se.phase = 'falling';
+          se.vy = 0;
+          continue; // 생성된 스텝에는 화면 위 바깥에 둔다
+        }
+        const e = se.enemy;
+        if (!e) continue;
+        if (se.phase === 'falling') {
+          se.vy = Math.min(MAX_FALL_SPEED, se.vy + GRAVITY * dt);
+          e.y += se.vy * dt;
+          const ground = [...this.level.solids, ...this.dynamicSolids()].find((s) => overlaps(e, s));
+          if (ground) { e.y = ground.y - e.height; se.phase = 'patrolling'; }
+          else if (e.y > this.level.height + 100) { se.phase = 'gone'; se.enemy = null; }
+        } else if (se.phase === 'patrolling') updateEnemy(e, dt);
+      }
+    }
+
     // #9 떨어지는 천장: 떨어지는 중 플레이어와 겹치면 깔림(착지 판정보다 먼저 확인해 서 있는 플레이어 위로 떨어져도 깔린다).
     let crushedBy: FallingCeilingState | null = null;
     for (const c of this.fallingCeilings) {
@@ -378,6 +425,8 @@ export class World {
     if (fakeCheckpoint) { this.reset(true, fakeCheckpoint); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));
     if (enemy) { this.reset(true, patrolArea(enemy)); return; }
+    const skyGroup = this.skyDrops.find((g) => g.enemies.some((se) => se.enemy && overlaps(p, se.enemy)));
+    if (skyGroup) { this.reset(true, skyDropArea(skyGroup.config)); return; }
     const ambush = this.ambushes.find((a) => a.enemy && overlaps(p, a.enemy));
     if (ambush?.enemy) { this.reset(true, union(ambush.config.trigger, patrolArea(ambush.enemy))); return; }
     const conditional = this.conditionalTraps.find((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD);

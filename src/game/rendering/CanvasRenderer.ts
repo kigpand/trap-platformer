@@ -34,6 +34,7 @@ export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 
 const BLOCK_FILL = '#8a6d4b'; // 공중 블록(투명 블록이 나타난 뒤·떨어지는 천장)
 const BLOCK_TOP = '#b08a5e';
 export const SPIKE_FILL = '#e2e8f0';
+export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
 const CHECKPOINT_IDLE = '#64748b';
 
 // 체크포인트 깃발. 가짜 체크포인트(#11)도 일부러 같은 모양으로 그린다(처음엔 구분되지 않아야 한다).
@@ -185,6 +186,21 @@ export class CanvasRenderer {
     if (cause && !level.hazards.includes(cause)) {
       ctx.fillStyle = DEATH_CAUSE_OVERLAY; ctx.fillRect(cause.x, cause.y, cause.width, cause.height);
       ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(cause.x, cause.y, cause.width, cause.height);
+    }
+    // #13 하늘에서 쏟아지는 적: 경고 중에는 떨어질 x 위치의 화면 맨 위에 점멸 표시, 떨어지는 중·착지 후에는 적을 그린다.
+    for (const g of world.skyDrops) {
+      for (const se of g.enemies) {
+        if (se.phase === 'warning' && g.elapsed !== null && Math.floor((g.elapsed - se.drop.delay) * 10) % 2 === 0) {
+          ctx.fillStyle = SKY_WARNING_FILL;
+          ctx.beginPath(); ctx.moveTo(se.drop.x, 0); ctx.lineTo(se.drop.x + ENEMY_WIDTH, 0); ctx.lineTo(se.drop.x + ENEMY_WIDTH / 2, 14); ctx.closePath(); ctx.fill();
+          ctx.fillRect(se.drop.x, 0, ENEMY_WIDTH, 4);
+        }
+        if (se.enemy) {
+          drawEnemy(ctx, se.enemy);
+          if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(se.enemy.x, se.enemy.y, se.enemy.width, se.enemy.height); }
+        }
+      }
+      if (this.debug) { const t = g.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
