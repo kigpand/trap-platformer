@@ -20,11 +20,7 @@ export function shouldJump(player: Player, solids: readonly Rect[], obstacles: r
 export function runToGoal(world: World, maxSteps = 1800): void {
   const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
   for (let i = 0; i < maxSteps && !world.cleared; i++) {
-    const solids = [
-      ...world.level.solids,
-      ...world.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect),
-      ...world.hiddenBlocks.filter((hb) => hb.solid).map((hb) => hb.rect),
-    ];
+    const solids = [...world.level.solids, ...world.dynamicSolids()];
     const spawnedAmbushes = world.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []));
     const obstacles = [...world.level.hazards, ...world.enemies, ...spawnedAmbushes];
     input.jumpPressed = shouldJump(world.player, solids, obstacles);

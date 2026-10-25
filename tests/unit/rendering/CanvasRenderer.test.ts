@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
@@ -79,6 +79,41 @@ describe('CanvasRenderer death cause overlay and background', () => {
     // 화면 근처만 그린다(양쪽 가장자리에 걸치는 건물까지 한두 개 여유를 둔다) — 레벨 전체를 그리지 않는다.
     expect(buildings.every((f) => f.x + f.width >= cam - 260 && f.x <= cam + VIEW_WIDTH + 260)).toBe(true);
     expect(buildings.length).toBeLessThan(15);
+  });
+});
+
+describe('CanvasRenderer terrain traps (#6, #7, #9)', () => {
+  const base: Level = {
+    ...LEVEL_1, solids: [{ x: 0, y: 500, width: 1800, height: 120 }], hazards: [], fallingPlatforms: [], hiddenBlocks: [],
+    enemies: [], ambushes: [], conditionalTraps: [], checkpoints: [],
+  };
+  const at = (fills: FillCall[], r: { x: number; y: number }) => fills.filter((f) => f.x === r.x && f.y === r.y);
+
+  it('draws vanishing ground like ground, and the next tile to fall in the warning color once it starts', () => {
+    const vg = { x: 300, y: 500, width: 160, height: 120 };
+    const world = new World({ ...base, vanishingGrounds: [vg] });
+    expect(at(renderFills(world), vg).map((f) => f.style)).toContain('#627e55');
+    world.vanishingGrounds[0].elapsed = 0.3; world.vanishingGrounds[0].tilesGone = 1; // 첫 칸이 사라진 상태
+    const fills = renderFills(world);
+    expect(at(fills, vg)).toHaveLength(0); // 첫 칸은 그리지 않는다
+    expect(at(fills, { x: vg.x + 40, y: vg.y }).map((f) => f.style)).toContain(VANISH_WARNING_FILL);
+  });
+
+  it('does not draw an invisible block until it has appeared', () => {
+    const ib = { x: 300, y: 430, width: 60, height: 20 };
+    const world = new World({ ...base, invisibleBlocks: [ib] });
+    expect(at(renderFills(world), ib)).toHaveLength(0);
+    world.invisibleBlocks[0].visible = true;
+    expect(at(renderFills(world), ib).length).toBeGreaterThan(0);
+  });
+
+  it('draws a falling ceiling at its current position', () => {
+    const block = { x: 600, y: 380, width: 40, height: 40 };
+    const world = new World({ ...base, fallingCeilings: [{ block, trigger: { x: 560, y: 380, width: 80, height: 120 } }] });
+    world.player.x = 500;
+    world.fallingCeilings[0].y = 430;
+    expect(at(renderFills(world), { x: block.x, y: 430 }).length).toBeGreaterThan(0);
+    expect(at(renderFills(world), block)).toHaveLength(0);
   });
 });
 
