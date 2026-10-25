@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, SPIKE_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, SKY_WARNING_FILL, SPIKE_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
@@ -151,6 +151,26 @@ describe('CanvasRenderer trick traps (#8, #10, #11, #12)', () => {
     const fills = renderFills(world);
     expect(fills.some((f) => f.x === 400 && f.y === 480 && f.style === '#627e55')).toBe(true);
     expect(fills.some((f) => f.x === 700 && f.y === 440 && f.style === '#eab308')).toBe(true);
+  });
+});
+
+describe('CanvasRenderer enemies raining from the sky (#13)', () => {
+  const group = { trigger: { x: 400, y: 400, width: 40, height: 100 }, drops: [{ x: 560, delay: 0, minX: 520, maxX: 640 }] };
+  const level: Level = {
+    ...LEVEL_1, solids: [{ x: 0, y: 500, width: 1800, height: 120 }], hazards: [], fallingPlatforms: [], hiddenBlocks: [],
+    enemies: [], ambushes: [], conditionalTraps: [], checkpoints: [], skyDrops: [group],
+  };
+
+  it('blinks a warning at the top of the screen above the drop spot, and draws the enemy once it falls', () => {
+    const world = new World(level);
+    world.player.x = 300;
+    expect(renderFills(world).some((f) => f.style === SKY_WARNING_FILL)).toBe(false); // 트리거 전
+    world.skyDrops[0].elapsed = 0.01; world.skyDrops[0].enemies[0].phase = 'warning';
+    expect(renderFills(world).some((f) => f.style === SKY_WARNING_FILL && f.x === 560 && f.y === 0)).toBe(true);
+    world.skyDrops[0].enemies[0].phase = 'falling';
+    world.skyDrops[0].enemies[0].enemy = { x: 560, y: 200, width: 28, height: 28, vx: 120, minX: 520, maxX: 640 };
+    const fills = renderFills(world);
+    expect(fills.some((f) => f.x >= 560 && f.x < 588 && f.y >= 200 && f.y < 228)).toBe(true); // 적 스프라이트 픽셀
   });
 });
 

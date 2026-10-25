@@ -11,6 +11,10 @@ export interface DodgingPlatform { platform: Rect; trigger: Rect; to: { x: numbe
 export interface PopUpSpike { spikes: Rect; trigger: Rect }
 // 도망가는 목표(#12): 순서대로, trigger에 들어오면 목표가 to로 뛰어 달아난다.
 export interface GoalHop { trigger: Rect; to: Rect }
+// 하늘에서 쏟아지는 적(#13): trigger에 들어오면 drops마다 delay 뒤 0.4초 경고, 그 뒤 x 위치의 화면 위에서 떨어져
+// 착지하면 minX~maxX를 왕복한다.
+export interface SkyDrop { x: number; delay: number; minX: number; maxX: number }
+export interface SkyDropGroup { trigger: Rect; drops: readonly SkyDrop[] }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -34,6 +38,7 @@ export interface Level {
   popUpSpikes: readonly PopUpSpike[]; // #10 솟아오르는 가시
   fakeCheckpoints: readonly Rect[]; // #11 가짜 체크포인트(깃발 영역, 점프로 넘을 수 있는 높이)
   goalHops: readonly GoalHop[]; // #12 도망가는 목표(goal에서 출발해 차례로 달아남)
+  skyDrops: readonly SkyDropGroup[]; // #13 하늘에서 쏟아지는 적
 }
 
 export const LEVEL_1: Level = {
@@ -99,6 +104,7 @@ export const LEVEL_1: Level = {
   popUpSpikes: [{ spikes: { x: 2640, y: 476, width: 16, height: 24 }, trigger: { x: 2580, y: 400, width: 60, height: 100 } }],
   fakeCheckpoints: [],
   goalHops: [],
+  skyDrops: [],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
@@ -166,6 +172,7 @@ export const LEVEL_2: Level = {
     { trigger: { x: 4400, y: 400, width: 40, height: 100 }, to: { x: 4840, y: 440, width: 40, height: 60 } },
     { trigger: { x: 4760, y: 400, width: 40, height: 100 }, to: { x: 5040, y: 440, width: 40, height: 60 } },
   ],
+  skyDrops: [],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
