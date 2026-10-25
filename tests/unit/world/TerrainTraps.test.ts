@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World, vanishingTile } from '../../../src/game/world/World';
-import type { Level } from '../../../src/game/world/level';
+import { standAt, testLevel } from './fixtures';
 import type { Rect } from '../../../src/game/physics/AABB';
 
 // 지형 함정 3종(docs/traps-spec.md 6·7·9번)을 함정 하나만 둔 작은 시험용 레벨에서 검증한다.
@@ -10,16 +10,7 @@ const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false
 const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 
-function level(parts: Partial<Level>): Level {
-  return {
-    width: 2000, height: 620, spawn: { x: 65, y: 350 }, solids: [], goal: { x: 1990, y: 0, width: 10, height: 10 },
-    hazards: [], fallingPlatforms: [], hiddenBlocks: [], enemies: [], ambushes: [], conditionalTraps: [], checkpoints: [],
-    vanishingGrounds: [], invisibleBlocks: [], fallingCeilings: [], ...parts,
-  };
-}
-function standAt(world: World, x: number, groundY = 500): void {
-  world.player.x = x; world.player.y = groundY - world.player.height; world.player.vy = 0; world.player.grounded = true;
-}
+const level = testLevel;
 function runUntil(world: World, input: typeof idle, steps: number, stop: () => boolean = () => false): void {
   for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
 }

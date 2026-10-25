@@ -5,6 +5,12 @@ export interface ConditionalTrap { zone: Rect }
 export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
 // 떨어지는 천장(docs/traps-spec.md #9): 공중의 블록과, 들어서면 블록이 떨어지는 트리거 영역.
 export interface FallingCeiling { block: Rect; trigger: Rect }
+// 도망가는 발판(#8): 공중에서 trigger에 들어오면 platform이 to 위치(왼쪽 위 좌표)로 한 번 미끄러진다.
+export interface DodgingPlatform { platform: Rect; trigger: Rect; to: { x: number; y: number } }
+// 솟아오르는 가시(#10): trigger(가시 앞 60px)에 들어오면 spikes(높이 24px)가 솟는다.
+export interface PopUpSpike { spikes: Rect; trigger: Rect }
+// 도망가는 목표(#12): 순서대로, trigger에 들어오면 목표가 to로 뛰어 달아난다.
+export interface GoalHop { trigger: Rect; to: Rect }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -24,6 +30,10 @@ export interface Level {
   vanishingGrounds: readonly Rect[]; // #6 사라지는 땅: 40px 칸으로 나뉘어 연쇄 붕괴하는 바닥 구간
   invisibleBlocks: readonly Rect[]; // #7 투명 블록
   fallingCeilings: readonly FallingCeiling[]; // #9 떨어지는 천장
+  dodgingPlatforms: readonly DodgingPlatform[]; // #8 도망가는 발판
+  popUpSpikes: readonly PopUpSpike[]; // #10 솟아오르는 가시
+  fakeCheckpoints: readonly Rect[]; // #11 가짜 체크포인트(깃발 영역, 점프로 넘을 수 있는 높이)
+  goalHops: readonly GoalHop[]; // #12 도망가는 목표(goal에서 출발해 차례로 달아남)
 }
 
 export const LEVEL_1: Level = {
@@ -66,12 +76,17 @@ export const LEVEL_1: Level = {
   // 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
   // 영역 위쪽(360)은 바닥(500)에서 최대 점프 높이(81.375px)로 올라간 발 위치(약 419)보다 높아, 점프로
   // 넘어가도 반드시 닿는다 — 가짜 안전지대 사망 후 표시가 재시작 화면 안에 들어오도록(physics-spec "레벨 배치 제약").
+  // 영역 아래쪽은 바닥(500)에서 끝나 깃발이 가짜 체크포인트와 같은 높이로 선다.
   checkpoints: [
-    { zone: { x: 950, y: 360, width: 40, height: 160 }, respawnX: 950, respawnY: 350 },
+    { zone: { x: 950, y: 360, width: 40, height: 140 }, respawnX: 950, respawnY: 350 },
   ],
   vanishingGrounds: [],
   invisibleBlocks: [],
   fallingCeilings: [],
+  dodgingPlatforms: [],
+  popUpSpikes: [],
+  fakeCheckpoints: [],
+  goalHops: [],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
@@ -109,11 +124,15 @@ export const LEVEL_2: Level = {
   conditionalTraps: [],
   // 체크포인트: 영역 위쪽(360)이 점프 최고점의 발 위치(약 419)보다 높아 건너뛸 수 없다(physics-spec "레벨 배치 제약").
   checkpoints: [
-    { zone: { x: 1100, y: 360, width: 40, height: 160 }, respawnX: 1100, respawnY: 350 },
+    { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
   ],
   vanishingGrounds: [],
   invisibleBlocks: [],
   fallingCeilings: [],
+  dodgingPlatforms: [],
+  popUpSpikes: [],
+  fakeCheckpoints: [],
+  goalHops: [],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.

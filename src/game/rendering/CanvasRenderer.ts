@@ -4,7 +4,8 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { ceilingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { ceilingRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import type { Rect } from '../physics/AABB';
 
 export const VIEW_HEIGHT = 540;
 const WALK_CYCLE_MS = 160; // 걷기 2프레임 전환 주기 — 렌더링 전용 타이밍(시뮬레이션 상태 아님)
@@ -32,6 +33,24 @@ const BUILDING_SPACING = 130;
 export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 발판 경고색과 같은 주황)
 const BLOCK_FILL = '#8a6d4b'; // 공중 블록(투명 블록이 나타난 뒤·떨어지는 천장)
 const BLOCK_TOP = '#b08a5e';
+export const SPIKE_FILL = '#e2e8f0';
+const CHECKPOINT_IDLE = '#64748b';
+
+// 체크포인트 깃발. 가짜 체크포인트(#11)도 일부러 같은 모양으로 그린다(처음엔 구분되지 않아야 한다).
+// 깃대는 판정 영역 높이와 상관없이 영역 바닥에서 FLAG_HEIGHT만큼 그린다 — 진짜는 건너뛸 수 없게 영역이 높고
+// 가짜는 넘을 수 있게 낮아서, 영역 높이로 그리면 한눈에 구분됐다(Codex 리뷰).
+const FLAG_HEIGHT = 80;
+function drawFlag(ctx: CanvasRenderingContext2D, zone: Rect, color: string): void {
+  const top = zone.y + zone.height - FLAG_HEIGHT;
+  ctx.fillStyle = color;
+  ctx.fillRect(zone.x + zone.width / 2 - 2, top, 4, FLAG_HEIGHT);
+  ctx.beginPath();
+  ctx.moveTo(zone.x + zone.width / 2 + 2, top);
+  ctx.lineTo(zone.x + zone.width / 2 + 22, top + 10);
+  ctx.lineTo(zone.x + zone.width / 2 + 2, top + 20);
+  ctx.closePath();
+  ctx.fill();
+}
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
@@ -113,17 +132,37 @@ export class CanvasRenderer {
     }
     for (const cp of level.checkpoints) {
       const reached = world.activeCheckpoint?.x === cp.respawnX && world.activeCheckpoint?.y === cp.respawnY;
-      ctx.fillStyle = reached ? '#4ade80' : '#64748b';
-      ctx.fillRect(cp.zone.x + cp.zone.width / 2 - 2, cp.zone.y, 4, cp.zone.height);
-      ctx.beginPath();
-      ctx.moveTo(cp.zone.x + cp.zone.width / 2 + 2, cp.zone.y);
-      ctx.lineTo(cp.zone.x + cp.zone.width / 2 + 22, cp.zone.y + 10);
-      ctx.lineTo(cp.zone.x + cp.zone.width / 2 + 2, cp.zone.y + 20);
-      ctx.closePath();
-      ctx.fill();
+      drawFlag(ctx, cp.zone, reached ? '#4ade80' : CHECKPOINT_IDLE);
       if (this.debug) { ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2; ctx.strokeRect(cp.zone.x, cp.zone.y, cp.zone.width, cp.zone.height); }
     }
-    ctx.fillStyle = '#eab308'; ctx.fillRect(level.goal.x, level.goal.y, level.goal.width, level.goal.height);
+    for (const zone of level.fakeCheckpoints) {
+      drawFlag(ctx, zone, CHECKPOINT_IDLE);
+      if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(zone.x, zone.y, zone.width, zone.height); }
+    }
+    // #8 도망가는 발판: 현재 위치에 일반 발판처럼 그린다(트리거는 디버그에서만).
+    for (const d of world.dodgingPlatforms) {
+      const r = dodgingRect(d);
+      ctx.fillStyle = '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
+      ctx.fillStyle = '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
+      if (this.debug) { const t = d.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #10 솟아오르는 가시: 솟기 전에는 아무것도 없고(바닥과 같음), 솟으면 삼각형 가시를 줄지어 그린다.
+    for (const sp of world.popUpSpikes) {
+      const r = sp.config.spikes;
+      if (sp.raised) {
+        ctx.fillStyle = SPIKE_FILL;
+        ctx.fillRect(r.x, r.y + r.height - 4, r.width, 4); // 받침
+        for (let x = r.x; x + 8 <= r.x + r.width + 0.5; x += 8) {
+          ctx.beginPath(); ctx.moveTo(x, r.y + r.height); ctx.lineTo(x + 4, r.y); ctx.lineTo(x + 8, r.y + r.height); ctx.closePath(); ctx.fill();
+        }
+      }
+      if (this.debug) {
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height);
+        const t = sp.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(t.x, t.y, t.width, t.height);
+      }
+    }
+    const goal = world.goal.rect; // #12 도망가는 목표: 현재(이동 중이면 이동 중인) 위치
+    ctx.fillStyle = '#eab308'; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
     for (const e of world.enemies) {
       drawEnemy(ctx, e);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
