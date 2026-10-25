@@ -187,12 +187,13 @@ export const LEVEL_3: Level = {
     { x: 900, y: 500, width: 400, height: 120 }, // groundB: 사라지는 땅 바로 뒤 가시
     { x: 1400, y: 500, width: 1500, height: 120 }, // groundC: 투명 블록 구덩이 너머 — 쏟아지는 적·가짜 체크포인트·천장·가시
     { x: 3160, y: 500, width: 240, height: 120 }, // groundD: 도망가는 발판 너머 짧은 발판
-    { x: 3880, y: 500, width: 1120, height: 120 }, // groundE: 사라지는 땅 뒤 가짜 안전지대·쏟아지는 적
+    { x: 3800, y: 500, width: 1200, height: 120 }, // groundE: 사라지는 땅 뒤 가짜 안전지대·쏟아지는 적
     { x: 5100, y: 500, width: 500, height: 120 }, // groundF: 마지막 구덩이 너머 — 가시와 도망가는 목표
   ],
   goal: { x: 4950, y: 440, width: 40, height: 60 }, // 다가가면 두 번 달아난다(goalHops)
-  // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다.
-  hazards: [{ x: 3920, y: 495, width: 80, height: 25 }],
+  // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다. 체크포인트 3(3350)에서
+  // 재시작한 화면(오른쪽 끝 3926) 안에 들어오도록 둔다 — 사망 원인 표시를 재시작 직후 바로 본다(physics-spec 배치 제약).
+  hazards: [{ x: 3840, y: 495, width: 80, height: 25 }],
   fallingPlatforms: [],
   hiddenBlocks: [],
   enemies: [],
@@ -201,10 +202,10 @@ export const LEVEL_3: Level = {
   checkpoints: [
     { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
     { zone: { x: 2080, y: 360, width: 40, height: 140 }, respawnX: 2080, respawnY: 350 },
-    { zone: { x: 3200, y: 360, width: 40, height: 140 }, respawnX: 3200, respawnY: 350 },
+    { zone: { x: 3350, y: 360, width: 40, height: 140 }, respawnX: 3350, respawnY: 350 }, // groundD 끝, 가짜 안전지대가 화면 안
     { zone: { x: 4100, y: 360, width: 40, height: 140 }, respawnX: 4100, respawnY: 350 },
   ],
-  vanishingGrounds: [{ x: 500, y: 500, width: 400, height: 120 }, { x: 3400, y: 500, width: 480, height: 120 }],
+  vanishingGrounds: [{ x: 500, y: 500, width: 400, height: 120 }, { x: 3400, y: 500, width: 400, height: 120 }],
   // 투명 블록: groundB 끝(1300)의 100px 구덩이. 가장자리 점프는 찧고, 가장자리 46~24px 앞의 이른 점프(23px)만 지나간다.
   invisibleBlocks: [{ x: 1290, y: 420, width: 80, height: 20 }],
   fallingCeilings: [{ block: { x: 2500, y: 380, width: 40, height: 40 }, trigger: { x: 2450, y: 380, width: 90, height: 120 } }],

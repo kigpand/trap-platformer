@@ -19,7 +19,7 @@ const FAKE_CEILING_SPIKES: Step[] = [
   { run: 2634 }, { jump: true }, // 착지하자마자 두 번째 가시
 ];
 const DODGE: Step[] = [{ run: 2898 }, { hop: true }, { wait: 0.3 }, { jump: true }, { run: 3070 }, { jump: true }];
-const VANISH_HAZARD: Step[] = [{ run: 3900 }, { jump: true }]; // 두 번째 사라지는 땅 끝에서 가짜 안전지대를 넘는다
+const VANISH_HAZARD: Step[] = [{ run: 3815 }, { jump: true }]; // 두 번째 사라지는 땅 끝(3800) 바로 뒤에서 가짜 안전지대(3840)를 넘는다
 const SKY_DROPS_2: Step[] = [
   { run: 4204 }, { left: 10 }, { waitUntil: (w) => w.skyDrops[1].enemies.every((se) => se.phase === 'patrolling') },
   { run: 4340 }, ...jumpSkyDropHeadOn(1, 0), { run: 4580 }, ...jumpSkyDropHeadOn(1, 1),
