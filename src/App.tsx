@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas, type GameHandle } from './components/GameCanvas';
 import { TouchControls } from './components/TouchControls';
 import type { HudSnapshot } from './game/core/GameController';
+import { TAUNTS } from './game/rendering/taunts';
 import './style.css';
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
-    x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0,
+    x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null,
     paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false,
   });
   const [announcement, setAnnouncement] = useState('');
@@ -35,9 +36,11 @@ export default function App() {
     }
     if (snapshot.deaths !== prevDeaths.current) {
       prevDeaths.current = snapshot.deaths;
-      setAnnouncement(`사망 ${snapshot.deaths}번째 — ${snapshot.checkpoint ? '체크포인트에서' : '처음부터'} 다시 시작합니다`);
+      // 함정에 당했으면 캔버스와 같은 놀리는 문구를 덧붙인다(docs/game-design.md "놀리는 사망 메시지").
+      const taunt = snapshot.deathKind ? ` ${TAUNTS[snapshot.deathKind]}` : '';
+      setAnnouncement(`사망 ${snapshot.deaths}번째 — ${snapshot.checkpoint ? '체크포인트에서' : '처음부터'} 다시 시작합니다.${taunt}`);
     }
-  }, [snapshot.level, snapshot.levelCount, snapshot.cleared, snapshot.deaths, snapshot.checkpoint, snapshot.time, snapshot.runDeaths, snapshot.newRecord]);
+  }, [snapshot.level, snapshot.levelCount, snapshot.cleared, snapshot.deaths, snapshot.checkpoint, snapshot.time, snapshot.runDeaths, snapshot.newRecord, snapshot.deathKind]);
 
   // 탭 전환으로 자동 정지될 때도 캔버스 오버레이만으로는 스크린 리더가 알 수 없다.
   useEffect(() => {

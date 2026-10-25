@@ -6,6 +6,7 @@ import {
 } from './Sprites';
 import { ceilingRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
+import { TAUNTS } from './taunts';
 
 export const VIEW_HEIGHT = 540;
 const WALK_CYCLE_MS = 160; // 걷기 2프레임 전환 주기 — 렌더링 전용 타이밍(시뮬레이션 상태 아님)
@@ -34,6 +35,7 @@ export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 
 const BLOCK_FILL = '#8a6d4b'; // 공중 블록(투명 블록이 나타난 뒤·떨어지는 천장)
 const BLOCK_TOP = '#b08a5e';
 export const SPIKE_FILL = '#e2e8f0';
+export const TAUNT_COLOR = '#fca5a5';
 export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
 const CHECKPOINT_IDLE = '#64748b';
 
@@ -211,6 +213,13 @@ export class CanvasRenderer {
     if (this.debug) {
       const vx = p.vx.toFixed(0), vy = p.vy.toFixed(0);
       ctx.fillText(`FPS ${metrics.fps.toFixed(0)}   |   STEPS/FRAME ${metrics.steps}   |   VX ${vx}   |   VY ${vy}`, 20, 48);
+    }
+    // 놀리는 사망 메시지: 함정에 당한 직후 2초 동안 캔버스 위쪽 가운데에 띄운다.
+    if (world.taunt) {
+      ctx.font = 'bold 22px system-ui'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(16,23,41,0.75)'; ctx.fillRect(VIEW_WIDTH / 2 - 200, 96, 400, 40);
+      ctx.fillStyle = TAUNT_COLOR; ctx.fillText(TAUNTS[world.taunt.kind], VIEW_WIDTH / 2, 124);
+      ctx.textAlign = 'left';
     }
     if (world.cleared) {
       ctx.fillStyle = '#eab308'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';

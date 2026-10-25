@@ -11,6 +11,7 @@ const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
 const DEATH_CAUSE_DURATION = 2.0; // docs/traps-spec.md "사망 원인 표시": 화면에 보이는 동안 2초 강조
 const FALL_CAUSE_WINDOW = 3.0; // 낙사형 함정은 사망 직전 3초 안에 마지막으로 발동한 함정을 원인으로 본다
+const TAUNT_DURATION = 2.0; // docs/game-design.md "놀리는 사망 메시지": 재시작 직후 2초
 const VANISH_TILE = 40; // docs/traps-spec.md #6 칸 너비
 const VANISH_SPEED = 150; // #6 붕괴 전선 속도(플레이어 210px/s보다 느림)
 const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지
@@ -23,8 +24,10 @@ export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; rest
 // GameController가 drainEvents()로 꺼내 SoundPlayer에 넘긴다.
 export type WorldEvent = 'jump' | 'death' | 'checkpoint' | 'clear';
 // time은 이번 런의 경과 시간(초, 0.1초 단위 내림). runDeaths는 이번 런의 사망 수 — deaths(FALLS)는 수동 재시작에도 누적된다.
+// deathKind는 가장 최근 사망의 원인 종류(원인 없는 낙사·수동 재시작 뒤에는 null) — 스크린 리더 사망 알림에 놀리는 문구를 붙인다.
 export interface GameSnapshot {
   x: number; y: number; grounded: boolean; deaths: number; cleared: boolean; checkpoint: boolean; time: number; runDeaths: number;
+  deathKind: DeathCauseKind | null;
 }
 // 낙하 발판/숨겨진 블록처럼 접촉 후 유예 시간이 지나면 솔리드 속성을 잃는 함정의 공통 상태.
 export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; timer: number | null }
@@ -140,7 +143,13 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 // 함정으로 사망한 직후, 원인이 된 함정의 영역을 강조 표시하는 상태(docs/traps-spec.md "공통 규칙"의 사망 원인 표시).
 // remaining은 update(고정 스텝)에서, 그리고 그 영역이 화면에 보이는 동안에만 줄어든다 — 일시정지 중이나
 // 체크포인트 없이 먼 시작점에서 재시작해 영역이 화면 밖에 있을 때는 플레이어가 볼 때까지 남는다.
-export interface DeathCauseState { readonly rect: Rect; remaining: number }
+// 사망 원인의 종류. 놀리는 사망 메시지(docs/game-design.md)를 고르는 데 쓴다 — 문구 자체는 렌더링 쪽(rendering/taunts.ts)에 있다.
+export type DeathCauseKind =
+  | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
+  | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop';
+export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
+export interface DeathCauseState { readonly rect: Rect; readonly kind: DeathCauseKind; remaining: number }
 
 function union(a: Rect, b: Rect): Rect {
   const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
@@ -176,7 +185,10 @@ export class World {
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
-  private lastFallTrap: { rect: Rect; at: number } | null = null;
+  private lastFallTrap: { cause: DeathCause; at: number } | null = null;
+  // 놀리는 사망 메시지: 원인이 있는 사망 직후 2초(고정 스텝에서만 감소). lastDeathKind는 스냅샷용으로 다음 사망까지 남긴다.
+  taunt: { readonly kind: DeathCauseKind; remaining: number } | null = null;
+  private lastDeathKind: DeathCauseKind | null = null;
   // 런 시간과 달리 클리어 뒤에도 흐르는 시뮬레이션 시계 — 낙사 원인의 3초 판정에만 쓴다.
   private clock = 0;
   // 기록용 "런": 수동 재시작(R)으로만 새로 시작한다. 사망은 체크포인트에서 이어 가므로 런을 끊지 않는다.
@@ -219,8 +231,8 @@ export class World {
     this.events = [];
     return drained;
   }
-  // cause: 이 사망의 원인 영역(없으면 표시하지 않음). 수동 재시작(R)은 원인 없이 부른다.
-  reset(countDeath = false, cause: Rect | null = null): void {
+  // cause: 이 사망의 원인(영역과 종류, 없으면 표시하지 않음). 수동 재시작(R)은 원인 없이 부른다.
+  reset(countDeath = false, cause: DeathCause | null = null): void {
     if (countDeath) {
       this.deaths++; this.events.push('death');
       if (!this.runComplete) this.runDeaths++;
@@ -228,7 +240,9 @@ export class World {
       this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
       this.runTime = 0; this.runDeaths = 0; this.runComplete = false;
     }
-    this.deathCause = cause ? { rect: cause, remaining: DEATH_CAUSE_DURATION } : null; // 이전 표시는 항상 새 사망(또는 R)으로 대체된다
+    this.deathCause = cause ? { rect: cause.rect, kind: cause.kind, remaining: DEATH_CAUSE_DURATION } : null; // 이전 표시는 항상 새 사망(또는 R)으로 대체된다
+    this.taunt = cause ? { kind: cause.kind, remaining: TAUNT_DURATION } : null;
+    this.lastDeathKind = countDeath ? cause?.kind ?? null : null;
     this.lastFallTrap = null;
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : this.level.spawn;
     this.player = createPlayer(spawn.x, spawn.y);
@@ -250,6 +264,10 @@ export class World {
     if (input.restartPressed) { this.reset(); return; }
     if (!this.runComplete) this.runTime += dt;
     this.clock += dt;
+    if (this.taunt) {
+      this.taunt.remaining -= dt;
+      if (this.taunt.remaining <= 1e-6) this.taunt = null;
+    }
     if (this.deathCause && isOnScreen(this.deathCause.rect, this.player.x, this.level.width)) {
       this.deathCause.remaining -= dt;
       if (this.deathCause.remaining <= 1e-6) this.deathCause = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
@@ -260,11 +278,11 @@ export class World {
     // 다시 확인해 발판이 사라진 바로 그 프레임부터 정확한 값을 쓰도록 한다
     // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
     for (const fp of this.fallingPlatforms) {
-      if (updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt)) this.lastFallTrap = { rect: fp.rect, at: this.clock };
+      if (updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt)) this.lastFallTrap = { cause: { rect: fp.rect, kind: 'fallingPlatform' }, at: this.clock };
     }
     for (const hb of this.hiddenBlocks) {
       const triggered = isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect);
-      if (updateCollapsing(hb, triggered, HIDDEN_BLOCK_DELAY, dt)) this.lastFallTrap = { rect: hb.rect, at: this.clock };
+      if (updateCollapsing(hb, triggered, HIDDEN_BLOCK_DELAY, dt)) this.lastFallTrap = { cause: { rect: hb.rect, kind: 'hiddenBlock' }, at: this.clock };
     }
     for (const vg of this.vanishingGrounds) {
       if (vg.elapsed === null) {
@@ -273,7 +291,7 @@ export class World {
       }
       vg.elapsed += dt;
       const gone = Math.min(vanishingTileCount(vg.rect), Math.floor((vg.elapsed * VANISH_SPEED) / VANISH_TILE + 1e-6));
-      if (gone > vg.tilesGone) { vg.tilesGone = gone; this.lastFallTrap = { rect: vg.rect, at: this.clock }; }
+      if (gone > vg.tilesGone) { vg.tilesGone = gone; this.lastFallTrap = { cause: { rect: vg.rect, kind: 'vanishingGround' }, at: this.clock }; }
     }
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
@@ -299,7 +317,7 @@ export class World {
         const t = Math.min(1, Math.max(0, (bottom - p.y) / dy)); // 아랫면 높이에 닿는 시점(스텝 내 비율)
         const xAtContact = p.x + p.vx * dt * t;
         if (xAtContact < ib.rect.x + ib.rect.width && xAtContact + p.width > ib.rect.x) {
-          ib.visible = true; this.lastFallTrap = { rect: ib.rect, at: this.clock };
+          ib.visible = true; this.lastFallTrap = { cause: { rect: ib.rect, kind: 'invisibleBlock' }, at: this.clock };
         }
       }
     }
@@ -317,7 +335,7 @@ export class World {
       if (d.elapsed === null) {
         if ((!wasAirborne && p.grounded) || !overlaps(p, d.config.trigger)) continue;
         d.elapsed = 0;
-        this.lastFallTrap = { rect: d.config.platform, at: this.clock };
+        this.lastFallTrap = { cause: { rect: d.config.platform, kind: 'dodgingPlatform' }, at: this.clock };
       }
       if (d.elapsed >= DODGE_DURATION) continue;
       d.elapsed = d.elapsed + dt >= DODGE_DURATION - 1e-6 ? DODGE_DURATION : d.elapsed + dt; // 1/60 누적 오차로 한 스텝 늦지 않게
@@ -335,7 +353,7 @@ export class World {
       if (overlaps(p, hop.trigger)) {
         g.move = { from: g.rect, to: hop.to, elapsed: 0 };
         g.hopIndex++;
-        this.lastFallTrap = { rect: union(hop.trigger, hop.to), at: this.clock };
+        this.lastFallTrap = { cause: { rect: union(hop.trigger, hop.to), kind: 'fleeingGoal' }, at: this.clock };
       }
     }
     if (g.move) {
@@ -416,25 +434,25 @@ export class World {
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
 
-    if (crushedBy) { this.reset(true, crushedBy.config.block); return; }
+    if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
-    if (hazard) { this.reset(true, hazard); return; }
+    if (hazard) { this.reset(true, { rect: hazard, kind: 'hazard' }); return; }
     const spike = this.popUpSpikes.find((sp) => sp.raised && overlaps(p, sp.config.spikes));
-    if (spike) { this.reset(true, spike.config.spikes); return; }
+    if (spike) { this.reset(true, { rect: spike.config.spikes, kind: 'popUpSpikes' }); return; }
     const fakeCheckpoint = this.level.fakeCheckpoints.find((zone) => overlaps(p, zone));
-    if (fakeCheckpoint) { this.reset(true, fakeCheckpoint); return; }
+    if (fakeCheckpoint) { this.reset(true, { rect: fakeCheckpoint, kind: 'fakeCheckpoint' }); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));
-    if (enemy) { this.reset(true, patrolArea(enemy)); return; }
+    if (enemy) { this.reset(true, { rect: patrolArea(enemy), kind: 'enemy' }); return; }
     const skyGroup = this.skyDrops.find((g) => g.enemies.some((se) => se.enemy && overlaps(p, se.enemy)));
-    if (skyGroup) { this.reset(true, skyDropArea(skyGroup.config)); return; }
+    if (skyGroup) { this.reset(true, { rect: skyDropArea(skyGroup.config), kind: 'skyDrop' }); return; }
     const ambush = this.ambushes.find((a) => a.enemy && overlaps(p, a.enemy));
-    if (ambush?.enemy) { this.reset(true, union(ambush.config.trigger, patrolArea(ambush.enemy))); return; }
+    if (ambush?.enemy) { this.reset(true, { rect: union(ambush.config.trigger, patrolArea(ambush.enemy)), kind: 'ambush' }); return; }
     const conditional = this.conditionalTraps.find((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD);
-    if (conditional) { this.reset(true, conditional.zone); return; }
+    if (conditional) { this.reset(true, { rect: conditional.zone, kind: 'conditional' }); return; }
     if (!this.goal.move && overlaps(p, this.goal.rect) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
     if (p.y > this.level.height + 100) {
       // 그냥 구덩이에 빠진 낙사는 표시하지 않고, 직전 3초 안에 무너진 함정이 있으면 그것을 원인으로 본다.
-      const fallTrap = this.lastFallTrap && this.clock - this.lastFallTrap.at <= FALL_CAUSE_WINDOW ? this.lastFallTrap.rect : null;
+      const fallTrap = this.lastFallTrap && this.clock - this.lastFallTrap.at <= FALL_CAUSE_WINDOW ? this.lastFallTrap.cause : null;
       this.reset(true, fallTrap);
     }
   }
@@ -445,6 +463,7 @@ export class World {
       checkpoint: this.activeCheckpoint !== null,
       time: Math.floor(this.runTime * 10 + 1e-6) / 10, // 1/60 누적 오차로 1.0초가 0.9초로 보이지 않게
       runDeaths: this.runDeaths,
+      deathKind: this.lastDeathKind,
     };
   }
 }

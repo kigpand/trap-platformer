@@ -3,35 +3,39 @@ import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, SKY_WARNING_FILL, SPIKE_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
+import { TAUNTS } from '../../../src/game/rendering/taunts';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 
 // happy-dom에는 Canvas 2D 구현이 없다. 모든 메서드 호출을 받아 주되 fillRect만 그 시점의 fillStyle과
 // 함께 기록하는 가짜 컨텍스트로, "어느 영역을 어떤 색으로 칠했는지"를 검증한다.
 interface FillCall { style: string; x: number; y: number; width: number; height: number }
-function recordingContext(): { ctx: CanvasRenderingContext2D; fills: FillCall[] } {
+function recordingContext(): { ctx: CanvasRenderingContext2D; fills: FillCall[]; texts: string[] } {
   const fills: FillCall[] = [];
+  const texts: string[] = [];
   const state: Record<string | symbol, unknown> = { fillStyle: '' };
   const ctx = new Proxy(state, {
     get(target, key) {
       if (key === 'fillRect') {
         return (x: number, y: number, width: number, height: number) => { fills.push({ style: String(target.fillStyle), x, y, width, height }); };
       }
+      if (key === 'fillText') return (text: string) => { texts.push(text); };
       if (key in target) return target[key];
       return () => {}; // 나머지 그리기 메서드는 결과에 영향이 없으므로 무시
     },
     set(target, key, value) { target[key] = value; return true; },
   });
   // 그리기 API 전체를 구현하지 않는 테스트용 대역이라 타입을 맞춰 넘긴다.
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills };
+  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, texts };
 }
 
-function renderFills(world: World): FillCall[] {
+function render(world: World): { fills: FillCall[]; texts: string[] } {
   const canvas = document.createElement('canvas');
-  const { ctx, fills } = recordingContext();
+  const { ctx, fills, texts } = recordingContext();
   vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
   new CanvasRenderer(canvas).render(world, { fps: 60, steps: 1 });
-  return fills;
+  return { fills, texts };
 }
+const renderFills = (world: World): FillCall[] => render(world).fills;
 
 const hazard = LEVEL_1.hazards[0];
 const hazardFill = (fills: FillCall[]): FillCall | undefined =>
@@ -174,3 +178,15 @@ describe('CanvasRenderer enemies raining from the sky (#13)', () => {
   });
 });
 
+describe('CanvasRenderer taunting death message', () => {
+  it('shows the taunt for the cause while it lasts, and nothing otherwise', () => {
+    const world = new World(LEVEL_1);
+    expect(render(world).texts.some((t) => Object.values(TAUNTS).includes(t))).toBe(false);
+    const hazard = LEVEL_1.hazards[0];
+    world.player.x = hazard.x + 1; world.player.y = hazard.y - world.player.height + 1;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    expect(render(world).texts).toContain(TAUNTS.hazard);
+    world.taunt = null;
+    expect(render(world).texts).not.toContain(TAUNTS.hazard);
+  });
+});
