@@ -72,9 +72,9 @@ describe('LEVEL_2', () => {
     world.update(dt, noInput);
     expect(world.deaths).toBe(1);
     expect(world.player.x).toBe(checkpoint.respawnX);
-    expect(world.hazardReveal?.rect).toBe(hazard);
+    expect(world.deathCause?.rect).toBe(hazard);
     for (let i = 0; i < 120; i++) world.update(dt, noInput); // 재시작 위치에서 위험지대가 보이므로 2초 뒤 해제
-    expect(world.hazardReveal).toBeNull();
+    expect(world.deathCause).toBeNull();
     // 체크포인트에서 재시작한 직후 →를 누른 채로도 위험지대·왕복 적에 매번 같은 타이밍으로 걸리는
     // 무한 사망 루프 없이 끝까지 갈 수 있다(재시작하면 적의 순찰 위치도 초기화되므로 늘 같은 상황이 된다).
     world.reset(true);
