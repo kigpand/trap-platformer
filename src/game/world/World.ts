@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, DodgingPlatform, FallingCeiling, Level, PopUpSpike, SkyDrop, SkyDropGroup } from './level';
+import type { AmbushEnemy, DodgingPlatform, FallingCeiling, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -130,6 +130,16 @@ function skyDropArea(group: SkyDropGroup): Rect {
   return group.drops.reduce<Rect>((area, d) => union(area, { x: d.x, y: group.trigger.y, width: ENEMY_WIDTH, height: group.trigger.height }), group.trigger);
 }
 
+// #17 뒷걸음 스프링 바닥: 한 번 튕긴 뒤에는 그 목숨 동안 눌린 스프링 모양으로 그린다(bounced).
+export interface SpringFloorState { readonly config: SpringFloor; bounced: boolean }
+function createSpringFloors(level: Level): SpringFloorState[] {
+  return level.springFloors.map((config) => ({ config, bounced: false }));
+}
+// 강제 비행(#15·#17 공통): 비행 중에는 좌우 입력 대신 vx를 넣는다. launched는 발동한 스텝 표시 — 그 스텝은 착지로 보지 않는다.
+export interface ForcedFlightState { readonly vx: number; launched: boolean }
+// #16 좌우 반전: 걸린 구역과 들어온 쪽. 들어온 쪽의 반대편으로 구역을 완전히 빠져나가야 풀린다.
+export interface ReverseState { readonly zone: Rect; readonly enteredFrom: 'left' | 'right' }
+
 function createVanishingGrounds(level: Level): VanishingGroundState[] {
   return level.vanishingGrounds.map((rect) => ({ rect, elapsed: null, tilesGone: 0 }));
 }
@@ -147,7 +157,9 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone';
+// 놀리는 문구의 종류: 사망 원인 + 죽지 않는 17번 스프링 바닥(튕겨 날아갈 때 같은 자리에 띄운다).
+export type TauntKind = DeathCauseKind | 'springFloor';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
 export interface DeathCauseState { readonly rect: Rect; readonly kind: DeathCauseKind; remaining: number }
 
@@ -182,12 +194,18 @@ export class World {
   popUpSpikes: PopUpSpikeState[];
   goal: GoalState;
   skyDrops: SkyDropGroupState[];
+  springFloors: SpringFloorState[];
+  flight: ForcedFlightState | null = null;
+  reverse: ReverseState | null = null;
+  // #16 방금 풀린 구역과 풀릴 때 누르던 좌우 입력(반전 전 원래 값). 그 키를 떼거나 바꾸기 전에는 같은 구역이 다시 걸리지 않는다 —
+  // 풀린 스텝에 플레이어는 경계 바로 밖에 있어, 누르던 키로 다시 겹치자마자 반대쪽 진입으로 걸려 떨렸다(Codex 리뷰).
+  private reverseRearm: { readonly zone: Rect; readonly horizontal: -1 | 0 | 1 } | null = null;
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
   private lastFallTrap: { cause: DeathCause; at: number } | null = null;
   // 놀리는 사망 메시지: 원인이 있는 사망 직후 2초(고정 스텝에서만 감소). lastDeathKind는 스냅샷용으로 다음 사망까지 남긴다.
-  taunt: { readonly kind: DeathCauseKind; remaining: number } | null = null;
+  taunt: { readonly kind: TauntKind; remaining: number } | null = null;
   private lastDeathKind: DeathCauseKind | null = null;
   // 런 시간과 달리 클리어 뒤에도 흐르는 시뮬레이션 시계 — 낙사 원인의 3초 판정에만 쓴다.
   private clock = 0;
@@ -213,6 +231,7 @@ export class World {
     this.popUpSpikes = createPopUpSpikes(level);
     this.goal = createGoal(level);
     this.skyDrops = createSkyDrops(level);
+    this.springFloors = createSpringFloors(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -259,6 +278,10 @@ export class World {
     this.popUpSpikes = createPopUpSpikes(this.level);
     this.goal = createGoal(this.level);
     this.skyDrops = createSkyDrops(this.level);
+    this.springFloors = createSpringFloors(this.level);
+    this.flight = null;
+    this.reverse = null;
+    this.reverseRearm = null;
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -300,9 +323,31 @@ export class World {
       if (!stillSupported) p.grounded = false;
     }
 
-    p.vx = input.horizontal * SPEED;
-    if (input.horizontal !== 0) p.facing = input.horizontal;
-    if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; this.events.push('jump'); }
+    // #17 스프링 바닥: 타일 위에 서 있으면 강제 비행으로 튕긴다(죽지 않으므로 사망 원인 대신 놀리는 문구만 띄운다).
+    if (!this.flight) {
+      const spring = this.springFloors.find((sf) => isStandingOn(p, sf.config.tile));
+      if (spring) {
+        spring.bounced = true;
+        this.launch(spring.config.vx, spring.config.vy);
+        this.taunt = { kind: 'springFloor', remaining: TAUNT_DURATION };
+      }
+    }
+    // #16 좌우 반전은 공중에서도 걸려 있다. 강제 비행 중에는 어차피 좌우 입력을 쓰지 않는다.
+    const horizontal = this.reverse ? -input.horizontal as -1 | 0 | 1 : input.horizontal;
+    if (this.flight) p.vx = this.flight.vx;
+    else {
+      p.vx = horizontal * SPEED;
+      if (horizontal !== 0) p.facing = horizontal;
+    }
+    if (input.jumpPressed && p.grounded) {
+      // #15 날려버리는 점프: 구역 안에서 바닥에 선 채 뛰면 보통 점프 대신 강제 비행.
+      const fling = this.level.flingZones.find((f) => overlaps(p, f.zone));
+      if (fling) {
+        this.launch(fling.vx, fling.vy);
+        this.lastFallTrap = { cause: { rect: fling.zone, kind: 'flingJump' }, at: this.clock };
+      } else { p.vy = -JUMP_SPEED; p.grounded = false; }
+      this.events.push('jump');
+    }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     // #7 투명 블록: 이번 이동으로 머리가 아랫면을 지나가면(위로 이동 중, 블록 아래에서 출발) 나타나 솔리드가 된다.
     // 수평 겹침은 머리가 아랫면 높이에 닿는 바로 그 순간의 x로 판정한다 — 이동 후 x로 보면, 옆에서 대각선으로
@@ -325,6 +370,12 @@ export class World {
     const wasAirborne = !p.grounded; // 이동 전 공중 여부 — 이번 스텝에 착지해도 "공중에서 들어온 것"으로 본다(#8)
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
+    // 강제 비행은 발동한 다음 스텝부터, 이동 뒤 grounded가 된 첫 스텝(착지)에서 끝난다. 천장 충돌은 grounded가 아니다.
+    if (this.flight) {
+      if (!this.flight.launched && p.grounded) this.flight = null;
+      else this.flight.launched = false;
+    }
+    this.updateReverse(input.horizontal);
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
@@ -455,6 +506,29 @@ export class World {
       const fallTrap = this.lastFallTrap && this.clock - this.lastFallTrap.at <= FALL_CAUSE_WINDOW ? this.lastFallTrap.cause : null;
       this.reset(true, fallTrap);
     }
+  }
+  // 강제 비행 발동: 이번 스텝의 속도를 (vx, vy)로 바꾸고 grounded를 해제한다.
+  private launch(vx: number, vy: number): void {
+    const p = this.player;
+    p.vx = vx; p.vy = vy; p.grounded = false;
+    if (vx !== 0) p.facing = vx > 0 ? 1 : -1;
+    this.flight = { vx, launched: true };
+  }
+  // #16 이동을 마친 위치로 반전 걸림·풀림을 정한다(다음 스텝의 입력부터 적용). 처음 겹친 순간 플레이어 중심이
+  // 구역 중심보다 왼쪽이면 왼쪽에서 들어온 것으로 본다. 걸려 있는 동안에는 반전 뒤의 낙사를 이 구역 탓으로 보도록 매 스텝 기록한다.
+  private updateReverse(horizontal: -1 | 0 | 1): void {
+    const p = this.player;
+    if (this.reverseRearm && this.reverseRearm.horizontal !== horizontal) this.reverseRearm = null;
+    if (this.reverse) {
+      const { zone, enteredFrom } = this.reverse;
+      const exited = enteredFrom === 'left' ? p.x >= zone.x + zone.width : p.x + p.width <= zone.x;
+      if (exited) { this.reverse = null; this.reverseRearm = { zone, horizontal }; return; }
+    } else {
+      const zone = this.level.reverseZones.find((z) => z !== this.reverseRearm?.zone && overlaps(p, z));
+      if (!zone) return;
+      this.reverse = { zone, enteredFrom: p.x + p.width / 2 < zone.x + zone.width / 2 ? 'left' : 'right' };
+    }
+    this.lastFallTrap = { cause: { rect: this.reverse.zone, kind: 'reverseZone' }, at: this.clock };
   }
   snapshot(): GameSnapshot {
     const p = this.player;

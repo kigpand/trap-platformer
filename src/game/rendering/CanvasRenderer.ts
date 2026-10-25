@@ -38,6 +38,8 @@ export const SPIKE_FILL = '#e2e8f0';
 export const TAUNT_COLOR = '#fca5a5';
 export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
 const CHECKPOINT_IDLE = '#64748b';
+export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
+export const REVERSE_MARK = '⇄'; // 좌우 반전이 걸린 동안 플레이어 위에 띄우는 표시(#16)
 
 // 체크포인트 깃발. 가짜 체크포인트(#11)도 일부러 같은 모양으로 그린다(처음엔 구분되지 않아야 한다).
 // 깃대는 판정 영역 높이와 상관없이 영역 바닥에서 FLAG_HEIGHT만큼 그린다 — 진짜는 건너뛸 수 없게 영역이 높고
@@ -164,6 +166,25 @@ export class CanvasRenderer {
         const t = sp.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(t.x, t.y, t.width, t.height);
       }
     }
+    // #17 스프링 바닥: 튕기기 전에는 아래 바닥과 똑같아 따로 그리지 않고, 튕긴 뒤에는 그 목숨 동안 눌린 스프링으로 그린다.
+    for (const sf of world.springFloors) {
+      const t = sf.config.tile;
+      if (sf.bounced) {
+        ctx.fillStyle = '#101729'; ctx.fillRect(t.x, t.y, t.width, 8);
+        ctx.fillStyle = SPRING_FILL; ctx.fillRect(t.x + 2, t.y, t.width - 4, 3);
+        ctx.strokeStyle = SPRING_FILL; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(t.x + 4, t.y + 4);
+        for (let x = t.x + 4, up = false; x <= t.x + t.width - 4; x += 4, up = !up) ctx.lineTo(x, up ? t.y + 4 : t.y + 7);
+        ctx.stroke();
+      }
+      if (this.debug) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #15 날려버리는 점프·#16 좌우 반전 구역은 보이지 않는다(디버그 오버레이에서만 외곽선).
+    if (this.debug) {
+      ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2;
+      for (const f of level.flingZones) ctx.strokeRect(f.zone.x, f.zone.y, f.zone.width, f.zone.height);
+      for (const z of level.reverseZones) ctx.strokeRect(z.x, z.y, z.width, z.height);
+    }
     const goal = world.goal.rect; // #12 도망가는 목표: 현재(이동 중이면 이동 중인) 위치
     ctx.fillStyle = '#eab308'; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
     for (const e of world.enemies) {
@@ -207,6 +228,11 @@ export class CanvasRenderer {
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
+    if (world.reverse) {
+      ctx.fillStyle = TAUNT_COLOR; ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(REVERSE_MARK, p.x + p.width / 2, p.y - 8);
+      ctx.textAlign = 'left';
+    }
     ctx.restore();
     ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
     ctx.fillText(`WORLD HEIGHT ${level.height}   |   ${this.debug ? 'COLLIDERS ON' : 'PRESS B FOR COLLIDERS'}`, 20, 28);

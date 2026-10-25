@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, SKY_WARNING_FILL, SPIKE_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -188,5 +188,30 @@ describe('CanvasRenderer taunting death message', () => {
     expect(render(world).texts).toContain(TAUNTS.hazard);
     world.taunt = null;
     expect(render(world).texts).not.toContain(TAUNTS.hazard);
+  });
+});
+
+describe('CanvasRenderer forced flight and reverse traps', () => {
+  const tile = { x: 600, y: 500, width: 40, height: 20 };
+  const springLevel: Level = { ...LEVEL_1, springFloors: [{ tile, vx: -480, vy: -600 }] };
+
+  it('draws the spring tile like plain floor until it bounces, then as a pressed spring, with its taunt', () => {
+    const world = new World(springLevel);
+    expect(renderFills(world).some((f) => f.style === SPRING_FILL)).toBe(false);
+    world.player.x = tile.x; world.player.y = tile.y - world.player.height; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    const { fills, texts } = render(world);
+    expect(fills.some((f) => f.style === SPRING_FILL && f.x >= tile.x && f.x < tile.x + tile.width && f.y === tile.y)).toBe(true);
+    expect(texts).toContain(TAUNTS.springFloor);
+  });
+
+  it('shows the reverse mark above the player only while reversed', () => {
+    const zone = { x: 600, y: 300, width: 200, height: 200 };
+    const world = new World({ ...LEVEL_1, reverseZones: [zone] });
+    expect(render(world).texts).not.toContain(REVERSE_MARK);
+    world.player.x = 650; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    expect(world.reverse).not.toBeNull();
+    expect(render(world).texts).toContain(REVERSE_MARK);
   });
 });
