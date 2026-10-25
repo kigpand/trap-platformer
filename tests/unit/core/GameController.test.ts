@@ -170,7 +170,7 @@ describe('GameController level progression', () => {
     expect(last().best).toBeNull(); // 레벨 2는 아직 기록 없음
     clearCurrentLevel();
     expect(localStorage.getItem('trap-runner:best:2')).not.toBeNull();
-    expect(last().bests.every((b) => b !== null)).toBe(true); // 완료 화면에 모든 레벨 기록이 있다
+    expect(last().bests.slice(0, 2).every((b) => b !== null)).toBe(true); // 클리어한 레벨 1·2의 기록이 완료 화면용 목록에 있다
     controller.dispose();
   });
 
