@@ -15,6 +15,10 @@ export interface GoalHop { trigger: Rect; to: Rect }
 // 착지하면 minX~maxX를 왕복한다.
 export interface SkyDrop { x: number; delay: number; minX: number; maxX: number }
 export interface SkyDropGroup { trigger: Rect; drops: readonly SkyDrop[] }
+// 날려버리는 점프(#15): zone 안에서 바닥에 선 채 점프하면 보통 점프 대신 (vx, vy)로 강제 비행한다.
+export interface FlingZone { zone: Rect; vx: number; vy: number }
+// 뒷걸음 스프링 바닥(#17): tile 위에 서면 (vx, vy)로 강제 비행한다. tile은 바닥 윗면에 겹쳐 두는 장식·판정 영역이다.
+export interface SpringFloor { tile: Rect; vx: number; vy: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -39,6 +43,9 @@ export interface Level {
   fakeCheckpoints: readonly Rect[]; // #11 가짜 체크포인트(깃발 영역, 점프로 넘을 수 있는 높이)
   goalHops: readonly GoalHop[]; // #12 도망가는 목표(goal에서 출발해 차례로 달아남)
   skyDrops: readonly SkyDropGroup[]; // #13 하늘에서 쏟아지는 적
+  flingZones: readonly FlingZone[]; // #15 날려버리는 점프
+  reverseZones: readonly Rect[]; // #16 좌우 반전 구간
+  springFloors: readonly SpringFloor[]; // #17 뒷걸음 스프링 바닥
 }
 
 export const LEVEL_1: Level = {
@@ -105,6 +112,9 @@ export const LEVEL_1: Level = {
   fakeCheckpoints: [],
   goalHops: [],
   skyDrops: [],
+  flingZones: [],
+  reverseZones: [],
+  springFloors: [],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
@@ -173,6 +183,9 @@ export const LEVEL_2: Level = {
     { trigger: { x: 4760, y: 400, width: 40, height: 100 }, to: { x: 5040, y: 440, width: 40, height: 60 } },
   ],
   skyDrops: [],
+  flingZones: [],
+  reverseZones: [],
+  springFloors: [],
 };
 
 // 레벨 3(어려움): 새 함정 8종을 명세 기본 크기로, 쉴 틈 없이 이어 붙인다(docs/game-design.md "난이도 곡선").
@@ -230,6 +243,9 @@ export const LEVEL_3: Level = {
       { x: 4400, delay: 0, minX: 4360, maxX: 4480 }, { x: 4700, delay: 0.25, minX: 4660, maxX: 4780 },
     ] },
   ],
+  flingZones: [],
+  reverseZones: [],
+  springFloors: [],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
