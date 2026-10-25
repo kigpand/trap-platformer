@@ -37,7 +37,7 @@ export interface Level {
 }
 
 export const LEVEL_1: Level = {
-  width: 1800,
+  width: 4000,
   height: 620,
   spawn: { x: 65, y: 350 },
   // ground1a/ground1b: 숨겨진 블록(hiddenBlocks)이 메우는 틈(300-380)으로 나뉜 시작 구간.
@@ -46,9 +46,12 @@ export const LEVEL_1: Level = {
     { x: 0, y: 500, width: 300, height: 120 },
     { x: 380, y: 500, width: 140, height: 120 },
     { x: 620, y: 500, width: 570, height: 120 },
-    { x: 1290, y: 500, width: 510, height: 120 },
+    { x: 1290, y: 500, width: 670, height: 120 },
+    // 함정 확장 구간(1960~): ground4는 떨어지는 천장·솟아오르는 가시, ground5는 도망가는 발판 너머 목표 구간.
+    { x: 2240, y: 500, width: 760, height: 120 },
+    { x: 3260, y: 500, width: 740, height: 120 },
   ],
-  goal: { x: 1740, y: 440, width: 40, height: 60 },
+  goal: { x: 3940, y: 440, width: 40, height: 60 },
   // 가짜 안전지대: 실제 바닥(ground2) 위에 겹쳐진 위장 타일. 걸어서 그대로 도달 가능하며
   // 시각적으로는 일반 바닥과 동일하게 그려짐 (docs/traps-spec.md #4)
   hazards: [{ x: 1060, y: 495, width: 80, height: 25 }],
@@ -72,19 +75,28 @@ export const LEVEL_1: Level = {
   conditionalTraps: [
     { zone: { x: 1670, y: 440, width: 50, height: 80 } },
   ],
-  // 중간 체크포인트: 적 구간(850)과 위험지대(1060) 사이 평지에 배치. 접촉하면 이후 사망 시
+  // 중간 체크포인트: 적 구간(850)과 위험지대(1060) 사이 평지에 배치. 위험지대와 160px 띄워, 재시작 위치(공중 y 350)에서
+  // →를 누른 채 떨어져도 착지한 뒤 위험지대를 넘을 거리가 남는다(원래 950이라 재시작 직후 위험지대에 그대로 착지했다). 접촉하면 이후 사망 시
   // 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
   // 영역 위쪽(360)은 바닥(500)에서 최대 점프 높이(81.375px)로 올라간 발 위치(약 419)보다 높아, 점프로
   // 넘어가도 반드시 닿는다 — 가짜 안전지대 사망 후 표시가 재시작 화면 안에 들어오도록(physics-spec "레벨 배치 제약").
   // 영역 아래쪽은 바닥(500)에서 끝나 깃발이 가짜 체크포인트와 같은 높이로 선다.
   checkpoints: [
-    { zone: { x: 950, y: 360, width: 40, height: 140 }, respawnX: 950, respawnY: 350 },
+    { zone: { x: 900, y: 360, width: 40, height: 140 }, respawnX: 900, respawnY: 350 },
+    // 함정 확장 구간마다 둔 체크포인트: 사라지는 땅 앞, 도망가는 발판 앞.
+    { zone: { x: 1800, y: 360, width: 40, height: 140 }, respawnX: 1800, respawnY: 350 },
+    { zone: { x: 2760, y: 360, width: 40, height: 140 }, respawnX: 2760, respawnY: 350 },
   ],
-  vanishingGrounds: [],
+  // 레벨 1은 새 함정을 하나씩 소개하는 쉬운 단계다(docs/game-design.md "레벨 진행" 난이도 곡선).
+  // 사라지는 땅: ground3 끝(1960)에서 ground4(2240)까지 7칸. 멈추지 않고 달리면 지나간다.
+  vanishingGrounds: [{ x: 1960, y: 500, width: 280, height: 120 }],
   invisibleBlocks: [],
-  fallingCeilings: [],
-  dodgingPlatforms: [],
-  popUpSpikes: [],
+  // 떨어지는 천장: 그냥 지나가면 깔린다. 트리거에 살짝 들어갔다 물러서 떨어뜨린 뒤 넘는다(높이 40px).
+  fallingCeilings: [{ block: { x: 2450, y: 380, width: 40, height: 40 }, trigger: { x: 2400, y: 380, width: 90, height: 120 } }],
+  // 도망가는 발판: ground4 끝(3000)과 ground5(3260) 사이 260px 구덩이. 제자리 점프로 먼저 도망가게 한 뒤 바뀐 자리로 뛴다.
+  dodgingPlatforms: [{ platform: { x: 3030, y: 480, width: 60, height: 20 }, trigger: { x: 2960, y: 380, width: 40, height: 100 }, to: { x: 3120, y: 480 } }],
+  // 솟아오르는 가시: 레벨 1은 좁은 가시(16px)로 넘을 여유를 넉넉히 준다.
+  popUpSpikes: [{ spikes: { x: 2640, y: 476, width: 16, height: 24 }, trigger: { x: 2580, y: 400, width: 60, height: 100 } }],
   fakeCheckpoints: [],
   goalHops: [],
 };
