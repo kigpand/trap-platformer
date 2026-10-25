@@ -197,6 +197,9 @@ export class World {
   springFloors: SpringFloorState[];
   flight: ForcedFlightState | null = null;
   reverse: ReverseState | null = null;
+  // #16 방금 풀린 구역과 풀릴 때 누르던 좌우 입력(반전 전 원래 값). 그 키를 떼거나 바꾸기 전에는 같은 구역이 다시 걸리지 않는다 —
+  // 풀린 스텝에 플레이어는 경계 바로 밖에 있어, 누르던 키로 다시 겹치자마자 반대쪽 진입으로 걸려 떨렸다(Codex 리뷰).
+  private reverseRearm: { readonly zone: Rect; readonly horizontal: -1 | 0 | 1 } | null = null;
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
@@ -278,6 +281,7 @@ export class World {
     this.springFloors = createSpringFloors(this.level);
     this.flight = null;
     this.reverse = null;
+    this.reverseRearm = null;
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -371,7 +375,7 @@ export class World {
       if (!this.flight.launched && p.grounded) this.flight = null;
       else this.flight.launched = false;
     }
-    this.updateReverse();
+    this.updateReverse(input.horizontal);
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
@@ -512,14 +516,15 @@ export class World {
   }
   // #16 이동을 마친 위치로 반전 걸림·풀림을 정한다(다음 스텝의 입력부터 적용). 처음 겹친 순간 플레이어 중심이
   // 구역 중심보다 왼쪽이면 왼쪽에서 들어온 것으로 본다. 걸려 있는 동안에는 반전 뒤의 낙사를 이 구역 탓으로 보도록 매 스텝 기록한다.
-  private updateReverse(): void {
+  private updateReverse(horizontal: -1 | 0 | 1): void {
     const p = this.player;
+    if (this.reverseRearm && this.reverseRearm.horizontal !== horizontal) this.reverseRearm = null;
     if (this.reverse) {
       const { zone, enteredFrom } = this.reverse;
       const exited = enteredFrom === 'left' ? p.x >= zone.x + zone.width : p.x + p.width <= zone.x;
-      if (exited) { this.reverse = null; return; }
+      if (exited) { this.reverse = null; this.reverseRearm = { zone, horizontal }; return; }
     } else {
-      const zone = this.level.reverseZones.find((z) => overlaps(p, z));
+      const zone = this.level.reverseZones.find((z) => z !== this.reverseRearm?.zone && overlaps(p, z));
       if (!zone) return;
       this.reverse = { zone, enteredFrom: p.x + p.width / 2 < zone.x + zone.width / 2 ? 'left' : 'right' };
     }

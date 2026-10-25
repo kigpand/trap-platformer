@@ -177,6 +177,21 @@ describe('#16 reverse zone', () => {
     expect(world.deaths).toBe(0);
   });
 
+  it('does not re-latch while the key that carried the player out is still held (Codex review)', () => {
+    // 해제된 스텝에 플레이어는 구역 오른쪽 경계 바로 밖에 있고, 계속 누르던 ←는 이제 진짜 왼쪽이라 다음 스텝에 다시 겹친다.
+    // 그때 오른쪽 진입으로 다시 걸면 ←가 →가 되어 밀려 나가고 또 풀리기를 반복하며 떨렸다.
+    const world = new World(L);
+    standAt(world, 380);
+    runUntil(world, right, 20, () => world.reverse !== null);
+    runUntil(world, left, 200, () => world.reverse === null);
+    const xs: number[] = [];
+    for (let i = 0; i < 30; i++) { world.update(dt, left); xs.push(world.player.x); expect(world.reverse).toBeNull(); }
+    expect(xs.every((x, i) => i === 0 || x < xs[i - 1])).toBe(true); // 평소대로 왼쪽으로만 간다
+    expect(world.player.x + world.player.width).toBeGreaterThan(zone.x + zone.width - 120); // 구역 안으로 걸어 들어왔다
+    world.update(dt, idle); // 키를 떼면 다시 걸릴 수 있다
+    expect(world.reverse?.enteredFrom).toBe('right');
+  });
+
   it('latches from the right when entered from the right, and releases on the left side', () => {
     const world = new World(L);
     standAt(world, 700);
