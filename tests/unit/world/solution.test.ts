@@ -34,4 +34,3 @@ describe('playSolution', () => {
     expect(playSolution(world, [{ runUntil: () => updates >= 60 * 20 }])).toBe(1);
   });
 });
-
