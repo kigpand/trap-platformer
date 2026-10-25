@@ -1,6 +1,5 @@
 import { ENEMY_HEIGHT, ENEMY_WIDTH, type Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
-import { CHECKPOINTS, GOAL, HAZARDS, SOLIDS, WORLD_HEIGHT } from '../world/level';
 import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
@@ -40,16 +39,17 @@ export class CanvasRenderer {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
     ctx.fillStyle = '#101729'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-    const cam = cameraX(world.player.x, VIEW_WIDTH);
+    const level = world.level;
+    const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
     ctx.save(); ctx.translate(-cam, 0);
     ctx.fillStyle = '#293b4d';
     for (let i = 0; i < 18; i++) { ctx.fillRect(i * 130, 390 - (i % 4) * 35, 90, 200); }
-    for (const p of SOLIDS) {
+    for (const p of level.solids) {
       ctx.fillStyle = '#627e55'; ctx.fillRect(p.x, p.y, p.width, p.height);
       ctx.fillStyle = '#99c577'; ctx.fillRect(p.x, p.y, p.width, Math.min(8, p.height));
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     }
-    for (const h of HAZARDS) {
+    for (const h of level.hazards) {
       // 평소엔 일반 바닥과 똑같이 그리고, 이 타일로 사망한 직후에만 경고색으로 원인을 드러낸다(traps-spec #4).
       const revealed = world.hazardReveal?.rect === h;
       ctx.fillStyle = revealed ? HAZARD_REVEAL_FILL : '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
@@ -77,7 +77,7 @@ export class CanvasRenderer {
         ctx.strokeRect(ct.zone.x, ct.zone.y, ct.zone.width, ct.zone.height);
       }
     }
-    for (const cp of CHECKPOINTS) {
+    for (const cp of level.checkpoints) {
       const reached = world.activeCheckpoint?.x === cp.respawnX && world.activeCheckpoint?.y === cp.respawnY;
       ctx.fillStyle = reached ? '#4ade80' : '#64748b';
       ctx.fillRect(cp.zone.x + cp.zone.width / 2 - 2, cp.zone.y, 4, cp.zone.height);
@@ -89,7 +89,7 @@ export class CanvasRenderer {
       ctx.fill();
       if (this.debug) { ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2; ctx.strokeRect(cp.zone.x, cp.zone.y, cp.zone.width, cp.zone.height); }
     }
-    ctx.fillStyle = '#eab308'; ctx.fillRect(GOAL.x, GOAL.y, GOAL.width, GOAL.height);
+    ctx.fillStyle = '#eab308'; ctx.fillRect(level.goal.x, level.goal.y, level.goal.width, level.goal.height);
     for (const e of world.enemies) {
       drawEnemy(ctx, e);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
@@ -111,7 +111,7 @@ export class CanvasRenderer {
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     ctx.restore();
     ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
-    ctx.fillText(`WORLD HEIGHT ${WORLD_HEIGHT}   |   ${this.debug ? 'COLLIDERS ON' : 'PRESS B FOR COLLIDERS'}`, 20, 28);
+    ctx.fillText(`WORLD HEIGHT ${level.height}   |   ${this.debug ? 'COLLIDERS ON' : 'PRESS B FOR COLLIDERS'}`, 20, 28);
     if (this.debug) {
       const vx = p.vx.toFixed(0), vy = p.vy.toFixed(0);
       ctx.fillText(`FPS ${metrics.fps.toFixed(0)}   |   STEPS/FRAME ${metrics.steps}   |   VX ${vx}   |   VY ${vy}`, 20, 48);

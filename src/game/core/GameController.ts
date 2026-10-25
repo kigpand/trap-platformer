@@ -3,6 +3,7 @@ import { InputManager, type TouchAction } from './InputManager';
 import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type GameSnapshot } from '../world/World';
+import { LEVEL_1 } from '../world/level';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·최고 기록 상태.
@@ -52,7 +53,7 @@ export function mergeBest(best: BestRecord | null, run: BestRecord): { best: Bes
   return { best: merged, improved: merged.time < best.time || merged.deaths < best.deaths };
 }
 export class GameController {
-  private readonly world = new World();
+  private readonly world = new World(LEVEL_1);
   private readonly renderer: CanvasRenderer;
   private readonly input = new InputManager(window);
   private readonly sound = new SoundPlayer(window);

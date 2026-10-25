@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, HAZARD_REVEAL_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
-import { HAZARDS } from '../../../src/game/world/level';
+import { LEVEL_1 } from '../../../src/game/world/level';
 
 // happy-dom에는 Canvas 2D 구현이 없다. 모든 메서드 호출을 받아 주되 fillRect만 그 시점의 fillStyle과
 // 함께 기록하는 가짜 컨텍스트로, "어느 영역을 어떤 색으로 칠했는지"를 검증한다.
@@ -32,18 +32,18 @@ function renderFills(world: World): FillCall[] {
   return fills;
 }
 
-const hazard = HAZARDS[0];
+const hazard = LEVEL_1.hazards[0];
 const hazardFill = (fills: FillCall[]): FillCall | undefined =>
   fills.find((f) => f.x === hazard.x && f.y === hazard.y && f.width === hazard.width && f.height === hazard.height);
 
 describe('CanvasRenderer fake safe zone', () => {
   it('draws the hazard like normal ground when no reveal is active', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     expect(hazardFill(renderFills(world))?.style).toBe('#627e55'); // 일반 바닥(SOLIDS)과 같은 색
   });
 
   it('draws the hazard in the warning color while the post-death reveal is active, and back to ground after it ends', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.player.x = hazard.x + 1;
     world.player.y = hazard.y - world.player.height + 1;
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
