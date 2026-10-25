@@ -46,11 +46,12 @@ export function playSolution(world: World, steps: readonly Step[]): number {
     } else if ('hop' in s) {
       world.update(dt, input(0, true));
       ok = until(() => world.player.grounded, () => input(0));
-    } else if ('right' in s || 'left' in s) {
-      const count = 'right' in s ? s.right : s.left;
-      for (let i = 0; i < count && alive(); i++) world.update(dt, input('right' in s ? 1 : -1));
     } else {
-      for (let i = 0; i < Math.round(s.wait * 60) && alive(); i++) world.update(dt, input(0));
+      // 스텝 수가 정해진 명령도 다른 명령과 같은 20초 제한을 받는다 — 넘으면 잘못 적은 해법으로 보고 막힘으로 처리한다(Codex 리뷰).
+      const count = 'right' in s ? s.right : 'left' in s ? s.left : Math.round(s.wait * 60);
+      if (count > MAX_STEPS) return n;
+      const horizontal = 'right' in s ? 1 : 'left' in s ? -1 : 0;
+      for (let i = 0; i < count && alive(); i++) world.update(dt, input(horizontal));
     }
     if (!ok || !alive()) return n;
   }
