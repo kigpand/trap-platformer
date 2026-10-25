@@ -4,7 +4,7 @@ export interface AmbushEnemy extends EnemyPatrol { trigger: Rect }
 export interface ConditionalTrap { zone: Rect }
 export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
-// 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md 다음 릴리스 2번).
+// 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
   width: number;
   height: number;

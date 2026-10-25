@@ -3,7 +3,7 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { runToGoal } from './autopilot';
 
-// 레벨 2 배치 검증(docs/roadmap.md 다음 릴리스 3번). 진행 흐름(4번) 전이라 게임 화면에서는 아직 고를 수 없어,
+// 레벨 2 배치 검증(docs/roadmap.md "새 맵 추가" 릴리스 3번). 처음 작성 당시엔 진행 흐름(4번) 전이라 게임 화면에서 고를 수 없어,
 // World에 LEVEL_2를 직접 넘겨 확인한다.
 const dt = 1 / 60;
 const noInput = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
