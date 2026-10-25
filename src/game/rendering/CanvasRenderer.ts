@@ -4,7 +4,7 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import type { World } from '../world/World';
+import { ceilingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 
 export const VIEW_HEIGHT = 540;
 const WALK_CYCLE_MS = 160; // 걷기 2프레임 전환 주기 — 렌더링 전용 타이밍(시뮬레이션 상태 아님)
@@ -29,6 +29,9 @@ export const HAZARD_REVEAL_FILL = '#b91c1c';
 const HAZARD_REVEAL_TOP = '#fca5a5';
 export const DEATH_CAUSE_OVERLAY = 'rgba(185,28,28,0.45)';
 const BUILDING_SPACING = 130;
+export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 발판 경고색과 같은 주황)
+const BLOCK_FILL = '#8a6d4b'; // 공중 블록(투명 블록이 나타난 뒤·떨어지는 천장)
+const BLOCK_TOP = '#b08a5e';
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
@@ -61,6 +64,32 @@ export class CanvasRenderer {
       ctx.fillStyle = revealed ? HAZARD_REVEAL_TOP : '#99c577'; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
       if (revealed) { ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(h.x, h.y, h.width, h.height); }
       if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(h.x, h.y, h.width, h.height); }
+    }
+    // #6 사라지는 땅: 남은 칸은 일반 바닥처럼, 붕괴가 시작되면 다음에 사라질 칸만 경고색으로.
+    for (const vg of world.vanishingGrounds) {
+      for (let i = vg.tilesGone; i < vanishingTileCount(vg.rect); i++) {
+        const t = vanishingTile(vg.rect, i);
+        const warning = vg.elapsed !== null && i === vg.tilesGone;
+        ctx.fillStyle = warning ? VANISH_WARNING_FILL : '#627e55'; ctx.fillRect(t.x, t.y, t.width, t.height);
+        ctx.fillStyle = warning ? VANISH_WARNING_FILL : '#99c577'; ctx.fillRect(t.x, t.y, t.width, Math.min(8, t.height));
+      }
+      if (this.debug) { ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.strokeRect(vg.rect.x, vg.rect.y, vg.rect.width, vg.rect.height); }
+    }
+    // #7 투명 블록: 나타나기 전에는 그리지 않는다(디버그 오버레이에서만 외곽선).
+    for (const ib of world.invisibleBlocks) {
+      if (ib.visible) {
+        ctx.fillStyle = BLOCK_FILL; ctx.fillRect(ib.rect.x, ib.rect.y, ib.rect.width, ib.rect.height);
+        ctx.fillStyle = BLOCK_TOP; ctx.fillRect(ib.rect.x, ib.rect.y, ib.rect.width, Math.min(4, ib.rect.height));
+      } else if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(ib.rect.x, ib.rect.y, ib.rect.width, ib.rect.height); }
+    }
+    // #9 떨어지는 천장: 현재 위치에 평범한 블록으로 그린다(트리거 영역은 디버그에서만).
+    for (const c of world.fallingCeilings) {
+      if (c.phase !== 'gone') {
+        const r = ceilingRect(c);
+        ctx.fillStyle = BLOCK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
+        ctx.fillStyle = BLOCK_TOP; ctx.fillRect(r.x, r.y, r.width, Math.min(4, r.height));
+      }
+      if (this.debug) { const t = c.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     for (const fp of world.fallingPlatforms) {
       if (!fp.solid) continue;

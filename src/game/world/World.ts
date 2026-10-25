@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, Level } from './level';
+import type { AmbushEnemy, FallingCeiling, Level } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -11,6 +11,9 @@ const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
 const DEATH_CAUSE_DURATION = 2.0; // docs/traps-spec.md "사망 원인 표시": 화면에 보이는 동안 2초 강조
 const FALL_CAUSE_WINDOW = 3.0; // 낙사형 함정은 사망 직전 3초 안에 마지막으로 발동한 함정을 원인으로 본다
+const VANISH_TILE = 40; // docs/traps-spec.md #6 칸 너비
+const VANISH_SPEED = 150; // #6 붕괴 전선 속도(플레이어 210px/s보다 느림)
+const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -73,6 +76,33 @@ function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay
   return false;
 }
 
+// #6 사라지는 땅: 밟는 순간(elapsed = 0) 구간 시작점에서 전선이 출발하고, i번째 칸은
+// elapsed ≥ (i + 1) × 40 / 150초에 통째로 사라진다. tilesGone은 앞에서부터 사라진 칸 수.
+export interface VanishingGroundState { readonly rect: Rect; elapsed: number | null; tilesGone: number }
+// #7 투명 블록: 위로 이동 중에 아랫면에 닿으면 visible이 되고, 그때부터 일반 솔리드다.
+export interface InvisibleBlockState { readonly rect: Rect; visible: boolean }
+// #9 떨어지는 천장: idle(솔리드) → armed(트리거 후 0.1초) → falling(솔리드 아님, 닿으면 즉사) → landed(솔리드 장애물).
+// 구덩이로 떨어지면 gone.
+export interface FallingCeilingState {
+  readonly config: FallingCeiling; y: number; vy: number; phase: 'idle' | 'armed' | 'falling' | 'landed' | 'gone'; timer: number;
+}
+
+export function vanishingTileCount(rect: Rect): number { return Math.ceil(rect.width / VANISH_TILE); }
+export function vanishingTile(rect: Rect, i: number): Rect {
+  return { x: rect.x + i * VANISH_TILE, y: rect.y, width: Math.min(VANISH_TILE, rect.width - i * VANISH_TILE), height: rect.height };
+}
+export function ceilingRect(c: FallingCeilingState): Rect { return { ...c.config.block, y: c.y }; }
+
+function createVanishingGrounds(level: Level): VanishingGroundState[] {
+  return level.vanishingGrounds.map((rect) => ({ rect, elapsed: null, tilesGone: 0 }));
+}
+function createInvisibleBlocks(level: Level): InvisibleBlockState[] {
+  return level.invisibleBlocks.map((rect) => ({ rect, visible: false }));
+}
+function createFallingCeilings(level: Level): FallingCeilingState[] {
+  return level.fallingCeilings.map((config) => ({ config, y: config.block.y, vy: 0, phase: 'idle', timer: 0 }));
+}
+
 // 함정으로 사망한 직후, 원인이 된 함정의 영역을 강조 표시하는 상태(docs/traps-spec.md "공통 규칙"의 사망 원인 표시).
 // remaining은 update(고정 스텝)에서, 그리고 그 영역이 화면에 보이는 동안에만 줄어든다 — 일시정지 중이나
 // 체크포인트 없이 먼 시작점에서 재시작해 영역이 화면 밖에 있을 때는 플레이어가 볼 때까지 남는다.
@@ -102,6 +132,9 @@ export class World {
   enemies: Enemy[];
   ambushes: AmbushState[];
   conditionalTraps: ConditionalTrapState[];
+  vanishingGrounds: VanishingGroundState[];
+  invisibleBlocks: InvisibleBlockState[];
+  fallingCeilings: FallingCeilingState[];
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
@@ -123,6 +156,20 @@ export class World {
     this.enemies = createEnemies(level);
     this.ambushes = createAmbushes(level);
     this.conditionalTraps = createConditionalTraps(level);
+    this.vanishingGrounds = createVanishingGrounds(level);
+    this.invisibleBlocks = createInvisibleBlocks(level);
+    this.fallingCeilings = createFallingCeilings(level);
+  }
+  // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
+  dynamicSolids(exclude?: FallingCeilingState): Rect[] {
+    const rects: Rect[] = [];
+    for (const s of [...this.fallingPlatforms, ...this.hiddenBlocks]) if (s.solid) rects.push(s.rect);
+    for (const vg of this.vanishingGrounds) {
+      for (let i = vg.tilesGone; i < vanishingTileCount(vg.rect); i++) rects.push(vanishingTile(vg.rect, i));
+    }
+    for (const ib of this.invisibleBlocks) if (ib.visible) rects.push(ib.rect);
+    for (const c of this.fallingCeilings) if (c !== exclude && (c.phase === 'idle' || c.phase === 'armed' || c.phase === 'landed')) rects.push(ceilingRect(c));
+    return rects;
   }
   drainEvents(): WorldEvent[] {
     const drained = this.events;
@@ -148,6 +195,9 @@ export class World {
     this.enemies = createEnemies(this.level);
     this.ambushes = createAmbushes(this.level);
     this.conditionalTraps = createConditionalTraps(this.level);
+    this.vanishingGrounds = createVanishingGrounds(this.level);
+    this.invisibleBlocks = createInvisibleBlocks(this.level);
+    this.fallingCeilings = createFallingCeilings(this.level);
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -169,12 +219,19 @@ export class World {
       const triggered = isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect);
       if (updateCollapsing(hb, triggered, HIDDEN_BLOCK_DELAY, dt)) this.lastFallTrap = { rect: hb.rect, at: this.clock };
     }
+    for (const vg of this.vanishingGrounds) {
+      if (vg.elapsed === null) {
+        if (!isStandingOn(p, vg.rect)) continue;
+        vg.elapsed = 0;
+      }
+      vg.elapsed += dt;
+      const gone = Math.min(vanishingTileCount(vg.rect), Math.floor((vg.elapsed * VANISH_SPEED) / VANISH_TILE + 1e-6));
+      if (gone > vg.tilesGone) { vg.tilesGone = gone; this.lastFallTrap = { rect: vg.rect, at: this.clock }; }
+    }
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
     if (p.grounded) {
-      const stillSupported = this.level.solids.some((s) => isStandingOn(p, s))
-        || this.fallingPlatforms.some((fp) => fp.solid && isStandingOn(p, fp.rect))
-        || this.hiddenBlocks.some((hb) => hb.solid && isStandingOn(p, hb.rect));
+      const stillSupported = [...this.level.solids, ...this.dynamicSolids()].some((s) => isStandingOn(p, s));
       if (!stillSupported) p.grounded = false;
     }
 
@@ -182,12 +239,45 @@ export class World {
     if (input.horizontal !== 0) p.facing = input.horizontal;
     if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; this.events.push('jump'); }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
-    const collapsing = [...this.fallingPlatforms, ...this.hiddenBlocks].filter((s) => s.solid).map((s) => s.rect);
-    const solids = [...this.level.solids, ...collapsing];
+    // #7 투명 블록: 이번 이동으로 머리가 아랫면을 지나가면(위로 이동 중, 블록 아래에서 출발) 나타나 솔리드가 된다.
+    // 수평 겹침은 머리가 아랫면 높이에 닿는 바로 그 순간의 x로 판정한다 — 이동 후 x로 보면, 옆에서 대각선으로
+    // 올라오다 아랫면 높이를 지난 뒤에야 수평으로 겹치는 경우를 아래에서 찧은 것으로 오인한다(Codex 리뷰).
+    // 옆이나 위에서 닿는 경우는 여기 걸리지 않고, 보이지 않는 동안은 솔리드 목록에 없어 그대로 통과한다.
+    if (p.vy < 0) {
+      const dy = p.vy * dt;
+      for (const ib of this.invisibleBlocks) {
+        if (ib.visible) continue;
+        const bottom = ib.rect.y + ib.rect.height;
+        if (p.y < bottom - 0.5 || p.y + dy >= bottom) continue; // 이번 스텝에 아래에서 아랫면 높이를 지나지 않는다
+        const t = Math.min(1, Math.max(0, (bottom - p.y) / dy)); // 아랫면 높이에 닿는 시점(스텝 내 비율)
+        const xAtContact = p.x + p.vx * dt * t;
+        if (xAtContact < ib.rect.x + ib.rect.width && xAtContact + p.width > ib.rect.x) {
+          ib.visible = true; this.lastFallTrap = { rect: ib.rect, at: this.clock };
+        }
+      }
+    }
+    const solids = [...this.level.solids, ...this.dynamicSolids()];
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
 
     for (const e of this.enemies) updateEnemy(e, dt);
+
+    // #9 떨어지는 천장: 떨어지는 중 플레이어와 겹치면 깔림(착지 판정보다 먼저 확인해 서 있는 플레이어 위로 떨어져도 깔린다).
+    let crushedBy: FallingCeilingState | null = null;
+    for (const c of this.fallingCeilings) {
+      if (c.phase === 'idle' && overlaps(p, c.config.trigger)) { c.phase = 'armed'; c.timer = CEILING_DELAY; }
+      if (c.phase === 'armed') {
+        c.timer -= dt;
+        if (c.timer <= 1e-6) c.phase = 'falling'; // 0.1 − 6 × (1/60)이 부동소수 오차로 0보다 조금 크게 남아 한 프레임 늦어지지 않게
+      }
+      if (c.phase !== 'falling') continue;
+      c.vy = Math.min(MAX_FALL_SPEED, c.vy + GRAVITY * dt);
+      c.y += c.vy * dt;
+      if (overlaps(p, ceilingRect(c))) crushedBy = c;
+      const ground = [...this.level.solids, ...this.dynamicSolids(c)].find((s) => overlaps(ceilingRect(c), s));
+      if (ground) { c.y = ground.y - c.config.block.height; c.vy = 0; c.phase = 'landed'; }
+      else if (c.y > this.level.height + 100) c.phase = 'gone';
+    }
 
     for (const amb of this.ambushes) {
       if (amb.enemy) { updateEnemy(amb.enemy, dt); continue; }
@@ -210,6 +300,7 @@ export class World {
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
 
+    if (crushedBy) { this.reset(true, crushedBy.config.block); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) { this.reset(true, hazard); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));
