@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import type { SkyDropGroup } from '../../../src/game/world/level';
+import { LEVELS, type SkyDropGroup } from '../../../src/game/world/level';
+import { ENEMY_WIDTH } from '../../../src/game/entities/Enemy';
 import { standAt, testLevel } from './fixtures';
 import { playSolution, type Step } from './solution';
 
@@ -59,6 +60,43 @@ describe('#13 enemies raining from the sky', () => {
     }
   });
 
+  it('walks into its patrol range after landing outside it, instead of jumping there', () => {
+    // 코덱스 리뷰: 순찰 구간 밖에 착지하면 updateEnemy가 첫 스텝에 구간 끝으로 위치를 옮겨 순간이동했다.
+    for (const drop of [{ x: 500, delay: 0, minX: 600, maxX: 700 }, { x: 800, delay: 0, minX: 600, maxX: 700 }]) {
+      const world = new World(testLevel({ solids: [ground], skyDrops: [{ trigger: group.trigger, drops: [drop] }] }));
+      standAt(world, 410);
+      world.update(dt, idle);
+      standAt(world, 300);
+      const se = world.skyDrops[0].enemies[0];
+      for (let i = 0; i < 120 && se.phase !== 'patrolling'; i++) world.update(dt, idle);
+      expect(se.phase).toBe('patrolling');
+      let prev = se.enemy!.x;
+      for (let i = 0; i < 180; i++) {
+        world.update(dt, idle);
+        expect(Math.abs(se.enemy!.x - prev)).toBeLessThanOrEqual(2 + 1e-9); // 한 스텝 이동량(120px/s ≈ 2px)을 넘지 않는다
+        prev = se.enemy!.x;
+      }
+      expect(se.enemy!.x).toBeGreaterThanOrEqual(drop.minX); // 결국 구간 안으로 들어와 왕복한다
+      expect(se.enemy!.x + se.enemy!.width).toBeLessThanOrEqual(drop.maxX);
+    }
+  });
+
+  it('lands on a 20px platform without tunneling even at max fall speed', () => {
+    // 최대 낙하 속도(900px/s)의 한 스텝 이동량 15px은 가장 얇은 발판(20px)보다 작다. 화면 위(-28)에서 428px를 떨어져
+    // 최대 속도에 도달한 뒤 착지한다.
+    const platform = { x: 540, y: 400, width: 100, height: 20 };
+    const world = new World(testLevel({ solids: [ground, platform], skyDrops: [{ trigger: group.trigger, drops: [{ x: 560, delay: 0, minX: 540, maxX: 640 }] }] }));
+    standAt(world, 410);
+    world.update(dt, idle);
+    standAt(world, 300);
+    const se = world.skyDrops[0].enemies[0];
+    let maxVy = 0;
+    for (let i = 0; i < 120 && se.phase !== 'patrolling'; i++) { world.update(dt, idle); maxVy = Math.max(maxVy, se.vy); }
+    expect(maxVy).toBe(900);
+    expect(se.phase).toBe('patrolling');
+    expect(se.enemy!.y + se.enemy!.height).toBe(platform.y);
+  });
+
   it('disappears when it falls into a pit', () => {
     const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 500, height: 120 }, { x: 700, y: 500, width: 1300, height: 120 }], skyDrops: [{ trigger: group.trigger, drops: [{ x: 600, delay: 0, minX: 580, maxX: 640 }] }] }));
     standAt(world, 410);
@@ -109,5 +147,19 @@ describe('#13 enemies raining from the sky', () => {
     steps(world, 120);
     expect(world.enemies[0].y).toBe(300);
     expect(world.ambushes[0].enemy?.y).toBe(200);
+  });
+});
+
+describe('#13 level data', () => {
+  it('drops every enemy inside its own patrol range, in every level', () => {
+    // 명세 배치 제약: 떨어지는 x 위치는 순찰 구간 안(minX ≤ x ≤ maxX − 적 너비)이어야 한다.
+    for (const [i, level] of LEVELS.entries()) {
+      for (const group of level.skyDrops) {
+        for (const d of group.drops) {
+          expect(d.x, `level ${i + 1} drop at ${d.x}`).toBeGreaterThanOrEqual(d.minX);
+          expect(d.x + ENEMY_WIDTH, `level ${i + 1} drop at ${d.x}`).toBeLessThanOrEqual(d.maxX);
+        }
+      }
+    }
   });
 });
