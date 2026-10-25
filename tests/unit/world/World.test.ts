@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import {
-  AMBUSH_ENEMIES, CHECKPOINTS, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS,
-} from '../../../src/game/world/level';
+import { LEVEL_1 } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import type { Player } from '../../../src/game/entities/Player';
 
+// 이 파일의 테스트는 레벨 1의 배치를 검증한다. 레벨 객체 도입 전의 이름을 그대로 써서 테스트 본문은 바꾸지 않는다.
+const {
+  ambushes: AMBUSH_ENEMIES, checkpoints: CHECKPOINTS, conditionalTraps: CONDITIONAL_TRAPS, enemies: ENEMIES,
+  fallingPlatforms: FALLING_PLATFORMS, goal: GOAL, hazards: HAZARDS, hiddenBlocks: HIDDEN_BLOCKS, solids: SOLIDS,
+} = LEVEL_1;
 const noInput = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 const dt = 1 / 60;
 
@@ -25,7 +28,7 @@ function shouldJump(player: Player, solids: readonly Rect[], obstacles: readonly
 
 describe('World trap and goal rules', () => {
   it('updates facing on horizontal input and keeps it while idle', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     expect(world.player.facing).toBe(1); // 기본값(오른쪽)
     world.update(dt, { horizontal: -1, jumpPressed: false, restartPressed: false });
     expect(world.player.facing).toBe(-1);
@@ -36,7 +39,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets with a counted death when touching a hazard', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const hazard = HAZARDS[0];
     world.player.x = hazard.x + 1;
     world.player.y = hazard.y - world.player.height + 1;
@@ -46,7 +49,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('marks the level cleared on reaching the goal', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.player.x = GOAL.x;
     world.player.y = GOAL.y;
     world.update(dt, noInput);
@@ -54,7 +57,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('collapses a falling platform after the trigger delay once stood on', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const platform = FALLING_PLATFORMS[0];
     world.player.x = platform.x + 10;
     world.player.y = platform.y - world.player.height;
@@ -64,7 +67,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('keeps a falling platform solid for a player standing on it under the trigger delay', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const platform = FALLING_PLATFORMS[0];
     world.player.x = platform.x + 10;
     world.player.y = platform.y - world.player.height;
@@ -74,7 +77,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('blocks a jump on the frame right after a falling platform collapses underneath the player', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const platform = FALLING_PLATFORMS[0];
     world.player.x = platform.x + 10;
     world.player.y = platform.y - world.player.height;
@@ -90,7 +93,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('reaches the falling platform using only movement and jump input (no teleporting)', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     // 숨겨진 블록 틈(300-380)과 적 구간(700-850)은 각자 전용 reachability 테스트가 있다 —
     // 이 테스트는 이동+점프만으로 낙하 발판에 "실제로 도달·발동"하는지만 검증하므로,
     // 그 함정들을 넘긴 지점(ground2, 적 구간 이후)에서 출발한다.
@@ -110,7 +113,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('collapses a hidden block after standing on top of it', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const block = HIDDEN_BLOCKS[0];
     world.player.x = block.x + 10;
     world.player.y = block.y - world.player.height;
@@ -120,7 +123,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('also collapses a hidden block on side contact, not just standing on top', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const block = HIDDEN_BLOCKS[0];
     world.player.x = block.x - world.player.width; // flush against the left edge
     world.player.y = block.y + 20; // mid-height, not resting on top
@@ -130,7 +133,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('opens a real pit once a hidden block collapses, causing a fall death', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const block = HIDDEN_BLOCKS[0];
     world.player.x = block.x + 10;
     world.player.y = block.y - world.player.height;
@@ -144,7 +147,7 @@ describe('World trap and goal rules', () => {
   it('still allows a jump when the player straddles a collapsing block and adjacent solid ground', () => {
     // Codex 리뷰 재현: ground1a(0-300)와 숨겨진 블록(300-380) 경계에 걸쳐 서 있다가
     // 블록이 붕괴하는 바로 그 프레임에 점프하면, ground1a가 여전히 받치고 있으므로 점프가 되어야 한다.
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.player.x = 278.5; // right edge(304.5)가 ground1a(300)와 숨겨진 블록을 동시에 걸침
     world.player.y = 468;
     world.player.grounded = true;
@@ -159,7 +162,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('reaches and triggers the hidden block from spawn by walking only (no teleporting)', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
     let triggered = false;
     for (let i = 0; i < 300 && !triggered; i++) {
@@ -171,7 +174,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets with a counted death when touching an enemy', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const enemy = world.enemies[0];
     world.player.x = enemy.x;
     world.player.y = enemy.y;
@@ -181,7 +184,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('enemy patrols back and forth without being pushed by the player', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const enemy = world.enemies[0];
     const startX = enemy.x;
     for (let i = 0; i < 300; i++) world.update(dt, noInput);
@@ -192,7 +195,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets enemy patrol position and direction on restart', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     for (let i = 0; i < 60; i++) world.update(dt, noInput); // let it move away from minX
     expect(world.enemies[0].x).not.toBe(ENEMIES[0].minX);
     world.update(dt, { ...noInput, restartPressed: true });
@@ -201,7 +204,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('reaches and collides with the enemy using only movement and jump input (no teleporting)', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     // 숨겨진 블록(300-380)은 밟으면 반드시 붕괴하는 함정이라 직선 보행 테스트와는 별개로
     // "reaches and triggers the hidden block" 테스트로 이미 검증했다 — 여기서는 그 틈을 넘어선
     // 지점(400)에서 출발해 gap1(520-620)을 점프로 건너 적 구간(700-850)까지 도달하는지 검증한다.
@@ -223,7 +226,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('spawns the ambush enemy after the warning delay once the trigger zone is entered', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const { trigger, minX, y } = AMBUSH_ENEMIES[0];
     world.player.x = trigger.x + 1;
     world.player.y = trigger.y + 1;
@@ -238,7 +241,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets with a counted death when touching a spawned ambush enemy', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const { trigger } = AMBUSH_ENEMIES[0];
     world.player.x = trigger.x + 1;
     world.player.y = trigger.y + 1;
@@ -253,7 +256,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets ambush trigger and spawned enemy on restart', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const { trigger } = AMBUSH_ENEMIES[0];
     world.player.x = trigger.x + 1;
     world.player.y = trigger.y + 1;
@@ -266,7 +269,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('reaches and collides with the ambush enemy using only movement and jump input (no teleporting)', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     // 낙하 발판 구간(ground2~ground3)은 전용 테스트로 이미 검증했으므로, 그 다리를 건넌 지점(1350)
     // 에서 출발해 실제로 트리거를 지나 등장한 적과 충돌하는지만 검증한다.
     world.player.x = 1350;
@@ -287,7 +290,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('triggers the conditional trap only after dwelling past the threshold', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const zone = CONDITIONAL_TRAPS[0].zone;
     world.player.x = zone.x + 1;
     world.player.y = zone.y + 1;
@@ -301,7 +304,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets dwell time when the player leaves the conditional trap zone before the threshold', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const zone = CONDITIONAL_TRAPS[0].zone;
     world.player.x = zone.x + 1;
     world.player.y = zone.y + 1;
@@ -315,7 +318,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('passing through the conditional trap zone quickly is safe', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const zone = CONDITIONAL_TRAPS[0].zone;
     world.player.x = zone.x - 10;
     world.player.y = 468;
@@ -327,7 +330,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets conditional trap dwell time on restart', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const zone = CONDITIONAL_TRAPS[0].zone;
     world.player.x = zone.x + 1;
     world.player.y = zone.y + 1;
@@ -341,7 +344,7 @@ describe('World trap and goal rules', () => {
     // 개별 함정별 reachability 테스트는 각자 그 함정 직전에서 시작해 특정 구간만 검증한다.
     // Codex 리뷰: 그것만으로는 스폰부터 끝까지 "살아서" 통과 가능한지 보장하지 않는다는 지적을
     // 받아, 생성 지점부터 모든 함정·적·목표를 실제 입력만으로 통과하는 테스트를 복원한다.
-    const world = new World();
+    const world = new World(LEVEL_1);
     const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
     for (let i = 0; i < 1500 && !world.cleared; i++) {
       const solids = [...SOLIDS, ...world.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect)];
@@ -356,7 +359,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('sets the active checkpoint on contact', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const cp = CHECKPOINTS[0];
     world.player.x = cp.zone.x + 1;
     world.player.y = cp.zone.y + 1;
@@ -366,7 +369,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('respawns at the checkpoint (not the level start) after a death once one was reached', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const cp = CHECKPOINTS[0];
     world.player.x = cp.zone.x + 1;
     world.player.y = cp.zone.y + 1;
@@ -382,7 +385,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('manual restart (R) clears the checkpoint and respawns at the level start', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const cp = CHECKPOINTS[0];
     world.player.x = cp.zone.x + 1;
     world.player.y = cp.zone.y + 1;
@@ -395,7 +398,7 @@ describe('World trap and goal rules', () => {
   });
 
   it('resets falling platform, hidden block, and cleared state on restart', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.player.x = GOAL.x;
     world.player.y = GOAL.y;
     world.update(dt, noInput);
@@ -414,7 +417,7 @@ describe('World trap and goal rules', () => {
 
 describe('World sound events', () => {
   it('reports a jump only when the jump actually happens (grounded)', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.update(dt, { ...noInput, jumpPressed: true }); // 스폰 직후는 공중이라 점프가 일어나지 않는다
     expect(world.drainEvents()).toEqual([]);
     world.player.x = 100;
@@ -425,7 +428,7 @@ describe('World sound events', () => {
   });
 
   it('reports a death, and drainEvents empties the queue', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const hazard = HAZARDS[0];
     world.player.x = hazard.x + 1;
     world.player.y = hazard.y - world.player.height + 1;
@@ -435,13 +438,13 @@ describe('World sound events', () => {
   });
 
   it('does not report a death on manual restart', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.update(dt, { ...noInput, restartPressed: true });
     expect(world.drainEvents()).toEqual([]);
   });
 
   it('reports a checkpoint only when it is newly activated, not every frame inside the zone', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const cp = CHECKPOINTS[0];
     world.player.x = cp.zone.x + 1;
     world.player.y = cp.zone.y + 1;
@@ -454,7 +457,7 @@ describe('World sound events', () => {
   });
 
   it('reports the clear once, not on every frame spent at the goal', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     world.player.x = GOAL.x;
     world.player.y = GOAL.y;
     world.update(dt, noInput);
@@ -468,13 +471,13 @@ describe('World sound events', () => {
 
 describe('World run time and run deaths (best record inputs)', () => {
   it('accumulates run time per fixed step and reports it in tenths of a second', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     for (let i = 0; i < 60; i++) world.update(dt, noInput);
     expect(world.snapshot().time).toBe(1); // 1/60 누적 오차로 0.9가 되지 않는다
   });
 
   it('keeps the run going through a death: time keeps counting and only this run\'s deaths are counted', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     for (let i = 0; i < 30; i++) world.update(dt, noInput);
     const hazard = HAZARDS[0];
     world.player.x = hazard.x + 1;
@@ -485,7 +488,7 @@ describe('World run time and run deaths (best record inputs)', () => {
   });
 
   it('manual restart starts a new run but keeps the lifetime FALLS counter', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const hazard = HAZARDS[0];
     world.player.x = hazard.x + 1;
     world.player.y = hazard.y - world.player.height + 1;
@@ -498,7 +501,7 @@ describe('World run time and run deaths (best record inputs)', () => {
   });
 
   it('freezes the run once cleared: time stops and later deaths do not change the run result', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     for (let i = 0; i < 30; i++) world.update(dt, noInput);
     world.player.x = GOAL.x;
     world.player.y = GOAL.y;
@@ -523,7 +526,7 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
   }
 
   it('highlights the hazard that caused the death right after respawn', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     dieOnHazard(world);
     expect(world.hazardReveal?.rect).toBe(HAZARDS[0]);
   });
@@ -536,7 +539,7 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
   }
 
   it('clears the highlight after 2 seconds of play while the tile is on screen', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     reachCheckpoint(world); // 체크포인트(950)에서 재시작하면 위험지대(1060)가 화면 안에 있다
     dieOnHazard(world);
     for (let i = 0; i < 119; i++) world.update(dt, noInput);
@@ -546,14 +549,14 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
   });
 
   it('manual restart (R) clears the highlight', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     dieOnHazard(world);
     world.update(dt, { ...noInput, restartPressed: true });
     expect(world.hazardReveal).toBeNull();
   });
 
   it('does not highlight anything for other causes of death, and a later death clears an active highlight', () => {
-    const world = new World();
+    const world = new World(LEVEL_1);
     const enemy = world.enemies[0];
     world.player.x = enemy.x;
     world.player.y = enemy.y;
@@ -573,7 +576,7 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
   it('keeps the highlight while the tile is off screen and only counts down once it is visible', () => {
     // 코덱스 리뷰: 체크포인트를 건너뛰고 죽으면 시작점에서 재시작해 위험지대가 화면 밖에 있는데,
     // 2초가 그대로 흘러 플레이어가 보지 못한 채 표시가 사라졌다.
-    const world = new World();
+    const world = new World(LEVEL_1);
     dieOnHazard(world); // 체크포인트 없이 사망 → 시작점(65)에서 재시작, 위험지대(1060)는 화면 밖
     expect(world.activeCheckpoint).toBeNull();
     for (let i = 0; i < 240; i++) world.update(dt, noInput);
@@ -591,7 +594,7 @@ describe('checkpoint placement before the fake safe zone', () => {
     const ground = SOLIDS.find((s) => s.x <= cp.zone.x && s.x + s.width >= cp.zone.x + cp.zone.width);
     if (!ground) throw new Error('checkpoint is not over solid ground');
     for (let start = cp.zone.x - 160; start <= cp.zone.x - 30; start += 5) {
-      const world = new World();
+      const world = new World(LEVEL_1);
       world.enemies = []; world.ambushes = []; // 점프 궤적만 검증한다
       world.player.x = start;
       world.player.y = ground.y - world.player.height;

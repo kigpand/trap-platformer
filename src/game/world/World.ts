@@ -2,10 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import {
-  AMBUSH_ENEMIES, CHECKPOINTS, CONDITIONAL_TRAPS, ENEMIES, FALLING_PLATFORMS, GOAL, HAZARDS, HIDDEN_BLOCKS, SOLIDS,
-  SPAWN, WORLD_HEIGHT, WORLD_WIDTH, type AmbushEnemy,
-} from './level';
+import type { AmbushEnemy, Level } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -47,16 +44,16 @@ function createCollapsingSolids(rects: readonly Rect[]): CollapsingSolidState[] 
   return rects.map((rect) => ({ rect, solid: true, timer: null }));
 }
 
-function createEnemies(): Enemy[] {
-  return ENEMIES.map((e) => createEnemy(e.minX, e.maxX, e.y));
+function createEnemies(level: Level): Enemy[] {
+  return level.enemies.map((e) => createEnemy(e.minX, e.maxX, e.y));
 }
 
-function createAmbushes(): AmbushState[] {
-  return AMBUSH_ENEMIES.map((config) => ({ config, warningTimer: null, enemy: null }));
+function createAmbushes(level: Level): AmbushState[] {
+  return level.ambushes.map((config) => ({ config, warningTimer: null, enemy: null }));
 }
 
-function createConditionalTraps(): ConditionalTrapState[] {
-  return CONDITIONAL_TRAPS.map((c) => ({ zone: c.zone, dwellTime: 0 }));
+function createConditionalTraps(level: Level): ConditionalTrapState[] {
+  return level.conditionalTraps.map((c) => ({ zone: c.zone, dwellTime: 0 }));
 }
 
 // 접촉 시 타이머를 시작하고, 유예 시간이 지나면 솔리드 속성을 제거한다.
@@ -78,20 +75,20 @@ function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay
 // 체크포인트 없이 먼 시작점에서 재시작해 타일이 화면 밖에 있을 때는 플레이어가 볼 때까지 남는다.
 export interface HazardRevealState { readonly rect: Rect; remaining: number }
 
-function isOnScreen(rect: Rect, playerX: number): boolean {
-  const left = cameraX(playerX, VIEW_WIDTH);
+function isOnScreen(rect: Rect, playerX: number, levelWidth: number): boolean {
+  const left = cameraX(playerX, VIEW_WIDTH, levelWidth);
   return rect.x < left + VIEW_WIDTH && rect.x + rect.width > left;
 }
 
 export class World {
-  player: Player = createPlayer(SPAWN.x, SPAWN.y);
+  player: Player;
   deaths = 0;
   cleared = false;
-  fallingPlatforms: CollapsingSolidState[] = createCollapsingSolids(FALLING_PLATFORMS);
-  hiddenBlocks: CollapsingSolidState[] = createCollapsingSolids(HIDDEN_BLOCKS);
-  enemies: Enemy[] = createEnemies();
-  ambushes: AmbushState[] = createAmbushes();
-  conditionalTraps: ConditionalTrapState[] = createConditionalTraps();
+  fallingPlatforms: CollapsingSolidState[];
+  hiddenBlocks: CollapsingSolidState[];
+  enemies: Enemy[];
+  ambushes: AmbushState[];
+  conditionalTraps: ConditionalTrapState[];
   activeCheckpoint: { x: number; y: number } | null = null;
   hazardReveal: HazardRevealState | null = null;
   // 기록용 "런": 수동 재시작(R)으로만 새로 시작한다. 사망은 체크포인트에서 이어 가므로 런을 끊지 않는다.
@@ -100,6 +97,16 @@ export class World {
   runDeaths = 0;
   private runComplete = false;
   private events: WorldEvent[] = [];
+  // 레벨 의존 상태는 필드 초기화식이 아니라 생성자에서 만든다 — 초기화식은 매개변수 속성(this.level)이
+  // 할당되기 전에 실행되기 때문이다.
+  constructor(readonly level: Level) {
+    this.player = createPlayer(level.spawn.x, level.spawn.y);
+    this.fallingPlatforms = createCollapsingSolids(level.fallingPlatforms);
+    this.hiddenBlocks = createCollapsingSolids(level.hiddenBlocks);
+    this.enemies = createEnemies(level);
+    this.ambushes = createAmbushes(level);
+    this.conditionalTraps = createConditionalTraps(level);
+  }
   drainEvents(): WorldEvent[] {
     const drained = this.events;
     this.events = [];
@@ -114,19 +121,19 @@ export class World {
       this.runTime = 0; this.runDeaths = 0; this.runComplete = false;
     }
     this.hazardReveal = null; // 모든 재시작에서 지우고, 가짜 안전지대 사망만 update에서 다시 건다
-    const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : SPAWN;
+    const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : this.level.spawn;
     this.player = createPlayer(spawn.x, spawn.y);
     this.cleared = false;
-    this.fallingPlatforms = createCollapsingSolids(FALLING_PLATFORMS);
-    this.hiddenBlocks = createCollapsingSolids(HIDDEN_BLOCKS);
-    this.enemies = createEnemies();
-    this.ambushes = createAmbushes();
-    this.conditionalTraps = createConditionalTraps();
+    this.fallingPlatforms = createCollapsingSolids(this.level.fallingPlatforms);
+    this.hiddenBlocks = createCollapsingSolids(this.level.hiddenBlocks);
+    this.enemies = createEnemies(this.level);
+    this.ambushes = createAmbushes(this.level);
+    this.conditionalTraps = createConditionalTraps(this.level);
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
     if (!this.runComplete) this.runTime += dt;
-    if (this.hazardReveal && isOnScreen(this.hazardReveal.rect, this.player.x)) {
+    if (this.hazardReveal && isOnScreen(this.hazardReveal.rect, this.player.x, this.level.width)) {
       this.hazardReveal.remaining -= dt;
       if (this.hazardReveal.remaining <= 1e-6) this.hazardReveal = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
     }
@@ -142,7 +149,7 @@ export class World {
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
     if (p.grounded) {
-      const stillSupported = SOLIDS.some((s) => isStandingOn(p, s))
+      const stillSupported = this.level.solids.some((s) => isStandingOn(p, s))
         || this.fallingPlatforms.some((fp) => fp.solid && isStandingOn(p, fp.rect))
         || this.hiddenBlocks.some((hb) => hb.solid && isStandingOn(p, hb.rect));
       if (!stillSupported) p.grounded = false;
@@ -153,9 +160,9 @@ export class World {
     if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; this.events.push('jump'); }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     const collapsing = [...this.fallingPlatforms, ...this.hiddenBlocks].filter((s) => s.solid).map((s) => s.rect);
-    const solids = [...SOLIDS, ...collapsing];
+    const solids = [...this.level.solids, ...collapsing];
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
-    p.x = Math.max(0, Math.min(WORLD_WIDTH - p.width, p.x));
+    p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
@@ -174,14 +181,14 @@ export class World {
 
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
 
-    for (const cp of CHECKPOINTS) {
+    for (const cp of this.level.checkpoints) {
       if (!overlaps(p, cp.zone)) continue;
       const current = this.activeCheckpoint;
       if (current?.x !== cp.respawnX || current.y !== cp.respawnY) this.events.push('checkpoint'); // 새로 활성화될 때만
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
 
-    const hazard = HAZARDS.find((h) => overlaps(p, h));
+    const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) {
       this.reset(true);
       this.hazardReveal = { rect: hazard, remaining: HAZARD_REVEAL_DURATION };
@@ -189,8 +196,8 @@ export class World {
     }
     if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
     if (this.conditionalTraps.some((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD)) { this.reset(true); return; }
-    if (overlaps(p, GOAL) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
-    if (p.y > WORLD_HEIGHT + 100) this.reset(true);
+    if (overlaps(p, this.level.goal) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
+    if (p.y > this.level.height + 100) this.reset(true);
   }
   snapshot(): GameSnapshot {
     const p = this.player;

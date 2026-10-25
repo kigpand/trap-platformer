@@ -10,13 +10,13 @@
 - v0.1 적은 고정 구간을 왕복하는 단순 이동만 지원합니다. 추적 AI, 가속, 발사체는 범위 밖입니다.
 
 ## 구현 현황
-- [x] 2. 낙하하는 발판 — 붕괴·타이머 로직(`src/game/world/level.ts`의 `FALLING_PLATFORMS`, `src/game/world/World.ts`)
-- [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `HAZARDS`
+- [x] 2. 낙하하는 발판 — 붕괴·타이머 로직(`src/game/world/level.ts`의 `LEVEL_1.fallingPlatforms`, `src/game/world/World.ts`)
+- [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `LEVEL_1.hazards`
   - [x] 사망 후 위치 표시(아래 "텔레그래프") — `World.hazardReveal`(화면에 보이는 동안 고정 스텝에서만 2초 감소, 화면 판정은 렌더러와 공유하는 `world/viewport.ts`), `CanvasRenderer`가 경고색으로 그림
-- [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `HIDDEN_BLOCKS`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
-- [x] 적 이동·충돌(위 "적 충돌 규칙") — `src/game/entities/Enemy.ts`, `src/game/world/level.ts`의 `ENEMIES`
-- [x] 3. 갑자기 출현하는 적 — `src/game/world/level.ts`의 `AMBUSH_ENEMIES`, `World.ts`의 `AmbushState`
-- [x] 5. 조건부 함정 트리거 — "영역 내 1초 이상 체류" 조건만 구현(`CONDITIONAL_TRAPS`). "스위치 순서" 조건은 미구현(아래 "미정 사항" 참고)
+- [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `LEVEL_1.hiddenBlocks`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
+- [x] 적 이동·충돌(위 "적 충돌 규칙") — `src/game/entities/Enemy.ts`, `src/game/world/level.ts`의 `LEVEL_1.enemies`
+- [x] 3. 갑자기 출현하는 적 — `src/game/world/level.ts`의 `LEVEL_1.ambushes`, `World.ts`의 `AmbushState`
+- [x] 5. 조건부 함정 트리거 — "영역 내 1초 이상 체류" 조건만 구현(`LEVEL_1.conditionalTraps`). "스위치 순서" 조건은 미구현(아래 "미정 사항" 참고)
 
 함정 5종(가짜 안전지대의 사망 후 위치 표시 포함)과 적 이동·충돌 모두 구현 완료했으며, "공통 규칙"의 학습 가능 요건을 충족합니다.
 
