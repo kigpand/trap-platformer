@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { shouldJump } from './autopilot';
+import { playSolution } from './solution';
 
 // 이 파일의 테스트는 레벨 1의 배치를 검증한다. 레벨 객체 도입 전의 이름을 그대로 써서 테스트 본문은 바꾸지 않는다.
 const {
@@ -325,20 +326,14 @@ describe('World trap and goal rules', () => {
     expect(world.conditionalTraps[0].dwellTime).toBe(0);
   });
 
-  it('reaches the goal from spawn through every trap using only movement and jump input (no teleporting)', () => {
+  it('passes every original trap from spawn using only movement and jump input (no teleporting)', () => {
     // 개별 함정별 reachability 테스트는 각자 그 함정 직전에서 시작해 특정 구간만 검증한다.
     // Codex 리뷰: 그것만으로는 스폰부터 끝까지 "살아서" 통과 가능한지 보장하지 않는다는 지적을
-    // 받아, 생성 지점부터 모든 함정·적·목표를 실제 입력만으로 통과하는 테스트를 복원한다.
+    // 받아, 생성 지점부터 실제 입력만으로 통과하는 테스트를 둔다. 레벨 1이 트롤 함정 구간까지 길어진 뒤로는
+    // 보이는 함정만 피하는 자동 플레이로 원래 구간(사라지는 땅 직전까지)을 검증하고, 목표까지의 완주는
+    // 해법 입력으로 Level1.test.ts에서 검증한다.
     const world = new World(LEVEL_1);
-    const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-    for (let i = 0; i < 1500 && !world.cleared; i++) {
-      const solids = [...SOLIDS, ...world.fallingPlatforms.filter((fp) => fp.solid).map((fp) => fp.rect)];
-      const spawnedAmbushes = world.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []));
-      const obstacles = [...HAZARDS, ...world.enemies, ...spawnedAmbushes];
-      input.jumpPressed = shouldJump(world.player, solids, obstacles);
-      world.update(dt, input);
-    }
-    expect(world.cleared).toBe(true);
+    expect(playSolution(world, [{ auto: 1940 }])).toBe(1);
     expect(world.deaths).toBe(0);
     expect(world.activeCheckpoint).not.toBeNull(); // 가는 길에 체크포인트도 실제로 밟았어야 한다
   });
