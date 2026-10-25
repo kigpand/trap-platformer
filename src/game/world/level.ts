@@ -106,16 +106,21 @@ export const LEVEL_1: Level = {
 // 거리(약 147px)보다 넓어 가운데 낙하 발판을 반드시 밟고 0.4초 안에 다시 뛰어야 한다.
 // 배치 제약(docs/physics-spec.md "레벨 배치 제약")과 도달 가능성은 tests/unit/world/Level2.test.ts가 검증한다.
 export const LEVEL_2: Level = {
-  width: 2200,
+  width: 5100,
   height: 620,
   spawn: { x: 65, y: 350 },
   // groundA: 시작 구간. groundB: 갑자기 출현하는 적·체크포인트·가짜 안전지대·왕복 적 구간. groundC: 틈(1760-1860) 너머 목표 구간.
   solids: [
     { x: 0, y: 500, width: 400, height: 120 },
     { x: 640, y: 500, width: 1120, height: 120 },
-    { x: 1860, y: 500, width: 340, height: 120 },
+    { x: 1860, y: 500, width: 290, height: 120 },
+    // 함정 확장 구간(2150~). groundD: 가시·가짜 체크포인트, groundE: 천장·적, groundF·G: 도망가는 목표.
+    { x: 2230, y: 500, width: 670, height: 120 },
+    { x: 3260, y: 500, width: 640, height: 120 },
+    { x: 4160, y: 500, width: 440, height: 120 },
+    { x: 4700, y: 500, width: 400, height: 120 },
   ],
-  goal: { x: 2140, y: 440, width: 40, height: 60 },
+  goal: { x: 4480, y: 440, width: 40, height: 60 }, // 다가가면 도망간다(goalHops)
   // 가짜 안전지대: groundB 위 위장 타일. 앞(1100)에 건너뛸 수 없는 체크포인트가 있어, 이 함정으로
   // 죽으면 체크포인트에서 재시작하고 강조 표시가 화면 안에 보인다(docs/traps-spec.md #4). 체크포인트와
   // 200px 띄운다 — 재시작 위치(공중 y 350)에서 →를 누른 채 떨어져도 착지한 뒤 점프할 거리가 남도록.
@@ -126,7 +131,7 @@ export const LEVEL_2: Level = {
   // 왕복 적: 가짜 안전지대 너머. 위험지대를 넘어 착지하는 지점(약 1400)과 순찰 구간(1500-1600)을 띄워,
   // 체크포인트에서 재시작해 적의 순찰 위치가 초기화돼도 착지하자마자 부딪히지 않게 한다. 적을 넘어 착지한
   // 뒤에도 groundB 끝(1760)까지 다시 점프할 거리가 남는다.
-  enemies: [{ minX: 1500, maxX: 1600, y: 472 }],
+  enemies: [{ minX: 1500, maxX: 1600, y: 472 }, { minX: 3700, maxX: 3800, y: 472 }], // 두 번째: 천장 너머 groundE. 천장 블록을 넘어 착지하는 곳(약 3660)과 띄운다
   // 갑자기 출현하는 적: 구덩이를 건넌 직후 트리거(720-760). 등장 구간(960-1060)은 트리거보다 200px 앞이라
   // 경고 0.3초 안에 들이닥치지 않고, 체크포인트(1100) 앞에서 끝나 재시작 위치와 겹치지 않는다. 구간이 짧아
   // 등장 직후 곧 방향을 돌려 플레이어와 마주 오므로, 뒤에서 따라잡다 등에 떨어지는 일 없이 넘을 수 있다.
@@ -137,14 +142,30 @@ export const LEVEL_2: Level = {
   // 체크포인트: 영역 위쪽(360)이 점프 최고점의 발 위치(약 419)보다 높아 건너뛸 수 없다(physics-spec "레벨 배치 제약").
   checkpoints: [
     { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
+    // 함정 확장 구간마다 둔 체크포인트: 투명 블록 앞, 가시·가짜 체크포인트 앞, 천장 앞, 도망가는 목표 앞.
+    { zone: { x: 1900, y: 360, width: 40, height: 140 }, respawnX: 1900, respawnY: 350 },
+    { zone: { x: 2290, y: 360, width: 40, height: 140 }, respawnX: 2290, respawnY: 350 },
+    { zone: { x: 3300, y: 360, width: 40, height: 140 }, respawnX: 3300, respawnY: 350 },
+    { zone: { x: 4200, y: 360, width: 40, height: 140 }, respawnX: 4200, respawnY: 350 },
   ],
-  vanishingGrounds: [],
-  invisibleBlocks: [],
-  fallingCeilings: [],
-  dodgingPlatforms: [],
-  popUpSpikes: [],
-  fakeCheckpoints: [],
-  goalHops: [],
+  // 레벨 2(보통): 새 함정 7종을 모두 쓰고, 레벨 1보다 타이밍을 좁힌다(docs/game-design.md "난이도 곡선").
+  // 사라지는 땅: groundD 끝(2900)~groundE(3260) 9칸.
+  vanishingGrounds: [{ x: 2900, y: 500, width: 360, height: 120 }],
+  // 투명 블록: groundC 끝(2150)의 80px 구덩이 바로 위. 가장자리에서 뛰는 보통 점프(오른쪽 끝 2130~2150)는 머리를 찧고
+  // 떨어진다. 시뮬레이션 실측으로 오른쪽 끝 2084~2126(43px)에서 일찍 뛰면 블록 아래를 지나 건너편에 착지한다.
+  invisibleBlocks: [{ x: 2140, y: 420, width: 80, height: 20 }],
+  fallingCeilings: [{ block: { x: 3560, y: 380, width: 40, height: 40 }, trigger: { x: 3510, y: 380, width: 90, height: 120 } }],
+  // 도망가는 발판: groundE 끝(3900)~groundF(4160) 260px 구덩이.
+  dodgingPlatforms: [{ platform: { x: 3930, y: 480, width: 60, height: 20 }, trigger: { x: 3860, y: 380, width: 40, height: 100 }, to: { x: 4020, y: 480 } }],
+  // 솟아오르는 가시: 레벨 1(16px)보다 넓은 24px.
+  popUpSpikes: [{ spikes: { x: 2560, y: 476, width: 24, height: 24 }, trigger: { x: 2500, y: 400, width: 60, height: 100 } }],
+  // 가짜 체크포인트: 진짜 체크포인트(2290) 뒤. 높이 50px로 점프로 넘을 수 있다.
+  fakeCheckpoints: [{ x: 2780, y: 450, width: 40, height: 50 }],
+  // 도망가는 목표: groundF(4480)에서 다가가면 구덩이(4600-4700) 건너 groundG로, 거기서 다시 끝으로 달아난다.
+  goalHops: [
+    { trigger: { x: 4400, y: 400, width: 40, height: 100 }, to: { x: 4840, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 4760, y: 400, width: 40, height: 100 }, to: { x: 5040, y: 440, width: 40, height: 60 } },
+  ],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.

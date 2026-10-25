@@ -6,6 +6,8 @@ import { shouldJump } from './autopilot';
 export type Step =
   | { auto: number } // 오른쪽 끝이 x에 닿을 때까지 자동 플레이(보이는 함정·적 회피)로 간다
   | { run: number } // 오른쪽 끝이 x에 닿을 때까지 →만 누른다(점프 없음)
+  | { runUntil: (world: World) => boolean } // 조건이 참이 될 때까지 →만 누른다(예: 마주 오는 적과의 거리)
+  | { waitUntil: (world: World) => boolean } // 조건이 참이 될 때까지 가만히 있는다(예: 적이 돌아올 때까지)
   | { jump: true } // →와 함께 점프하고 착지할 때까지 →를 누른다
   | { hop: true } // 제자리에서 점프하고 착지할 때까지 기다린다
   | { right: number } // →를 n스텝 누른다
@@ -27,7 +29,8 @@ export function playSolution(world: World, steps: readonly Step[]): number {
       if (stop()) return true;
       world.update(dt, next());
     }
-    return false;
+    // 마지막(1200번째) 업데이트 직후에 처음 참이 된 조건도 제한 안에서 성립한 것으로 본다(Codex 리뷰).
+    return alive() && stop();
   };
   for (let n = 0; n < steps.length; n++) {
     const s = steps[n];
@@ -40,6 +43,10 @@ export function playSolution(world: World, steps: readonly Step[]): number {
       });
     } else if ('run' in s) {
       ok = until(() => rightEdge() >= s.run, () => input(1));
+    } else if ('runUntil' in s) {
+      ok = until(() => s.runUntil(world), () => input(1));
+    } else if ('waitUntil' in s) {
+      ok = until(() => s.waitUntil(world), () => input(0));
     } else if ('jump' in s) {
       world.update(dt, input(1, true));
       ok = until(() => world.player.grounded, () => input(1));
