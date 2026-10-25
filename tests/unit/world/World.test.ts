@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1 } from '../../../src/game/world/level';
-import type { Rect } from '../../../src/game/physics/AABB';
-import type { Player } from '../../../src/game/entities/Player';
+import { shouldJump } from './autopilot';
 
 // 이 파일의 테스트는 레벨 1의 배치를 검증한다. 레벨 객체 도입 전의 이름을 그대로 써서 테스트 본문은 바꾸지 않는다.
 const {
@@ -11,20 +10,6 @@ const {
 } = LEVEL_1;
 const noInput = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 const dt = 1 / 60;
-
-// 텔레포트 없이 실제 입력만으로 레벨을 통과시키는 보수적인 자동 플레이어.
-// 서 있는 발판의 가장자리(간격 포함)나 전방의 위험 요소(위험지대·적 등 solids에 넣지 않은
-// 것)가 가까워지면 점프한다 — 숙련된 플레이어의 "엣지 점프"와 달리 약간 더 일찍 뛰어 중간
-// 발판에도 착지한다. obstacles는 매 프레임 다시 계산해서 넘기면 움직이는 적에도 반응한다.
-function shouldJump(player: Player, solids: readonly Rect[], obstacles: readonly Rect[]): boolean {
-  if (!player.grounded) return false;
-  const standingOn = solids.find(
-    (s) => player.x < s.x + s.width && player.x + player.width > s.x && Math.abs(player.y + player.height - s.y) < 1,
-  );
-  const edgeDistance = standingOn ? standingOn.x + standingOn.width - (player.x + player.width) : -1;
-  const upcomingObstacle = obstacles.some((h) => h.x >= player.x + player.width && h.x - (player.x + player.width) < 20);
-  return standingOn === undefined || edgeDistance < 20 || upcomingObstacle;
-}
 
 describe('World trap and goal rules', () => {
   it('updates facing on horizontal input and keeps it while idle', () => {
