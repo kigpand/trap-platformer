@@ -50,6 +50,19 @@ describe('#6 vanishing ground (chain collapse)', () => {
     expect(world.player.x).toBeGreaterThan(720);
   });
 
+  it('removes a shorter last tile only after a full tile\'s time, like the others', () => {
+    // 100px 구간 = 40px·40px·20px 칸. 마지막(짧은) 칸도 명세 공식대로 3 × 40 / 150 = 0.8초(48스텝)에 사라진다.
+    const shortSection: Rect = { x: 300, y: 500, width: 100, height: 120 };
+    const world = new World(level({ solids: [{ x: 0, y: 500, width: 300, height: 120 }, { x: 400, y: 500, width: 1600, height: 120 }], vanishingGrounds: [shortSection] }));
+    standAt(world, 310);
+    world.update(dt, idle); // 1스텝: 트리거
+    standAt(world, 600); // 붕괴는 계속 진행되지만 플레이어는 안전한 바닥으로 옮겨 사망으로 초기화되지 않게 한다
+    runUntil(world, idle, 46); // 47스텝 ≈ 0.783초
+    expect(world.vanishingGrounds[0].tilesGone).toBe(2);
+    world.update(dt, idle); // 48스텝 = 0.8초
+    expect(world.vanishingGrounds[0].tilesGone).toBe(3);
+  });
+
   it('drops a player who stops on it, and blames the section', () => {
     const world = new World(L);
     standAt(world, 320);
@@ -93,6 +106,18 @@ describe('#7 invisible block', () => {
     runUntil(world, right, 40);
     expect(world.invisibleBlocks[0].visible).toBe(false); // 아래에서 찧은 게 아니므로 나타나지 않는다
     expect(world.player.x).toBeGreaterThan(block.x + block.width);
+  });
+
+  it('does not appear when the player reaches its height from the side in the same step it enters horizontally', () => {
+    // 코덱스 리뷰: 이동 후 x만 보고 겹침을 판정해서, 블록 옆에서 대각선으로 올라오며 머리가 아랫면 높이를 막 지나는
+    // 스텝에 수평으로 막 겹치기 시작하면(머리가 아랫면 높이를 지날 때는 아직 블록 옆이었는데) 아랫면을 찧은 것으로 봤다.
+    const world = new World(flat);
+    const bottom = block.y + block.height;
+    world.player.x = block.x - world.player.width - 1; // 블록 왼쪽 옆, 겹치지 않음
+    world.player.y = bottom + 1; // 머리가 아랫면보다 1px 아래
+    world.player.vx = 210; world.player.vy = -480; world.player.grounded = false;
+    world.update(dt, right); // 이번 스텝: 머리는 약 0.1 지점에서 아랫면 높이를 지나고, 수평 겹침은 그보다 늦게 시작된다
+    expect(world.invisibleBlocks[0].visible).toBe(false);
   });
 
   it('blames the block when it knocks the player into a pit', () => {
@@ -141,14 +166,35 @@ describe('#9 falling ceiling', () => {
     expect(world.deaths).toBe(0);
   });
 
-  it('waits 0.1s after the trigger before falling', () => {
+  it('starts falling exactly 0.1s (6 steps) after the trigger, not a frame later', () => {
+    // 코덱스 리뷰: 0.1 − 6 × (1/60)이 부동소수 오차로 0보다 조금 크게 남아 7스텝째에 떨어졌다.
     const world = new World(L);
-    standAt(world, 570);
-    world.update(dt, idle);
+    standAt(world, 400); // 트리거 밖
+    world.player.x = 570; // 트리거 안으로(플레이어가 깔리지 않게 아래 검사는 위치만 본다)
+    world.update(dt, idle); // 1스텝: 트리거
     expect(world.fallingCeilings[0].phase).toBe('armed');
-    runUntil(world, idle, 4);
-    expect(world.fallingCeilings[0].y).toBe(ceiling.block.y); // 아직 떨어지지 않음(5스텝 ≈ 0.083초)
-    runUntil(world, idle, 2);
-    expect(world.fallingCeilings[0].phase === 'falling' || world.deaths > 0).toBe(true);
+    standAt(world, 400); // 블록 밑에서 벗어나 깔림 사망으로 상태가 초기화되지 않게 한다
+    runUntil(world, idle, 4); // 5스텝
+    expect(world.fallingCeilings[0].phase).toBe('armed');
+    expect(world.fallingCeilings[0].y).toBe(ceiling.block.y);
+    world.update(dt, idle); // 6스텝 = 0.1초
+    expect(world.fallingCeilings[0].phase).toBe('falling');
+    expect(world.fallingCeilings[0].y).toBeGreaterThan(ceiling.block.y);
+  });
+
+  it('lands on a 20px platform without tunneling even at max fall speed', () => {
+    // 최대 낙하 속도(900px/s)에서 한 스텝 이동량은 15px로, 명세의 가장 얇은 발판(20px)보다 작다.
+    const platform: Rect = { x: 500, y: 400, width: 100, height: 20 };
+    const high = { block: { x: 520, y: -100, width: 40, height: 40 }, trigger: { x: 0, y: 0, width: 200, height: 620 } };
+    const world = new World(level({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }, platform], fallingCeilings: [high] }));
+    standAt(world, 100);
+    let maxVy = 0;
+    runUntil(world, idle, 120, () => {
+      maxVy = Math.max(maxVy, world.fallingCeilings[0].vy);
+      return world.fallingCeilings[0].phase === 'landed' || world.fallingCeilings[0].phase === 'gone';
+    });
+    expect(maxVy).toBe(900); // 최대 속도에 도달한 뒤 착지했다
+    expect(world.fallingCeilings[0].phase).toBe('landed');
+    expect(world.fallingCeilings[0].y + high.block.height).toBe(platform.y);
   });
 });

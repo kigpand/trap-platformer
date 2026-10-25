@@ -240,14 +240,20 @@ export class World {
     if (input.jumpPressed && p.grounded) { p.vy = -JUMP_SPEED; p.grounded = false; this.events.push('jump'); }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     // #7 투명 블록: 이번 이동으로 머리가 아랫면을 지나가면(위로 이동 중, 블록 아래에서 출발) 나타나 솔리드가 된다.
+    // 수평 겹침은 머리가 아랫면 높이에 닿는 바로 그 순간의 x로 판정한다 — 이동 후 x로 보면, 옆에서 대각선으로
+    // 올라오다 아랫면 높이를 지난 뒤에야 수평으로 겹치는 경우를 아래에서 찧은 것으로 오인한다(Codex 리뷰).
     // 옆이나 위에서 닿는 경우는 여기 걸리지 않고, 보이지 않는 동안은 솔리드 목록에 없어 그대로 통과한다.
     if (p.vy < 0) {
-      const nextX = p.x + p.vx * dt;
+      const dy = p.vy * dt;
       for (const ib of this.invisibleBlocks) {
         if (ib.visible) continue;
         const bottom = ib.rect.y + ib.rect.height;
-        const below = nextX < ib.rect.x + ib.rect.width && nextX + p.width > ib.rect.x && p.y >= bottom - 0.5;
-        if (below && p.y + p.vy * dt < bottom) { ib.visible = true; this.lastFallTrap = { rect: ib.rect, at: this.clock }; }
+        if (p.y < bottom - 0.5 || p.y + dy >= bottom) continue; // 이번 스텝에 아래에서 아랫면 높이를 지나지 않는다
+        const t = Math.min(1, Math.max(0, (bottom - p.y) / dy)); // 아랫면 높이에 닿는 시점(스텝 내 비율)
+        const xAtContact = p.x + p.vx * dt * t;
+        if (xAtContact < ib.rect.x + ib.rect.width && xAtContact + p.width > ib.rect.x) {
+          ib.visible = true; this.lastFallTrap = { rect: ib.rect, at: this.clock };
+        }
       }
     }
     const solids = [...this.level.solids, ...this.dynamicSolids()];
@@ -262,7 +268,7 @@ export class World {
       if (c.phase === 'idle' && overlaps(p, c.config.trigger)) { c.phase = 'armed'; c.timer = CEILING_DELAY; }
       if (c.phase === 'armed') {
         c.timer -= dt;
-        if (c.timer <= 0) c.phase = 'falling';
+        if (c.timer <= 1e-6) c.phase = 'falling'; // 0.1 − 6 × (1/60)이 부동소수 오차로 0보다 조금 크게 남아 한 프레임 늦어지지 않게
       }
       if (c.phase !== 'falling') continue;
       c.vy = Math.min(MAX_FALL_SPEED, c.vy + GRAVITY * dt);
