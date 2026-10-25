@@ -9,7 +9,8 @@ const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
 const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
 const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
-const HAZARD_REVEAL_DURATION = 2.0; // docs/traps-spec.md #4 "화면에 보이는 동안 2초" 강조 표시
+const DEATH_CAUSE_DURATION = 2.0; // docs/traps-spec.md "사망 원인 표시": 화면에 보이는 동안 2초 강조
+const FALL_CAUSE_WINDOW = 3.0; // 낙사형 함정은 사망 직전 3초 안에 마지막으로 발동한 함정을 원인으로 본다
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -61,19 +62,31 @@ function createConditionalTraps(level: Level): ConditionalTrapState[] {
 // "이 함정 하나"만 보고 지우면 틀릴 수 있다(Codex 리뷰: ground1a와 숨겨진 블록 경계에
 // 걸쳐 서 있을 때 블록이 붕괴하면 고정 바닥이 받치고 있어도 점프가 무시되던 버그).
 // 대신 모든 붕괴 처리가 끝난 뒤 World.update에서 남아있는 솔리드 전체를 기준으로 한 번에 재확인한다.
-function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay: number, dt: number): void {
-  if (!state.solid) return;
+// 이번 스텝에 무너졌으면 true — 낙사 원인(사망 직전 3초 안에 발동한 함정)을 기록하는 데 쓴다.
+function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay: number, dt: number): boolean {
+  if (!state.solid) return false;
   if (state.timer === null && triggered) state.timer = delay;
   if (state.timer !== null) {
     state.timer -= dt;
-    if (state.timer <= 0) state.solid = false;
+    if (state.timer <= 0) { state.solid = false; return true; }
   }
+  return false;
 }
 
-// 가짜 안전지대로 사망한 직후, 원인이 된 타일을 강조 표시하는 상태(docs/traps-spec.md #4 텔레그래프).
-// remaining은 update(고정 스텝)에서, 그리고 그 타일이 화면에 보이는 동안에만 줄어든다 — 일시정지 중이나
-// 체크포인트 없이 먼 시작점에서 재시작해 타일이 화면 밖에 있을 때는 플레이어가 볼 때까지 남는다.
-export interface HazardRevealState { readonly rect: Rect; remaining: number }
+// 함정으로 사망한 직후, 원인이 된 함정의 영역을 강조 표시하는 상태(docs/traps-spec.md "공통 규칙"의 사망 원인 표시).
+// remaining은 update(고정 스텝)에서, 그리고 그 영역이 화면에 보이는 동안에만 줄어든다 — 일시정지 중이나
+// 체크포인트 없이 먼 시작점에서 재시작해 영역이 화면 밖에 있을 때는 플레이어가 볼 때까지 남는다.
+export interface DeathCauseState { readonly rect: Rect; remaining: number }
+
+function union(a: Rect, b: Rect): Rect {
+  const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+  return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y };
+}
+
+// 움직이는 적은 적 자체 대신 그 적이 다니는 구간을 원인으로 표시한다(재시작하면 적 위치가 초기화되므로).
+function patrolArea(e: Enemy): Rect {
+  return { x: e.minX, y: e.y, width: e.maxX - e.minX, height: e.height };
+}
 
 function isOnScreen(rect: Rect, playerX: number, levelWidth: number): boolean {
   const left = cameraX(playerX, VIEW_WIDTH, levelWidth);
@@ -90,7 +103,11 @@ export class World {
   ambushes: AmbushState[];
   conditionalTraps: ConditionalTrapState[];
   activeCheckpoint: { x: number; y: number } | null = null;
-  hazardReveal: HazardRevealState | null = null;
+  deathCause: DeathCauseState | null = null;
+  // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
+  private lastFallTrap: { rect: Rect; at: number } | null = null;
+  // 런 시간과 달리 클리어 뒤에도 흐르는 시뮬레이션 시계 — 낙사 원인의 3초 판정에만 쓴다.
+  private clock = 0;
   // 기록용 "런": 수동 재시작(R)으로만 새로 시작한다. 사망은 체크포인트에서 이어 가므로 런을 끊지 않는다.
   // 시간은 update(고정 스텝)에서만 쌓이므로 일시정지 중에는 흐르지 않는다. 클리어하면 런이 끝나 더 쌓이지 않는다.
   runTime = 0;
@@ -112,7 +129,8 @@ export class World {
     this.events = [];
     return drained;
   }
-  reset(countDeath = false): void {
+  // cause: 이 사망의 원인 영역(없으면 표시하지 않음). 수동 재시작(R)은 원인 없이 부른다.
+  reset(countDeath = false, cause: Rect | null = null): void {
     if (countDeath) {
       this.deaths++; this.events.push('death');
       if (!this.runComplete) this.runDeaths++;
@@ -120,7 +138,8 @@ export class World {
       this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
       this.runTime = 0; this.runDeaths = 0; this.runComplete = false;
     }
-    this.hazardReveal = null; // 모든 재시작에서 지우고, 가짜 안전지대 사망만 update에서 다시 건다
+    this.deathCause = cause ? { rect: cause, remaining: DEATH_CAUSE_DURATION } : null; // 이전 표시는 항상 새 사망(또는 R)으로 대체된다
+    this.lastFallTrap = null;
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : this.level.spawn;
     this.player = createPlayer(spawn.x, spawn.y);
     this.cleared = false;
@@ -133,18 +152,22 @@ export class World {
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
     if (!this.runComplete) this.runTime += dt;
-    if (this.hazardReveal && isOnScreen(this.hazardReveal.rect, this.player.x, this.level.width)) {
-      this.hazardReveal.remaining -= dt;
-      if (this.hazardReveal.remaining <= 1e-6) this.hazardReveal = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
+    this.clock += dt;
+    if (this.deathCause && isOnScreen(this.deathCause.rect, this.player.x, this.level.width)) {
+      this.deathCause.remaining -= dt;
+      if (this.deathCause.remaining <= 1e-6) this.deathCause = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
     }
     const p = this.player;
 
     // 점프 입력을 확인하기 전에 붕괴를 먼저 처리하고, 남은 솔리드 기준으로 grounded를
     // 다시 확인해 발판이 사라진 바로 그 프레임부터 정확한 값을 쓰도록 한다
     // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
-    for (const fp of this.fallingPlatforms) updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt);
+    for (const fp of this.fallingPlatforms) {
+      if (updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt)) this.lastFallTrap = { rect: fp.rect, at: this.clock };
+    }
     for (const hb of this.hiddenBlocks) {
-      updateCollapsing(hb, isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect), HIDDEN_BLOCK_DELAY, dt);
+      const triggered = isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect);
+      if (updateCollapsing(hb, triggered, HIDDEN_BLOCK_DELAY, dt)) this.lastFallTrap = { rect: hb.rect, at: this.clock };
     }
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
@@ -177,7 +200,6 @@ export class World {
         }
       }
     }
-    const activeEnemies = [...this.enemies, ...this.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []))];
 
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
 
@@ -189,15 +211,19 @@ export class World {
     }
 
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
-    if (hazard) {
-      this.reset(true);
-      this.hazardReveal = { rect: hazard, remaining: HAZARD_REVEAL_DURATION };
-      return;
-    }
-    if (activeEnemies.some((e) => overlaps(p, e))) { this.reset(true); return; }
-    if (this.conditionalTraps.some((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD)) { this.reset(true); return; }
+    if (hazard) { this.reset(true, hazard); return; }
+    const enemy = this.enemies.find((e) => overlaps(p, e));
+    if (enemy) { this.reset(true, patrolArea(enemy)); return; }
+    const ambush = this.ambushes.find((a) => a.enemy && overlaps(p, a.enemy));
+    if (ambush?.enemy) { this.reset(true, union(ambush.config.trigger, patrolArea(ambush.enemy))); return; }
+    const conditional = this.conditionalTraps.find((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD);
+    if (conditional) { this.reset(true, conditional.zone); return; }
     if (overlaps(p, this.level.goal) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
-    if (p.y > this.level.height + 100) this.reset(true);
+    if (p.y > this.level.height + 100) {
+      // 그냥 구덩이에 빠진 낙사는 표시하지 않고, 직전 3초 안에 무너진 함정이 있으면 그것을 원인으로 본다.
+      const fallTrap = this.lastFallTrap && this.clock - this.lastFallTrap.at <= FALL_CAUSE_WINDOW ? this.lastFallTrap.rect : null;
+      this.reset(true, fallTrap);
+    }
   }
   snapshot(): GameSnapshot {
     const p = this.player;

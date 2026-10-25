@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
-import { LEVEL_1 } from '../../../src/game/world/level';
+import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { shouldJump } from './autopilot';
 
 // 이 파일의 테스트는 레벨 1의 배치를 검증한다. 레벨 객체 도입 전의 이름을 그대로 써서 테스트 본문은 바꾸지 않는다.
@@ -513,7 +513,7 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
   it('highlights the hazard that caused the death right after respawn', () => {
     const world = new World(LEVEL_1);
     dieOnHazard(world);
-    expect(world.hazardReveal?.rect).toBe(HAZARDS[0]);
+    expect(world.deathCause?.rect).toBe(HAZARDS[0]);
   });
 
   function reachCheckpoint(world: World): void {
@@ -528,34 +528,29 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
     reachCheckpoint(world); // 체크포인트(950)에서 재시작하면 위험지대(1060)가 화면 안에 있다
     dieOnHazard(world);
     for (let i = 0; i < 119; i++) world.update(dt, noInput);
-    expect(world.hazardReveal).not.toBeNull(); // 2초가 되기 직전까지는 유지
+    expect(world.deathCause).not.toBeNull(); // 2초가 되기 직전까지는 유지
     world.update(dt, noInput);
-    expect(world.hazardReveal).toBeNull();
+    expect(world.deathCause).toBeNull();
   });
 
   it('manual restart (R) clears the highlight', () => {
     const world = new World(LEVEL_1);
     dieOnHazard(world);
     world.update(dt, { ...noInput, restartPressed: true });
-    expect(world.hazardReveal).toBeNull();
+    expect(world.deathCause).toBeNull();
   });
 
-  it('does not highlight anything for other causes of death, and a later death clears an active highlight', () => {
+  it('a later death replaces an active highlight with that death\'s own cause', () => {
+    // 공통 규칙 확장 전에는 다른 원인의 사망이 아무것도 표시하지 않았다 — 지금은 각자 자기 원인을 표시하고,
+    // 새 사망은 이전 표시를 남기지 않고 바꾼다.
     const world = new World(LEVEL_1);
-    const enemy = world.enemies[0];
-    world.player.x = enemy.x;
-    world.player.y = enemy.y;
-    world.update(dt, noInput);
-    expect(world.deaths).toBe(1);
-    expect(world.hazardReveal).toBeNull();
-
     dieOnHazard(world);
-    expect(world.hazardReveal).not.toBeNull();
+    expect(world.deathCause?.rect).toBe(HAZARDS[0]);
     const e = world.enemies[0];
     world.player.x = e.x;
     world.player.y = e.y;
     world.update(dt, noInput);
-    expect(world.hazardReveal).toBeNull(); // 원인이 다른 사망이면 이전 표시를 남기지 않는다
+    expect(world.deathCause?.rect).toEqual({ x: ENEMIES[0].minX, y: ENEMIES[0].y, width: ENEMIES[0].maxX - ENEMIES[0].minX, height: 28 });
   });
 
   it('keeps the highlight while the tile is off screen and only counts down once it is visible', () => {
@@ -565,10 +560,10 @@ describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
     dieOnHazard(world); // 체크포인트 없이 사망 → 시작점(65)에서 재시작, 위험지대(1060)는 화면 밖
     expect(world.activeCheckpoint).toBeNull();
     for (let i = 0; i < 240; i++) world.update(dt, noInput);
-    expect(world.hazardReveal?.remaining).toBeCloseTo(2); // 화면 밖에서는 줄지 않는다
+    expect(world.deathCause?.remaining).toBeCloseTo(2); // 화면 밖에서는 줄지 않는다
     world.player.x = 900; world.player.y = SOLIDS[2].y - world.player.height; // 위험지대가 보이는 곳까지 이동
     for (let i = 0; i < 120; i++) world.update(dt, noInput);
-    expect(world.hazardReveal).toBeNull();
+    expect(world.deathCause).toBeNull();
   });
 });
 
@@ -591,3 +586,91 @@ describe('checkpoint placement before the fake safe zone', () => {
   });
 });
 
+
+describe('death cause highlight for every trap (docs/traps-spec.md 공통 규칙)', () => {
+  const fallUntilDeath = (world: World): void => {
+    const before = world.deaths;
+    for (let i = 0; i < 180 && world.deaths === before; i++) world.update(dt, noInput);
+    expect(world.deaths).toBe(before + 1);
+  };
+
+  it('highlights a patrol enemy\'s range when it kills', () => {
+    const world = new World(LEVEL_1);
+    const e = world.enemies[0];
+    world.player.x = e.x;
+    world.player.y = e.y;
+    world.update(dt, noInput);
+    expect(world.deathCause?.rect).toEqual({ x: ENEMIES[0].minX, y: ENEMIES[0].y, width: ENEMIES[0].maxX - ENEMIES[0].minX, height: 28 });
+  });
+
+  it('highlights the ambush trigger and appearance range together when an ambush enemy kills', () => {
+    const world = new World(LEVEL_1);
+    const amb = AMBUSH_ENEMIES[0];
+    world.player.x = amb.trigger.x;
+    world.player.y = amb.trigger.y;
+    for (let i = 0; i < 30 && world.ambushes[0].enemy === null; i++) world.update(dt, noInput);
+    const enemy = world.ambushes[0].enemy;
+    if (!enemy) throw new Error('ambush enemy did not appear');
+    world.player.x = enemy.x;
+    world.player.y = enemy.y;
+    world.update(dt, noInput);
+    const r = world.deathCause?.rect;
+    expect(r).toBeDefined();
+    expect(r!.x).toBe(Math.min(amb.trigger.x, amb.minX));
+    expect(r!.x + r!.width).toBe(Math.max(amb.trigger.x + amb.trigger.width, amb.maxX));
+  });
+
+  it('highlights the conditional trap zone when it fires', () => {
+    const world = new World(LEVEL_1);
+    const zone = CONDITIONAL_TRAPS[0].zone;
+    for (let i = 0; i < 90 && world.deaths === 0; i++) {
+      world.player.x = zone.x + 5; world.player.y = zone.y + 5; world.player.vy = 0;
+      world.update(dt, noInput);
+    }
+    expect(world.deathCause?.rect).toBe(zone);
+  });
+
+  it('blames a falling platform that collapsed within 3s of a fall death', () => {
+    const world = new World(LEVEL_1);
+    const fp = FALLING_PLATFORMS[0];
+    world.player.x = fp.x + 20;
+    world.player.y = fp.y - world.player.height;
+    world.player.grounded = true;
+    fallUntilDeath(world);
+    expect(world.deathCause?.rect).toBe(fp);
+  });
+
+  it('blames a hidden block that collapsed within 3s of a fall death', () => {
+    const world = new World(LEVEL_1);
+    const hb = HIDDEN_BLOCKS[0];
+    world.player.x = hb.x + 20;
+    world.player.y = hb.y - world.player.height;
+    world.player.grounded = true;
+    fallUntilDeath(world);
+    expect(world.deathCause?.rect).toBe(hb);
+  });
+
+  it('shows nothing for a plain pit fall with no trap involved', () => {
+    const world = new World(LEVEL_2);
+    world.player.x = 420; // 레벨 2 구덩이(400-640)의 낙하 발판(480-560) 앞쪽 빈 공간
+    world.player.y = 480;
+    fallUntilDeath(world);
+    expect(world.deathCause).toBeNull();
+  });
+
+  it('does not blame a trap that collapsed more than 3s before the fall', () => {
+    const world = new World(LEVEL_1);
+    const hb = HIDDEN_BLOCKS[0];
+    world.player.x = hb.x + 20; world.player.y = hb.y - world.player.height; world.player.grounded = true;
+    for (let i = 0; i < 15 && world.hiddenBlocks[0].solid; i++) world.update(dt, noInput); // 0.2초 뒤 붕괴
+    expect(world.hiddenBlocks[0].solid).toBe(false);
+    const ground = SOLIDS[0];
+    for (let i = 0; i < 200; i++) { // 3초 넘게 안전한 바닥에 서 있는다
+      world.player.x = ground.x + 50; world.player.y = ground.y - world.player.height; world.player.vy = 0;
+      world.update(dt, noInput);
+    }
+    world.player.x = hb.x + 20; world.player.y = hb.y; // 무너진 자리(구덩이)로 떨어진다
+    fallUntilDeath(world);
+    expect(world.deathCause).toBeNull();
+  });
+});

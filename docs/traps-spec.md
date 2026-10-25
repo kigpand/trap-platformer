@@ -13,7 +13,7 @@
 ## 구현 현황
 - [x] 2. 낙하하는 발판 — 붕괴·타이머 로직(`src/game/world/level.ts`의 `LEVEL_1.fallingPlatforms`, `src/game/world/World.ts`)
 - [x] 4. 가짜 안전지대 — `src/game/world/level.ts`의 `LEVEL_1.hazards`
-  - [x] 사망 후 위치 표시(아래 "텔레그래프") — `World.hazardReveal`(화면에 보이는 동안 고정 스텝에서만 2초 감소, 화면 판정은 렌더러와 공유하는 `world/viewport.ts`), `CanvasRenderer`가 경고색으로 그림
+  - [x] 사망 후 위치 표시(아래 "텔레그래프") — `World.deathCause`(화면에 보이는 동안 고정 스텝에서만 2초 감소, 화면 판정은 렌더러와 공유하는 `world/viewport.ts`), `CanvasRenderer`가 타일을 경고색으로 그림
 - [x] 1. 숨겨진 블록 — `src/game/world/level.ts`의 `LEVEL_1.hiddenBlocks`, 위/측면 접촉 모두 지원(`World.ts`의 `isTouchingSide`)
 - [x] 적 이동·충돌(위 "적 충돌 규칙") — `src/game/entities/Enemy.ts`, `src/game/world/level.ts`의 `LEVEL_1.enemies`
 - [x] 3. 갑자기 출현하는 적 — `src/game/world/level.ts`의 `LEVEL_1.ambushes`, `World.ts`의 `AmbushState`
@@ -21,7 +21,7 @@
 
 함정 5종(가짜 안전지대의 사망 후 위치 표시 포함)과 적 이동·충돌 모두 구현 완료했으며, "공통 규칙"의 학습 가능 요건을 충족합니다.
 
-- [ ] 사망 원인 표시 일반화("공통 규칙")
+- [x] 사망 원인 표시 일반화("공통 규칙") — `World.reset(true, cause)`로 원인 영역을 넘긴다. 적은 왕복 구간, 갑자기 출현하는 적은 트리거+등장 구간, 조건부 함정은 영역, 낙사는 3초 안에 무너진 낙하 발판·숨겨진 블록(`lastFallTrap`). 가짜 안전지대 외의 원인은 `CanvasRenderer`가 반투명 경고색과 테두리를 겹쳐 그림
 - [ ] 6. 사라지는 땅 · [ ] 7. 투명 블록 · [ ] 9. 떨어지는 천장
 - [ ] 8. 도망가는 발판 · [ ] 10. 솟아오르는 가시 · [ ] 11. 가짜 체크포인트 · [ ] 12. 도망가는 목표 · [ ] 13. 하늘에서 쏟아지는 적
 

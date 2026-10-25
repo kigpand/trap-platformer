@@ -27,6 +27,8 @@ function drawEnemy(ctx: CanvasRenderingContext2D, e: Enemy): void {
 export interface RenderMetrics { fps: number; steps: number }
 export const HAZARD_REVEAL_FILL = '#b91c1c';
 const HAZARD_REVEAL_TOP = '#fca5a5';
+export const DEATH_CAUSE_OVERLAY = 'rgba(185,28,28,0.45)';
+const BUILDING_SPACING = 130;
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
@@ -42,8 +44,11 @@ export class CanvasRenderer {
     const level = world.level;
     const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
     ctx.save(); ctx.translate(-cam, 0);
+    // 배경 건물: 130px 간격으로 반복하되 카메라에 보이는 것만 그린다 — 레벨이 길어져도 끝까지 이어지고 그리기 양은 같다.
     ctx.fillStyle = '#293b4d';
-    for (let i = 0; i < 18; i++) { ctx.fillRect(i * 130, 390 - (i % 4) * 35, 90, 200); }
+    const firstBuilding = Math.max(0, Math.floor(cam / BUILDING_SPACING) - 1);
+    const lastBuilding = Math.ceil((cam + VIEW_WIDTH) / BUILDING_SPACING);
+    for (let i = firstBuilding; i <= lastBuilding; i++) ctx.fillRect(i * BUILDING_SPACING, 390 - (i % 4) * 35, 90, 200);
     for (const p of level.solids) {
       ctx.fillStyle = '#627e55'; ctx.fillRect(p.x, p.y, p.width, p.height);
       ctx.fillStyle = '#99c577'; ctx.fillRect(p.x, p.y, p.width, Math.min(8, p.height));
@@ -51,7 +56,7 @@ export class CanvasRenderer {
     }
     for (const h of level.hazards) {
       // 평소엔 일반 바닥과 똑같이 그리고, 이 타일로 사망한 직후에만 경고색으로 원인을 드러낸다(traps-spec #4).
-      const revealed = world.hazardReveal?.rect === h;
+      const revealed = world.deathCause?.rect === h;
       ctx.fillStyle = revealed ? HAZARD_REVEAL_FILL : '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
       ctx.fillStyle = revealed ? HAZARD_REVEAL_TOP : '#99c577'; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
       if (revealed) { ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(h.x, h.y, h.width, h.height); }
@@ -105,6 +110,13 @@ export class CanvasRenderer {
         ctx.strokeRect(minX, y, ENEMY_WIDTH, ENEMY_HEIGHT);
       }
       if (this.debug) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(amb.config.trigger.x, amb.config.trigger.y, amb.config.trigger.width, amb.config.trigger.height); }
+    }
+    // 사망 원인 표시: 가짜 안전지대는 위에서 타일 자체를 경고색으로 칠하고, 그 밖의 함정·적 구간은 영역 위에
+    // 반투명 경고색과 테두리를 겹친다(docs/traps-spec.md "공통 규칙").
+    const cause = world.deathCause?.rect;
+    if (cause && !level.hazards.includes(cause)) {
+      ctx.fillStyle = DEATH_CAUSE_OVERLAY; ctx.fillRect(cause.x, cause.y, cause.width, cause.height);
+      ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(cause.x, cause.y, cause.width, cause.height);
     }
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);

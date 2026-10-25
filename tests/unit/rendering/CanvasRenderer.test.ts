@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, HAZARD_REVEAL_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
-import { LEVEL_1 } from '../../../src/game/world/level';
+import { LEVEL_1, type Level } from '../../../src/game/world/level';
+import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 
 // happy-dom에는 Canvas 2D 구현이 없다. 모든 메서드 호출을 받아 주되 fillRect만 그 시점의 fillStyle과
 // 함께 기록하는 가짜 컨텍스트로, "어느 영역을 어떤 색으로 칠했는지"를 검증한다.
@@ -47,10 +48,37 @@ describe('CanvasRenderer fake safe zone', () => {
     world.player.x = hazard.x + 1;
     world.player.y = hazard.y - world.player.height + 1;
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
-    expect(world.hazardReveal).not.toBeNull();
+    expect(world.deathCause).not.toBeNull();
     expect(hazardFill(renderFills(world))?.style).toBe(HAZARD_REVEAL_FILL);
 
-    world.hazardReveal = null; // 2초 경과 후와 같은 상태
+    world.deathCause = null; // 2초 경과 후와 같은 상태
     expect(hazardFill(renderFills(world))?.style).toBe('#627e55');
   });
 });
+
+describe('CanvasRenderer death cause overlay and background', () => {
+  it('overlays the warning color on a non-hazard death cause (e.g. a patrol enemy range)', () => {
+    const world = new World(LEVEL_1);
+    const e = world.enemies[0];
+    world.player.x = e.x; world.player.y = e.y;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    const cause = world.deathCause?.rect;
+    if (!cause) throw new Error('enemy death should set a cause');
+    const fills = renderFills(world);
+    expect(fills.some((f) => f.style === DEATH_CAUSE_OVERLAY && f.x === cause.x && f.width === cause.width)).toBe(true);
+  });
+
+  it('keeps drawing background buildings to the far end of a long level, only around the camera', () => {
+    // 이전에는 건물 18개(약 2,340px)까지만 그려 긴 레벨 뒤쪽 배경이 비었다.
+    const wide: Level = { ...LEVEL_1, width: 6000, solids: [{ x: 0, y: 500, width: 6000, height: 120 }] };
+    const world = new World(wide);
+    world.player.x = 5800;
+    const cam = cameraX(world.player.x, VIEW_WIDTH, wide.width);
+    const buildings = renderFills(world).filter((f) => f.style === '#293b4d');
+    expect(buildings.some((f) => f.x + f.width > cam + VIEW_WIDTH - 130)).toBe(true); // 화면 오른쪽 끝까지 이어진다
+    // 화면 근처만 그린다(양쪽 가장자리에 걸치는 건물까지 한두 개 여유를 둔다) — 레벨 전체를 그리지 않는다.
+    expect(buildings.every((f) => f.x + f.width >= cam - 260 && f.x <= cam + VIEW_WIDTH + 260)).toBe(true);
+    expect(buildings.length).toBeLessThan(15);
+  });
+});
+
