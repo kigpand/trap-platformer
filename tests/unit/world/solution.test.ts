@@ -24,4 +24,14 @@ describe('playSolution', () => {
     expect(playSolution(world, [{ wait: 0.5 }, { right: 120 }, { wait: 1 }])).toBe(1);
     expect(world.deaths).toBe(1);
   });
+
+  it('accepts a condition that first holds exactly at the 20s limit', () => {
+    // 코덱스 리뷰: 조건 검사가 매 업데이트 "전"에만 있어, 1200번째 업데이트 직후에야 참이 되는 조건을 실패로 처리했다.
+    let updates = 0;
+    const world = flat();
+    const original = world.update.bind(world);
+    world.update = (dt, input) => { updates++; original(dt, input); };
+    expect(playSolution(world, [{ runUntil: () => updates >= 60 * 20 }])).toBe(1);
+  });
 });
+

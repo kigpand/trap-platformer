@@ -32,8 +32,11 @@ const SPIKES_AND_FAKE: Step[] = [
 const VANISHING_CEILING_ENEMY: Step[] = [
   { run: 3500 }, // 사라지는 땅은 달려서 지난다
   { right: 4 }, { left: 20 }, { wait: 1 }, { run: 3535 }, { jump: true }, // 천장을 먼저 떨어뜨리고 넘는다
-  // 왕복 적: 마주 오면 일찍(45px 앞) 뛴다 — 보이는 것만 피하는 자동 플레이(20px 앞)로는 마주 오는 적을 못 넘는다.
-  { runUntil: (w) => { const e = w.enemies[1]; const gap = e.x - (w.player.x + w.player.width); return w.player.grounded && gap <= 45 && gap > -e.width; } },
+  // 왕복 적: 천장을 넘어 착지한 곳(약 3656)은 순찰 구간(3700~) 밖이라 안전하다. 적이 멀어지는 중이면 뒤에서 따라잡아
+  // 뛰다 적 위로 떨어지므로(상대 속도 90px/s), 적이 먼 끝(3760 이상)에서 돌아올 때까지 기다린 뒤 마주 오는 적을
+  // 일찍(45px 앞) 뛰어 넘는다 — 보이는 것만 피하는 자동 플레이(20px 앞)로는 마주 오는 적을 못 넘는다.
+  { waitUntil: (w) => w.enemies[1].vx < 0 && w.enemies[1].x >= 3760 },
+  { runUntil: (w) => { const e = w.enemies[1]; const gap = e.x - (w.player.x + w.player.width); return w.player.grounded && gap <= 45; } },
   { jump: true },
 ];
 const DODGE: Step[] = [{ run: 3898 }, { hop: true }, { wait: 0.3 }, { jump: true }, { run: 4070 }, { jump: true }];
@@ -85,6 +88,25 @@ describe('LEVEL_2', () => {
     expect(playSolution(world, steps)).toBe(steps.length);
     expect(world.cleared).toBe(true);
     expect(world.deaths).toBe(1);
+  });
+
+  it('ends with the goal at its last hop spot after both hops', () => {
+    // 코덱스 리뷰: 두 번째 이동이 깨져 목표가 첫 도착지(4840)에 남아도, 해법이 그 위를 지나가며 클리어해 완주 테스트가 통과했다.
+    const world = new World(LEVEL_2);
+    expect(playSolution(world, FULL)).toBe(FULL.length);
+    expect(world.goal.hopIndex).toBe(LEVEL_2.goalHops.length);
+    expect(world.goal.rect).toEqual(LEVEL_2.goalHops[LEVEL_2.goalHops.length - 1].to);
+  });
+
+  it('gets past the second patrol enemy whatever its patrol phase on arrival', () => {
+    // 코덱스 리뷰: 해법이 적의 순찰 위상에 따라 죽었다 — 멀어지는 적을 뒤에서 따라잡아 뛰면 적 위로 떨어진다.
+    // 체크포인트 4에서 출발 전 대기 시간을 바꿔 도착 시점의 위상을 고르게 바꿔 본다(순찰 왕복 약 1.2초).
+    for (let delay = 0; delay < 90; delay += 5) {
+      const world = respawnAt(LEVEL_2.checkpoints[3]);
+      const steps: Step[] = [{ wait: 0.6 + delay / 60 }, ...VANISHING_CEILING_ENEMY, ...DODGE, ...FLEEING_GOAL];
+      expect(playSolution(world, steps), `waited ${delay} extra steps`).toBe(steps.length);
+      expect(world.cleared).toBe(true);
+    }
   });
 
   it('makes the invisible block catch a natural edge jump, and the fleeing goal run away from a direct chase', () => {
