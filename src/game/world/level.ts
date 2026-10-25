@@ -76,8 +76,9 @@ export const LEVEL_1: Level = {
   // 레벨 시작점 대신 여기서 다시 시작한다(수동 재시작(R)은 체크포인트를 초기화하고 처음부터 시작).
   // 영역 위쪽(360)은 바닥(500)에서 최대 점프 높이(81.375px)로 올라간 발 위치(약 419)보다 높아, 점프로
   // 넘어가도 반드시 닿는다 — 가짜 안전지대 사망 후 표시가 재시작 화면 안에 들어오도록(physics-spec "레벨 배치 제약").
+  // 영역 아래쪽은 바닥(500)에서 끝나 깃발이 가짜 체크포인트와 같은 높이로 선다.
   checkpoints: [
-    { zone: { x: 950, y: 360, width: 40, height: 160 }, respawnX: 950, respawnY: 350 },
+    { zone: { x: 950, y: 360, width: 40, height: 140 }, respawnX: 950, respawnY: 350 },
   ],
   vanishingGrounds: [],
   invisibleBlocks: [],
@@ -123,7 +124,7 @@ export const LEVEL_2: Level = {
   conditionalTraps: [],
   // 체크포인트: 영역 위쪽(360)이 점프 최고점의 발 위치(약 419)보다 높아 건너뛸 수 없다(physics-spec "레벨 배치 제약").
   checkpoints: [
-    { zone: { x: 1100, y: 360, width: 40, height: 160 }, respawnX: 1100, respawnY: 350 },
+    { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
   ],
   vanishingGrounds: [],
   invisibleBlocks: [],

@@ -138,6 +138,9 @@ describe('CanvasRenderer trick traps (#8, #10, #11, #12)', () => {
     const fills = renderFills(world);
     const pole = (z: { x: number; width: number }) => fills.find((f) => f.x === z.x + z.width / 2 - 2 && f.width === 4);
     expect(pole(fake)?.style).toBe(pole(real.zone)?.style);
+    // 코덱스 리뷰: 깃대를 영역 높이로 그려, 높은 진짜(160px)와 낮은 가짜(60px)가 한눈에 달라 보였다.
+    expect(pole(fake)?.height).toBe(pole(real.zone)?.height);
+    expect(pole(fake)!.y + pole(fake)!.height).toBe(fake.y + fake.height); // 둘 다 바닥에서 같은 높이로 선다
   });
 
   it('draws the goal and a dodging platform at their current positions', () => {

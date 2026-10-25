@@ -37,6 +37,16 @@ describe('#8 dodging platform', () => {
     expect(world.dodgingPlatforms[0].elapsed).toBeNull();
   });
 
+  it('triggers when the player enters the zone in the same step they land', () => {
+    // 코덱스 리뷰: 이동 뒤의 grounded로 공중 여부를 봐서, 착지하는 바로 그 스텝에 처음 트리거에 들어오면 발동하지 않았다.
+    const band = { ...dodge, trigger: { x: 260, y: 490, width: 40, height: 10 } }; // 바닥 바로 위 얇은 띠
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 300, height: 120 }], dodgingPlatforms: [band] }));
+    world.player.x = 270; world.player.y = 455; world.player.vy = 780; world.player.grounded = false; // 바닥(487)까지 13px — 이번 스텝에 착지
+    world.update(dt, idle);
+    expect(world.player.grounded).toBe(true);
+    expect(world.dodgingPlatforms[0].elapsed).not.toBeNull();
+  });
+
   it('moves only once, over 0.2s, to its data-defined spot', () => {
     const world = new World(L);
     standAt(world, 274);
@@ -115,6 +125,21 @@ describe('#11 fake checkpoint', () => {
     expect(world.player.x).toBe(real.respawnX);
   });
 
+  it('does not save a real checkpoint touched in the same step as a fake one', () => {
+    // 코덱스 리뷰: 진짜 체크포인트 저장이 사망 판정보다 먼저라, 둘이 겹친 스텝에 진짜를 저장한 뒤 죽었다.
+    const overlapping = testLevel({
+      solids: [{ x: 0, y: 500, width: 2000, height: 120 }],
+      checkpoints: [{ zone: { x: 500, y: 360, width: 40, height: 160 }, respawnX: 500, respawnY: 350 }],
+      fakeCheckpoints: [{ x: 520, y: 440, width: 40, height: 60 }],
+    });
+    const world = new World(overlapping);
+    standAt(world, 515); // 진짜(500-540)와 가짜(520-560) 모두에 겹친다
+    world.update(dt, idle);
+    expect(world.deaths).toBe(1);
+    expect(world.activeCheckpoint).toBeNull();
+    expect(world.player.x).toBe(overlapping.spawn.x);
+  });
+
   it('can be jumped over', () => {
     const world = new World(L);
     // 높이 60px 깃발 영역을 넘으려면 출발 시 오른쪽 끝이 454~465px(12px 구간, 고정 스텝 시뮬레이션 실측)여야 한다.
@@ -141,6 +166,18 @@ describe('#12 fleeing goal', () => {
     expect(world.cleared).toBe(false);
     expect(world.deaths).toBe(1);
     expect(world.deathCause?.rect).toEqual({ x: 820, y: 400, width: 420, height: 100 }); // 트리거 + 도착 위치
+  });
+
+  it('finishes the hop in exactly 0.25s (15 steps including the trigger step)', () => {
+    // 코덱스 리뷰: 트리거 스텝에는 이동을 시작하지 않아 0.25초 이동이 16스텝에 끝났다.
+    const world = new World(L);
+    standAt(world, 830);
+    world.update(dt, idle); // 1스텝: 트리거
+    for (let i = 0; i < 13; i++) world.update(dt, idle); // 14스텝
+    expect(world.goal.move).not.toBeNull();
+    world.update(dt, idle); // 15스텝 = 0.25초
+    expect(world.goal.move).toBeNull();
+    expect(world.goal.rect).toEqual(hop.to);
   });
 
   it('does not count a clear while the goal is moving, and lands exactly on the next spot', () => {

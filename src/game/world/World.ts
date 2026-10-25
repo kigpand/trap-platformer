@@ -285,20 +285,23 @@ export class World {
       }
     }
     const solids = [...this.level.solids, ...this.dynamicSolids()];
+    const wasAirborne = !p.grounded; // 이동 전 공중 여부 — 이번 스텝에 착지해도 "공중에서 들어온 것"으로 본다(#8)
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
     // #8 도망가는 발판: 공중에서 트리거에 들어오면 한 번만 미끄러진다. 3초 안의 낙사는 발판의 원래 위치를 원인으로 본다.
+    // 공중 여부는 이동 전·후 둘 중 하나라도 공중이면 참이다 — 이동 뒤 grounded만 보면 착지하는 바로 그 스텝에
+    // 처음 트리거에 들어온 경우를 놓친다(Codex 리뷰).
     for (const d of this.dodgingPlatforms) {
       if (d.elapsed === null) {
-        if (p.grounded || !overlaps(p, d.config.trigger)) continue;
+        if ((!wasAirborne && p.grounded) || !overlaps(p, d.config.trigger)) continue;
         d.elapsed = 0;
         this.lastFallTrap = { rect: d.config.platform, at: this.clock };
       }
       if (d.elapsed >= DODGE_DURATION) continue;
-      d.elapsed = Math.min(DODGE_DURATION, d.elapsed + dt);
+      d.elapsed = d.elapsed + dt >= DODGE_DURATION - 1e-6 ? DODGE_DURATION : d.elapsed + dt; // 1/60 누적 오차로 한 스텝 늦지 않게
       const k = d.elapsed / DODGE_DURATION;
       d.x = d.config.platform.x + (d.config.to.x - d.config.platform.x) * k;
       d.y = d.config.platform.y + (d.config.to.y - d.config.platform.y) * k;
@@ -306,18 +309,22 @@ export class World {
     // #10 솟아오르는 가시: 트리거에 들어오면 즉시 솟는다.
     for (const sp of this.popUpSpikes) if (!sp.raised && overlaps(p, sp.config.trigger)) sp.raised = true;
     // #12 도망가는 목표: 다음 트리거에 들어오면 0.25초 동안 다음 위치로 이동한다(이동 중에는 클리어 판정 없음).
+    // 트리거한 스텝부터 이동을 시작해 15스텝째에 도착한다(Codex 리뷰: 트리거 스텝을 건너뛰어 16스텝이 걸렸다).
     const g = this.goal;
-    if (g.move) {
-      g.move.elapsed = Math.min(GOAL_HOP_DURATION, g.move.elapsed + dt);
-      const k = g.move.elapsed / GOAL_HOP_DURATION;
-      g.rect = { ...g.move.to, x: g.move.from.x + (g.move.to.x - g.move.from.x) * k, y: g.move.from.y + (g.move.to.y - g.move.from.y) * k };
-      if (g.move.elapsed >= GOAL_HOP_DURATION) { g.rect = g.move.to; g.move = null; }
-    } else if (g.hopIndex < this.level.goalHops.length && !this.cleared) {
+    if (!g.move && g.hopIndex < this.level.goalHops.length && !this.cleared) {
       const hop = this.level.goalHops[g.hopIndex];
       if (overlaps(p, hop.trigger)) {
         g.move = { from: g.rect, to: hop.to, elapsed: 0 };
         g.hopIndex++;
         this.lastFallTrap = { rect: union(hop.trigger, hop.to), at: this.clock };
+      }
+    }
+    if (g.move) {
+      g.move.elapsed += dt;
+      if (g.move.elapsed >= GOAL_HOP_DURATION - 1e-6) { g.rect = g.move.to; g.move = null; }
+      else {
+        const k = g.move.elapsed / GOAL_HOP_DURATION;
+        g.rect = { ...g.move.to, x: g.move.from.x + (g.move.to.x - g.move.from.x) * k, y: g.move.from.y + (g.move.to.y - g.move.from.y) * k };
       }
     }
 
@@ -352,8 +359,11 @@ export class World {
 
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
 
+    // 가짜 체크포인트(#11)에 닿은 스텝에는 진짜 체크포인트도 저장하지 않는다 — 사망 판정보다 저장이 먼저라
+    // 둘이 겹치면 진짜를 저장한 뒤 죽어, 가짜에 당하고도 진행이 저장됐다(Codex 리뷰).
+    const touchingFake = this.level.fakeCheckpoints.some((zone) => overlaps(p, zone));
     for (const cp of this.level.checkpoints) {
-      if (!overlaps(p, cp.zone)) continue;
+      if (touchingFake || !overlaps(p, cp.zone)) continue;
       const current = this.activeCheckpoint;
       if (current?.x !== cp.respawnX || current.y !== cp.respawnY) this.events.push('checkpoint'); // 새로 활성화될 때만
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };

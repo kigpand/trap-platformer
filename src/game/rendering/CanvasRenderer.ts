@@ -37,13 +37,17 @@ export const SPIKE_FILL = '#e2e8f0';
 const CHECKPOINT_IDLE = '#64748b';
 
 // 체크포인트 깃발. 가짜 체크포인트(#11)도 일부러 같은 모양으로 그린다(처음엔 구분되지 않아야 한다).
+// 깃대는 판정 영역 높이와 상관없이 영역 바닥에서 FLAG_HEIGHT만큼 그린다 — 진짜는 건너뛸 수 없게 영역이 높고
+// 가짜는 넘을 수 있게 낮아서, 영역 높이로 그리면 한눈에 구분됐다(Codex 리뷰).
+const FLAG_HEIGHT = 80;
 function drawFlag(ctx: CanvasRenderingContext2D, zone: Rect, color: string): void {
+  const top = zone.y + zone.height - FLAG_HEIGHT;
   ctx.fillStyle = color;
-  ctx.fillRect(zone.x + zone.width / 2 - 2, zone.y, 4, zone.height);
+  ctx.fillRect(zone.x + zone.width / 2 - 2, top, 4, FLAG_HEIGHT);
   ctx.beginPath();
-  ctx.moveTo(zone.x + zone.width / 2 + 2, zone.y);
-  ctx.lineTo(zone.x + zone.width / 2 + 22, zone.y + 10);
-  ctx.lineTo(zone.x + zone.width / 2 + 2, zone.y + 20);
+  ctx.moveTo(zone.x + zone.width / 2 + 2, top);
+  ctx.lineTo(zone.x + zone.width / 2 + 22, top + 10);
+  ctx.lineTo(zone.x + zone.width / 2 + 2, top + 20);
   ctx.closePath();
   ctx.fill();
 }
