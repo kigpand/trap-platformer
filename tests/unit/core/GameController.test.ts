@@ -54,7 +54,7 @@ describe('GameController best record', () => {
     localStorage.setItem('trap-runner:best', JSON.stringify({ time: 0, deaths: 0 }));
     vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['clear']);
     vi.spyOn(World.prototype, 'snapshot').mockReturnValue({
-      x: 0, y: 0, grounded: true, deaths: 4, cleared: true, checkpoint: false, time: 30, runDeaths: 4,
+      x: 0, y: 0, grounded: true, deaths: 4, cleared: true, checkpoint: false, time: 30, runDeaths: 4, deathKind: null,
     });
     const { controller, snapshots, fire } = startWithManualFrames();
     fire(0);
@@ -74,7 +74,7 @@ describe('GameController best record', () => {
     const fire = (now: number): void => { const pending = [...frames.values()]; frames.clear(); for (const cb of pending) cb(now); };
     let run = { time: 10, runDeaths: 0 };
     vi.spyOn(World.prototype, 'snapshot').mockImplementation(() => ({
-      x: 0, y: 0, grounded: true, deaths: run.runDeaths, cleared: true, checkpoint: false, ...run,
+      x: 0, y: 0, grounded: true, deaths: run.runDeaths, cleared: true, checkpoint: false, deathKind: null, ...run,
     }));
     const drain = vi.spyOn(World.prototype, 'drainEvents');
     const snapshotsB: HudSnapshot[] = [];

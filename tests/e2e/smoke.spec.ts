@@ -373,3 +373,13 @@ test('shows the current level, and keeps the next-level control hidden and N ign
   await page.waitForTimeout(100);
   await expect(level).toHaveText(/^LEVEL 1 \//);
 });
+
+test('a trap death announces the taunting message to screen readers', async ({ page }) => {
+  // 스폰에서 오른쪽으로 걸으면 숨겨진 블록이 무너져 떨어진다(원인: 숨겨진 블록).
+  await page.goto('/');
+  await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
+  await page.keyboard.down('ArrowRight');
+  await expect(page.locator('.hud span', { hasText: 'FALLS' })).toHaveText('FALLS 1', { timeout: 5000 });
+  await page.keyboard.up('ArrowRight');
+  await expect(page.getByRole('status')).toContainText('거기 바닥 있는 줄 알았지?');
+});
