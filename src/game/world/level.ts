@@ -5,6 +5,12 @@ export interface ConditionalTrap { zone: Rect }
 export interface Checkpoint { zone: Rect; respawnX: number; respawnY: number }
 // 떨어지는 천장(docs/traps-spec.md #9): 공중의 블록과, 들어서면 블록이 떨어지는 트리거 영역.
 export interface FallingCeiling { block: Rect; trigger: Rect }
+// 도망가는 발판(#8): 공중에서 trigger에 들어오면 platform이 to 위치(왼쪽 위 좌표)로 한 번 미끄러진다.
+export interface DodgingPlatform { platform: Rect; trigger: Rect; to: { x: number; y: number } }
+// 솟아오르는 가시(#10): trigger(가시 앞 60px)에 들어오면 spikes(높이 24px)가 솟는다.
+export interface PopUpSpike { spikes: Rect; trigger: Rect }
+// 도망가는 목표(#12): 순서대로, trigger에 들어오면 목표가 to로 뛰어 달아난다.
+export interface GoalHop { trigger: Rect; to: Rect }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -24,6 +30,10 @@ export interface Level {
   vanishingGrounds: readonly Rect[]; // #6 사라지는 땅: 40px 칸으로 나뉘어 연쇄 붕괴하는 바닥 구간
   invisibleBlocks: readonly Rect[]; // #7 투명 블록
   fallingCeilings: readonly FallingCeiling[]; // #9 떨어지는 천장
+  dodgingPlatforms: readonly DodgingPlatform[]; // #8 도망가는 발판
+  popUpSpikes: readonly PopUpSpike[]; // #10 솟아오르는 가시
+  fakeCheckpoints: readonly Rect[]; // #11 가짜 체크포인트(깃발 영역, 점프로 넘을 수 있는 높이)
+  goalHops: readonly GoalHop[]; // #12 도망가는 목표(goal에서 출발해 차례로 달아남)
 }
 
 export const LEVEL_1: Level = {
@@ -72,6 +82,10 @@ export const LEVEL_1: Level = {
   vanishingGrounds: [],
   invisibleBlocks: [],
   fallingCeilings: [],
+  dodgingPlatforms: [],
+  popUpSpikes: [],
+  fakeCheckpoints: [],
+  goalHops: [],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
@@ -114,6 +128,10 @@ export const LEVEL_2: Level = {
   vanishingGrounds: [],
   invisibleBlocks: [],
   fallingCeilings: [],
+  dodgingPlatforms: [],
+  popUpSpikes: [],
+  fakeCheckpoints: [],
+  goalHops: [],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, SPIKE_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
@@ -114,6 +114,40 @@ describe('CanvasRenderer terrain traps (#6, #7, #9)', () => {
     world.fallingCeilings[0].y = 430;
     expect(at(renderFills(world), { x: block.x, y: 430 }).length).toBeGreaterThan(0);
     expect(at(renderFills(world), block)).toHaveLength(0);
+  });
+});
+
+describe('CanvasRenderer trick traps (#8, #10, #11, #12)', () => {
+  const base: Level = {
+    ...LEVEL_1, solids: [{ x: 0, y: 500, width: 1800, height: 120 }], hazards: [], fallingPlatforms: [], hiddenBlocks: [],
+    enemies: [], ambushes: [], conditionalTraps: [], checkpoints: [],
+  };
+
+  it('draws pop-up spikes only once raised', () => {
+    const spikes = { x: 400, y: 476, width: 40, height: 24 };
+    const world = new World({ ...base, popUpSpikes: [{ spikes, trigger: { x: 340, y: 400, width: 60, height: 100 } }] });
+    expect(renderFills(world).some((f) => f.style === SPIKE_FILL)).toBe(false);
+    world.popUpSpikes[0].raised = true;
+    expect(renderFills(world).some((f) => f.style === SPIKE_FILL && f.x === spikes.x)).toBe(true);
+  });
+
+  it('draws a fake checkpoint exactly like an unreached real one', () => {
+    const real = { zone: { x: 300, y: 360, width: 40, height: 160 }, respawnX: 300, respawnY: 350 };
+    const fake = { x: 500, y: 440, width: 40, height: 60 };
+    const world = new World({ ...base, checkpoints: [real], fakeCheckpoints: [fake] });
+    const fills = renderFills(world);
+    const pole = (z: { x: number; width: number }) => fills.find((f) => f.x === z.x + z.width / 2 - 2 && f.width === 4);
+    expect(pole(fake)?.style).toBe(pole(real.zone)?.style);
+  });
+
+  it('draws the goal and a dodging platform at their current positions', () => {
+    const platform = { x: 330, y: 480, width: 60, height: 20 };
+    const world = new World({ ...base, dodgingPlatforms: [{ platform, trigger: { x: 0, y: 0, width: 1, height: 1 }, to: { x: 420, y: 480 } }] });
+    world.dodgingPlatforms[0].x = 400;
+    world.goal.rect = { x: 700, y: 440, width: 40, height: 60 };
+    const fills = renderFills(world);
+    expect(fills.some((f) => f.x === 400 && f.y === 480 && f.style === '#627e55')).toBe(true);
+    expect(fills.some((f) => f.x === 700 && f.y === 440 && f.style === '#eab308')).toBe(true);
   });
 });
 

@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, FallingCeiling, Level } from './level';
+import type { AmbushEnemy, DodgingPlatform, FallingCeiling, Level, PopUpSpike } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -14,6 +14,8 @@ const FALL_CAUSE_WINDOW = 3.0; // 낙사형 함정은 사망 직전 3초 안에 
 const VANISH_TILE = 40; // docs/traps-spec.md #6 칸 너비
 const VANISH_SPEED = 150; // #6 붕괴 전선 속도(플레이어 210px/s보다 느림)
 const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지
+const DODGE_DURATION = 0.2; // #8 발판이 미끄러지는 시간
+const GOAL_HOP_DURATION = 0.25; // #12 목표가 다음 위치로 이동하는 시간
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -87,11 +89,27 @@ export interface FallingCeilingState {
   readonly config: FallingCeiling; y: number; vy: number; phase: 'idle' | 'armed' | 'falling' | 'landed' | 'gone'; timer: number;
 }
 
+// #8 도망가는 발판: idle → moving(0.2초 동안 to로 선형 이동) → moved. 언제나 현재 위치의 솔리드다.
+export interface DodgingPlatformState { readonly config: DodgingPlatform; x: number; y: number; elapsed: number | null }
+// #10 솟아오르는 가시: 한 번 솟으면 그 목숨 동안 유지된다.
+export interface PopUpSpikeState { readonly config: PopUpSpike; raised: boolean }
+// #12 도망가는 목표: 현재 목표 위치와, 이동 중이면 출발·도착과 경과 시간. hopIndex는 다음에 쓸 goalHops 번호.
+export interface GoalState { rect: Rect; hopIndex: number; move: { from: Rect; to: Rect; elapsed: number } | null }
+
 export function vanishingTileCount(rect: Rect): number { return Math.ceil(rect.width / VANISH_TILE); }
 export function vanishingTile(rect: Rect, i: number): Rect {
   return { x: rect.x + i * VANISH_TILE, y: rect.y, width: Math.min(VANISH_TILE, rect.width - i * VANISH_TILE), height: rect.height };
 }
 export function ceilingRect(c: FallingCeilingState): Rect { return { ...c.config.block, y: c.y }; }
+
+export function dodgingRect(d: DodgingPlatformState): Rect { return { ...d.config.platform, x: d.x, y: d.y }; }
+function createDodgingPlatforms(level: Level): DodgingPlatformState[] {
+  return level.dodgingPlatforms.map((config) => ({ config, x: config.platform.x, y: config.platform.y, elapsed: null }));
+}
+function createPopUpSpikes(level: Level): PopUpSpikeState[] {
+  return level.popUpSpikes.map((config) => ({ config, raised: false }));
+}
+function createGoal(level: Level): GoalState { return { rect: level.goal, hopIndex: 0, move: null }; }
 
 function createVanishingGrounds(level: Level): VanishingGroundState[] {
   return level.vanishingGrounds.map((rect) => ({ rect, elapsed: null, tilesGone: 0 }));
@@ -135,6 +153,9 @@ export class World {
   vanishingGrounds: VanishingGroundState[];
   invisibleBlocks: InvisibleBlockState[];
   fallingCeilings: FallingCeilingState[];
+  dodgingPlatforms: DodgingPlatformState[];
+  popUpSpikes: PopUpSpikeState[];
+  goal: GoalState;
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
@@ -159,6 +180,9 @@ export class World {
     this.vanishingGrounds = createVanishingGrounds(level);
     this.invisibleBlocks = createInvisibleBlocks(level);
     this.fallingCeilings = createFallingCeilings(level);
+    this.dodgingPlatforms = createDodgingPlatforms(level);
+    this.popUpSpikes = createPopUpSpikes(level);
+    this.goal = createGoal(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -169,6 +193,7 @@ export class World {
     }
     for (const ib of this.invisibleBlocks) if (ib.visible) rects.push(ib.rect);
     for (const c of this.fallingCeilings) if (c !== exclude && (c.phase === 'idle' || c.phase === 'armed' || c.phase === 'landed')) rects.push(ceilingRect(c));
+    for (const d of this.dodgingPlatforms) rects.push(dodgingRect(d));
     return rects;
   }
   drainEvents(): WorldEvent[] {
@@ -198,6 +223,9 @@ export class World {
     this.vanishingGrounds = createVanishingGrounds(this.level);
     this.invisibleBlocks = createInvisibleBlocks(this.level);
     this.fallingCeilings = createFallingCeilings(this.level);
+    this.dodgingPlatforms = createDodgingPlatforms(this.level);
+    this.popUpSpikes = createPopUpSpikes(this.level);
+    this.goal = createGoal(this.level);
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -262,6 +290,37 @@ export class World {
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
+    // #8 도망가는 발판: 공중에서 트리거에 들어오면 한 번만 미끄러진다. 3초 안의 낙사는 발판의 원래 위치를 원인으로 본다.
+    for (const d of this.dodgingPlatforms) {
+      if (d.elapsed === null) {
+        if (p.grounded || !overlaps(p, d.config.trigger)) continue;
+        d.elapsed = 0;
+        this.lastFallTrap = { rect: d.config.platform, at: this.clock };
+      }
+      if (d.elapsed >= DODGE_DURATION) continue;
+      d.elapsed = Math.min(DODGE_DURATION, d.elapsed + dt);
+      const k = d.elapsed / DODGE_DURATION;
+      d.x = d.config.platform.x + (d.config.to.x - d.config.platform.x) * k;
+      d.y = d.config.platform.y + (d.config.to.y - d.config.platform.y) * k;
+    }
+    // #10 솟아오르는 가시: 트리거에 들어오면 즉시 솟는다.
+    for (const sp of this.popUpSpikes) if (!sp.raised && overlaps(p, sp.config.trigger)) sp.raised = true;
+    // #12 도망가는 목표: 다음 트리거에 들어오면 0.25초 동안 다음 위치로 이동한다(이동 중에는 클리어 판정 없음).
+    const g = this.goal;
+    if (g.move) {
+      g.move.elapsed = Math.min(GOAL_HOP_DURATION, g.move.elapsed + dt);
+      const k = g.move.elapsed / GOAL_HOP_DURATION;
+      g.rect = { ...g.move.to, x: g.move.from.x + (g.move.to.x - g.move.from.x) * k, y: g.move.from.y + (g.move.to.y - g.move.from.y) * k };
+      if (g.move.elapsed >= GOAL_HOP_DURATION) { g.rect = g.move.to; g.move = null; }
+    } else if (g.hopIndex < this.level.goalHops.length && !this.cleared) {
+      const hop = this.level.goalHops[g.hopIndex];
+      if (overlaps(p, hop.trigger)) {
+        g.move = { from: g.rect, to: hop.to, elapsed: 0 };
+        g.hopIndex++;
+        this.lastFallTrap = { rect: union(hop.trigger, hop.to), at: this.clock };
+      }
+    }
+
     // #9 떨어지는 천장: 떨어지는 중 플레이어와 겹치면 깔림(착지 판정보다 먼저 확인해 서 있는 플레이어 위로 떨어져도 깔린다).
     let crushedBy: FallingCeilingState | null = null;
     for (const c of this.fallingCeilings) {
@@ -303,13 +362,17 @@ export class World {
     if (crushedBy) { this.reset(true, crushedBy.config.block); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) { this.reset(true, hazard); return; }
+    const spike = this.popUpSpikes.find((sp) => sp.raised && overlaps(p, sp.config.spikes));
+    if (spike) { this.reset(true, spike.config.spikes); return; }
+    const fakeCheckpoint = this.level.fakeCheckpoints.find((zone) => overlaps(p, zone));
+    if (fakeCheckpoint) { this.reset(true, fakeCheckpoint); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));
     if (enemy) { this.reset(true, patrolArea(enemy)); return; }
     const ambush = this.ambushes.find((a) => a.enemy && overlaps(p, a.enemy));
     if (ambush?.enemy) { this.reset(true, union(ambush.config.trigger, patrolArea(ambush.enemy))); return; }
     const conditional = this.conditionalTraps.find((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD);
     if (conditional) { this.reset(true, conditional.zone); return; }
-    if (overlaps(p, this.level.goal) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
+    if (!this.goal.move && overlaps(p, this.goal.rect) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
     if (p.y > this.level.height + 100) {
       // 그냥 구덩이에 빠진 낙사는 표시하지 않고, 직전 3초 안에 무너진 함정이 있으면 그것을 원인으로 본다.
       const fallTrap = this.lastFallTrap && this.clock - this.lastFallTrap.at <= FALL_CAUSE_WINDOW ? this.lastFallTrap.rect : null;
