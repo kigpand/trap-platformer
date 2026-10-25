@@ -362,7 +362,7 @@ test('arrow keys still move the player after adjusting the volume slider with th
   await expect(position).not.toHaveText(/^POSITION 65, /);
 });
 
-test('shows the current level, and the next-level control only appears after a clear', async ({ page }) => {
+test('shows the current level, and keeps the next-level control hidden and N ignored before a clear', async ({ page }) => {
   // 레벨 전환 자체(클리어 → 레벨 2)는 실제 입력으로 레벨 1을 완주해야 해서 E2E로는 불안정하다 —
   // tests/unit/core/GameController.test.ts가 실제 컨트롤러로 검증한다. 여기서는 화면 연결만 확인한다.
   await page.goto('/');

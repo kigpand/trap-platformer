@@ -138,12 +138,14 @@ export class GameController {
     if (improved) saveBest(i, best);
   }
   // 클리어한 레벨에서만 다음 레벨로 넘어간다(버튼·N 키 공통). 마지막 레벨 뒤에는 레벨 1로 돌아가 처음부터 한다.
-  // 새 레벨은 새 World로 시작하므로 시간·사망 수·체크포인트도 새로 센다.
+  // 새 레벨은 새 World로 시작하므로 시간·사망 수·체크포인트도 새로 센다. 다음 레벨 요청은 "이제 플레이하겠다"는
+  // 명시적인 행동이므로, 클리어 후 정지해 둔 상태를 새 레벨로 물려주지 않고 재개한다.
   private advanceLevel(): void {
     if (!this.world.cleared) return;
     this.levelIndex = (this.levelIndex + 1) % LEVELS.length;
     this.world = new World(LEVELS[this.levelIndex]);
     this.newRecord = false;
+    this.paused = false;
   }
   togglePause(): void { this.paused = !this.paused; this.publishSnapshot(); }
   setTouch(action: TouchAction, pressed: boolean): void { this.input.setTouch(action, pressed); }

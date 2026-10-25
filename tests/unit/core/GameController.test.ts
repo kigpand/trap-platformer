@@ -189,6 +189,27 @@ describe('GameController level progression', () => {
     controller.dispose();
   });
 
+  it('does not carry a pause over into the next level', () => {
+    // 코덱스 리뷰: 클리어 후 일시정지한 상태에서 다음 레벨로 넘어가면 새 레벨이 정지된 채 시작했다.
+    const { controller, clearCurrentLevel, last } = setup();
+    clearCurrentLevel();
+    controller.togglePause();
+    expect(last().paused).toBe(true);
+    controller.nextLevel();
+    expect(last().level).toBe(2);
+    expect(last().paused).toBe(false);
+    controller.dispose();
+  });
+
+  it('keeps the pause when "next level" is ignored because the level is not cleared yet', () => {
+    const { controller, last } = setup();
+    controller.togglePause();
+    controller.nextLevel();
+    expect(last().level).toBe(1);
+    expect(last().paused).toBe(true);
+    controller.dispose();
+  });
+
   it('advances with the N key once the level is cleared', () => {
     const { controller, step, clearCurrentLevel, last } = setup();
     clearCurrentLevel();
