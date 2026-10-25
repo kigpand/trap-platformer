@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { runToGoal } from './autopilot';
+import { playSolution, type Step } from './solution';
 
 // 레벨 2 배치 검증(docs/roadmap.md "새 맵 추가" 릴리스 3번). 처음 작성 당시엔 진행 흐름(4번) 전이라 게임 화면에서 고를 수 없어,
 // World에 LEVEL_2를 직접 넘겨 확인한다.
@@ -19,6 +20,34 @@ function standOn(world: World, x: number, groundY: number): void {
   world.player.grounded = true;
 }
 
+// 레벨 2(보통, 5,100px) 해법. 원래 구간은 보이는 것만 피하면 되므로 자동 플레이로 가고, 함정 확장 구간은
+// 해법 입력으로 간다(docs/traps-spec.md 공통 규칙). 구간별로 나눠 체크포인트 재시작 테스트에서 이어 쓴다.
+const cp5 = LEVEL_2.checkpoints[4]; // 도망가는 목표 앞
+const ORIGINAL: Step[] = [{ auto: 2060 }]; // 낙하 발판 → 갑자기 출현하는 적 → 체크포인트 → 가짜 안전지대 → 왕복 적 → 체크포인트 2
+const INVISIBLE_BLOCK: Step[] = [{ run: 2100 }, { jump: true }]; // 가장자리보다 일찍 뛰어 투명 블록 아래로
+const SPIKES_AND_FAKE: Step[] = [
+  { run: 2490 }, { jump: true }, // 24px 가시: 솟기 전에 트리거·가시를 함께 넘는다
+  { run: 2740 }, { jump: true }, // 높이 50px 가짜 체크포인트를 넘는다(출발 구간 29px, 실측)
+];
+const VANISHING_CEILING_ENEMY: Step[] = [
+  { run: 3500 }, // 사라지는 땅은 달려서 지난다
+  { right: 4 }, { left: 20 }, { wait: 1 }, { run: 3535 }, { jump: true }, // 천장을 먼저 떨어뜨리고 넘는다
+  // 왕복 적: 마주 오면 일찍(45px 앞) 뛴다 — 보이는 것만 피하는 자동 플레이(20px 앞)로는 마주 오는 적을 못 넘는다.
+  { runUntil: (w) => { const e = w.enemies[1]; const gap = e.x - (w.player.x + w.player.width); return w.player.grounded && gap <= 45 && gap > -e.width; } },
+  { jump: true },
+];
+const DODGE: Step[] = [{ run: 3898 }, { hop: true }, { wait: 0.3 }, { jump: true }, { run: 4070 }, { jump: true }];
+const FLEEING_GOAL: Step[] = [{ run: 4410 }, { wait: 0.4 }, { run: 4580 }, { jump: true }, { run: 5080 }];
+const AFTER_CP2: Step[] = [...INVISIBLE_BLOCK, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...FLEEING_GOAL];
+const FULL: Step[] = [...ORIGINAL, ...AFTER_CP2];
+
+function respawnAt(cp: (typeof LEVEL_2.checkpoints)[number]): World {
+  const world = new World(LEVEL_2);
+  world.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
+  world.reset(true);
+  return world;
+}
+
 describe('LEVEL_2', () => {
   it('uses at least three trap kinds plus a patrol enemy, in a different combination from level 1', () => {
     const kinds = (level: typeof LEVEL_1) => [
@@ -30,12 +59,45 @@ describe('LEVEL_2', () => {
     expect(kinds(LEVEL_2)).not.toEqual(kinds(LEVEL_1));
   });
 
-  it('reaches the goal from spawn using only movement and jump input (no teleporting), passing the checkpoint', () => {
+  it('is much longer than before and uses all seven new trap kinds', () => {
+    expect(LEVEL_2.width).toBeGreaterThanOrEqual(5000);
+    const counts = [LEVEL_2.vanishingGrounds, LEVEL_2.invisibleBlocks, LEVEL_2.fallingCeilings, LEVEL_2.dodgingPlatforms,
+      LEVEL_2.popUpSpikes, LEVEL_2.fakeCheckpoints, LEVEL_2.goalHops].map((list) => list.length);
+    expect(counts.every((n) => n > 0)).toBe(true);
+  });
+
+  it('reaches the goal from spawn with the solution inputs (no teleporting), passing every checkpoint', () => {
     const world = new World(LEVEL_2);
-    runToGoal(world);
+    expect(playSolution(world, FULL)).toBe(FULL.length);
     expect(world.cleared).toBe(true);
     expect(world.deaths).toBe(0);
-    expect(world.activeCheckpoint).toEqual({ x: checkpoint.respawnX, y: checkpoint.respawnY });
+    const last = LEVEL_2.checkpoints[LEVEL_2.checkpoints.length - 1];
+    expect(world.activeCheckpoint).toEqual({ x: last.respawnX, y: last.respawnY });
+  });
+
+  it.each([
+    ['checkpoint 2 (before the invisible block)', 1, AFTER_CP2],
+    ['checkpoint 3 (before the spikes and fake checkpoint)', 2, [{ wait: 0.6 }, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...FLEEING_GOAL]],
+    ['checkpoint 4 (before the falling ceiling)', 3, [{ wait: 0.6 }, ...VANISHING_CEILING_ENEMY, ...DODGE, ...FLEEING_GOAL]],
+    ['checkpoint 5 (before the fleeing goal)', 4, FLEEING_GOAL],
+  ] as const)('can be finished from %s with no further deaths', (_, index, steps) => {
+    const world = respawnAt(LEVEL_2.checkpoints[index]);
+    expect(playSolution(world, steps)).toBe(steps.length);
+    expect(world.cleared).toBe(true);
+    expect(world.deaths).toBe(1);
+  });
+
+  it('makes the invisible block catch a natural edge jump, and the fleeing goal run away from a direct chase', () => {
+    const block = LEVEL_2.invisibleBlocks[0];
+    const a = respawnAt(LEVEL_2.checkpoints[1]);
+    playSolution(a, [{ run: 2140 }]); // 가장자리까지 가서 뛴다
+    a.update(dt, { horizontal: 1, jumpPressed: true, restartPressed: false });
+    for (let i = 0; i < 200 && a.deaths === 1; i++) a.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
+    expect(a.deathCause?.rect).toBe(block);
+    const b = respawnAt(cp5);
+    for (let i = 0; i < 400 && b.deaths === 1 && !b.cleared; i++) b.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
+    expect(b.cleared).toBe(false); // →만 누르면 도망간 목표를 쫓다 구덩이에 빠진다
+    expect(b.deathCause?.rect.x).toBe(LEVEL_2.goalHops[0].trigger.x);
   });
 
   it('requires the falling platform: the pit is too wide to jump without it', () => {
@@ -78,7 +140,7 @@ describe('LEVEL_2', () => {
     // 체크포인트에서 재시작한 직후 →를 누른 채로도 위험지대·왕복 적에 매번 같은 타이밍으로 걸리는
     // 무한 사망 루프 없이 끝까지 갈 수 있다(재시작하면 적의 순찰 위치도 초기화되므로 늘 같은 상황이 된다).
     world.reset(true);
-    runToGoal(world);
+    expect(playSolution(world, FULL)).toBe(FULL.length); // 원래 구간은 →를 누른 채 자동 플레이로 지나간다
     expect(world.cleared).toBe(true);
     expect(world.deaths).toBe(2); // 위험지대 1회 + 위에서 직접 호출한 재시작 1회, 그 뒤로는 추가 사망 없음
   });
