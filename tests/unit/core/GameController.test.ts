@@ -121,3 +121,101 @@ describe('GameController tab visibility', () => {
   });
 });
 
+
+describe('GameController level progression', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  // RAF를 수동으로 돌리고, "클리어"는 World.update를 대신해 cleared를 세우고 'clear' 이벤트를 한 번 내보내 흉내 낸다
+  // (실제 레벨 완주는 World 테스트의 자동 플레이가 검증한다).
+  function setup() {
+    let frame = 0;
+    const callbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { callbacks.push(cb); return callbacks.length; });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    const snapshots: HudSnapshot[] = [];
+    const controller = new GameController(document.createElement('canvas'), (s) => snapshots.push(s), (e) => { throw e; });
+    controller.start();
+    // 1000/60ms씩 넘기면 부동소수 오차로 고정 스텝 하나에 못 미칠 수 있어, 20ms씩 넘겨 매 프레임 최소 한 스텝이 돌게 한다.
+    const step = (): void => { frame++; for (const cb of callbacks.splice(0)) cb(frame * 20); };
+    step(); // 첫 프레임은 기준 시각만 세운다
+    const clearCurrentLevel = (): void => {
+      const update = vi.spyOn(World.prototype, 'update').mockImplementationOnce(function (this: World) { this.cleared = true; });
+      vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['clear']);
+      step();
+      update.mockRestore();
+    };
+    const last = (): HudSnapshot => snapshots[snapshots.length - 1];
+    return { controller, step, clearCurrentLevel, last };
+  }
+
+  it('starts at level 1 of all levels and ignores "next level" before the level is cleared', () => {
+    const { controller, last } = setup();
+    expect(last().level).toBe(1);
+    expect(last().levelCount).toBeGreaterThanOrEqual(2);
+    controller.nextLevel();
+    expect(last().level).toBe(1);
+    controller.dispose();
+  });
+
+  it('moves to the next level after a clear with a fresh run, and saves each level\'s record under its own key', () => {
+    const { controller, clearCurrentLevel, last } = setup();
+    clearCurrentLevel();
+    expect(last().cleared).toBe(true);
+    expect(localStorage.getItem('trap-runner:best')).not.toBeNull(); // 레벨 1은 기존 키
+    controller.nextLevel();
+    expect(last().level).toBe(2);
+    expect(last().cleared).toBe(false);
+    expect(last().time).toBe(0);
+    expect(last().newRecord).toBe(false);
+    expect(last().best).toBeNull(); // 레벨 2는 아직 기록 없음
+    clearCurrentLevel();
+    expect(localStorage.getItem('trap-runner:best:2')).not.toBeNull();
+    expect(last().bests.every((b) => b !== null)).toBe(true); // 완료 화면에 모든 레벨 기록이 있다
+    controller.dispose();
+  });
+
+  it('goes back to level 1 after the last level is cleared', () => {
+    const { controller, clearCurrentLevel, last } = setup();
+    for (let i = 0; i < last().levelCount; i++) { clearCurrentLevel(); controller.nextLevel(); }
+    expect(last().level).toBe(1);
+    controller.dispose();
+  });
+
+  it('carries over the record saved before levels existed as the level 1 record', () => {
+    localStorage.setItem('trap-runner:best', JSON.stringify({ time: 12.3, deaths: 2 }));
+    const { controller, last } = setup();
+    expect(last().bests[0]).toEqual({ time: 12.3, deaths: 2 });
+    expect(last().best).toEqual({ time: 12.3, deaths: 2 });
+    controller.dispose();
+  });
+
+  it('does not carry a pause over into the next level', () => {
+    // 코덱스 리뷰: 클리어 후 일시정지한 상태에서 다음 레벨로 넘어가면 새 레벨이 정지된 채 시작했다.
+    const { controller, clearCurrentLevel, last } = setup();
+    clearCurrentLevel();
+    controller.togglePause();
+    expect(last().paused).toBe(true);
+    controller.nextLevel();
+    expect(last().level).toBe(2);
+    expect(last().paused).toBe(false);
+    controller.dispose();
+  });
+
+  it('keeps the pause when "next level" is ignored because the level is not cleared yet', () => {
+    const { controller, last } = setup();
+    controller.togglePause();
+    controller.nextLevel();
+    expect(last().level).toBe(1);
+    expect(last().paused).toBe(true);
+    controller.dispose();
+  });
+
+  it('advances with the N key once the level is cleared', () => {
+    const { controller, step, clearCurrentLevel, last } = setup();
+    clearCurrentLevel();
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyN' }));
+    step();
+    expect(last().level).toBe(2);
+    controller.dispose();
+  });
+});

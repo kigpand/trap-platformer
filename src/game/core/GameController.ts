@@ -3,16 +3,21 @@ import { InputManager, type TouchAction } from './InputManager';
 import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type GameSnapshot } from '../world/World';
-import { LEVEL_1 } from '../world/level';
+import { LEVELS } from '../world/level';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
-// HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·최고 기록 상태.
-// newRecord는 마지막 클리어가 기록을 하나라도 갱신했는지(수동 재시작 시 해제).
-export interface HudSnapshot extends GameSnapshot { paused: boolean; muted: boolean; volume: number; best: BestRecord | null; newRecord: boolean }
+// HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·레벨·최고 기록 상태.
+// level은 1부터 센다. best는 현재 레벨의 최고 기록, bests는 레벨 순서대로 모든 레벨의 기록(완료 화면용).
+// newRecord는 마지막 클리어가 기록을 하나라도 갱신했는지(수동 재시작·레벨 전환 시 해제).
+export interface HudSnapshot extends GameSnapshot {
+  paused: boolean; muted: boolean; volume: number;
+  level: number; levelCount: number; best: BestRecord | null; bests: (BestRecord | null)[]; newRecord: boolean;
+}
 const MUTED_STORAGE_KEY = 'trap-runner:muted';
 const VOLUME_STORAGE_KEY = 'trap-runner:volume';
 const DEFAULT_VOLUME = 0.8;
-const BEST_STORAGE_KEY = 'trap-runner:best';
+// 레벨 1은 레벨 진행 도입 전부터 쓰던 키를 그대로 써서 기존 기록을 이어받는다. 레벨 2부터는 번호를 붙인다.
+const bestStorageKey = (levelIndex: number): string => (levelIndex === 0 ? 'trap-runner:best' : `trap-runner:best:${levelIndex + 1}`);
 // 음소거 설정은 새로고침 후에도 유지한다. 시크릿 모드·저장소 차단 등으로 localStorage
 // 접근이 예외를 던질 수 있으므로, 실패하면 기본값(소리 켬)으로 동작하고 저장은 건너뛴다.
 function loadMuted(): boolean {
@@ -33,9 +38,9 @@ function saveVolume(volume: number): void {
   try { localStorage.setItem(VOLUME_STORAGE_KEY, String(volume)); } catch { /* 저장 실패 시 이번 세션에만 적용 */ }
 }
 // 저장된 값이 깨졌거나(수동 편집 등) 형식이 다르면 기록이 없는 것으로 본다.
-function loadBest(): BestRecord | null {
+function loadBest(levelIndex: number): BestRecord | null {
   try {
-    const raw = localStorage.getItem(BEST_STORAGE_KEY);
+    const raw = localStorage.getItem(bestStorageKey(levelIndex));
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null || !('time' in parsed) || !('deaths' in parsed)) return null;
@@ -44,8 +49,8 @@ function loadBest(): BestRecord | null {
     return { time, deaths };
   } catch { return null; }
 }
-function saveBest(best: BestRecord): void {
-  try { localStorage.setItem(BEST_STORAGE_KEY, JSON.stringify(best)); } catch { /* 저장 실패 시 이번 세션에만 적용 */ }
+function saveBest(levelIndex: number, best: BestRecord): void {
+  try { localStorage.setItem(bestStorageKey(levelIndex), JSON.stringify(best)); } catch { /* 저장 실패 시 이번 세션에만 적용 */ }
 }
 export function mergeBest(best: BestRecord | null, run: BestRecord): { best: BestRecord; improved: boolean } {
   if (!best) return { best: run, improved: true };
@@ -53,14 +58,15 @@ export function mergeBest(best: BestRecord | null, run: BestRecord): { best: Bes
   return { best: merged, improved: merged.time < best.time || merged.deaths < best.deaths };
 }
 export class GameController {
-  private readonly world = new World(LEVEL_1);
+  private levelIndex = 0;
+  private world = new World(LEVELS[0]);
   private readonly renderer: CanvasRenderer;
   private readonly input = new InputManager(window);
   private readonly sound = new SoundPlayer(window);
   private readonly loop: GameLoop;
   private lastSnapshot = '';
   private paused = false;
-  private best: BestRecord | null = loadBest();
+  private bests: (BestRecord | null)[] = LEVELS.map((_, i) => loadBest(i));
   private newRecord = false;
   constructor(
     canvas: HTMLCanvasElement,
@@ -75,6 +81,7 @@ export class GameController {
       if (state.toggleDebug) this.renderer.debug = !this.renderer.debug;
       if (state.togglePause) this.paused = !this.paused;
       if (state.toggleMute) this.setMuted(!this.sound.muted);
+      if (state.nextLevel) this.advanceLevel();
       // 정지 중에는 world.update를 건너뛰지만, 재시작(R)은 World.update 안에서만
       // 처리되므로 그대로 두면 정지 중 R 입력이 사라진다. 재시작은 정지 여부와
       // 무관하게 별도로 처리한다.
@@ -94,7 +101,10 @@ export class GameController {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
   private publishSnapshot(): void {
-    const snapshot = { ...this.world.snapshot(), paused: this.paused, muted: this.sound.muted, volume: this.sound.volume, best: this.best, newRecord: this.newRecord };
+    const snapshot: HudSnapshot = {
+      ...this.world.snapshot(), paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
+      level: this.levelIndex + 1, levelCount: LEVELS.length, best: this.bests[this.levelIndex], bests: this.bests, newRecord: this.newRecord,
+    };
     const serialized = JSON.stringify(snapshot);
     if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
   }
@@ -113,17 +123,29 @@ export class GameController {
   // 키보드(R/P) 외에 화면의 버튼에서도 같은 동작을 호출할 수 있도록 공개한다 —
   // 터치/마우스로만 조작하는 사용자나 스크린 리더 사용자를 위한 접근성 통로.
   restart(): void { this.restartRun(); this.publishSnapshot(); }
+  nextLevel(): void { this.advanceLevel(); this.publishSnapshot(); }
   private restartRun(): void { this.world.reset(); this.newRecord = false; }
   private recordClear(): void {
     const snap = this.world.snapshot();
+    const i = this.levelIndex;
     // 다른 탭이 그사이 더 좋은 기록을 저장했을 수 있다 — 시작 시 읽은 기록만 믿으면 더 나쁜
     // 기록으로 덮어쓰고 NEW RECORD!까지 띄운다. 비교·저장 직전에 저장소를 다시 읽어 합친다.
-    const stored = loadBest();
-    const known = stored ? mergeBest(this.best, stored).best : this.best;
+    const stored = loadBest(i);
+    const known = stored ? mergeBest(this.bests[i], stored).best : this.bests[i];
     const { best, improved } = mergeBest(known, { time: snap.time, deaths: snap.runDeaths });
-    this.best = best;
+    this.bests = this.bests.map((b, j) => (j === i ? best : b));
     this.newRecord = improved;
-    if (improved) saveBest(best);
+    if (improved) saveBest(i, best);
+  }
+  // 클리어한 레벨에서만 다음 레벨로 넘어간다(버튼·N 키 공통). 마지막 레벨 뒤에는 레벨 1로 돌아가 처음부터 한다.
+  // 새 레벨은 새 World로 시작하므로 시간·사망 수·체크포인트도 새로 센다. 다음 레벨 요청은 "이제 플레이하겠다"는
+  // 명시적인 행동이므로, 클리어 후 정지해 둔 상태를 새 레벨로 물려주지 않고 재개한다.
+  private advanceLevel(): void {
+    if (!this.world.cleared) return;
+    this.levelIndex = (this.levelIndex + 1) % LEVELS.length;
+    this.world = new World(LEVELS[this.levelIndex]);
+    this.newRecord = false;
+    this.paused = false;
   }
   togglePause(): void { this.paused = !this.paused; this.publishSnapshot(); }
   setTouch(action: TouchAction, pressed: boolean): void { this.input.setTouch(action, pressed); }
