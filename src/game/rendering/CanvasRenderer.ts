@@ -39,7 +39,11 @@ export const TAUNT_COLOR = '#fca5a5';
 export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
 const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
-export const REVERSE_MARK = '⇄'; // 좌우 반전이 걸린 동안 플레이어 위에 띄우는 표시(#16)
+export const REVERSE_MARK = '⇄';
+export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 깃발도 같은 색·모양이다
+const SIGN_WIDTH = 150; // #18 표지판 판자(12자 문구가 들어가는 너비)
+const SIGN_POST = '#8a6d4b';
+const SIGN_BOARD = '#e7d7b5'; // 좌우 반전이 걸린 동안 플레이어 위에 띄우는 표시(#16)
 
 // 체크포인트 깃발. 가짜 체크포인트(#11)도 일부러 같은 모양으로 그린다(처음엔 구분되지 않아야 한다).
 // 깃대는 판정 영역 높이와 상관없이 영역 바닥에서 FLAG_HEIGHT만큼 그린다 — 진짜는 건너뛸 수 없게 영역이 높고
@@ -185,8 +189,28 @@ export class CanvasRenderer {
       for (const f of level.flingZones) ctx.strokeRect(f.zone.x, f.zone.y, f.zone.width, f.zone.height);
       for (const z of level.reverseZones) ctx.strokeRect(z.x, z.y, z.width, z.height);
     }
+    // #14 가짜 클리어: 바닥은 일반 바닥처럼(꺼지면 그리지 않음), 깃발은 진짜 목표와 똑같이 그린다.
+    for (const fg of world.fakeGoals) {
+      if (!fg.collapsed) {
+        for (const f of fg.config.floor) {
+          ctx.fillStyle = '#627e55'; ctx.fillRect(f.x, f.y, f.width, f.height);
+          ctx.fillStyle = '#99c577'; ctx.fillRect(f.x, f.y, f.width, Math.min(8, f.height));
+          if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(f.x, f.y, f.width, f.height); }
+        }
+      }
+      const flag = fg.config.flag;
+      ctx.fillStyle = GOAL_FILL; ctx.fillRect(flag.x, flag.y, flag.width, flag.height);
+    }
+    // #18 가짜 안내 표지판: 기둥과 판자에 문구. 동작은 없다(짝이 되는 근처 함정이 동작한다).
+    ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center';
+    for (const sign of level.signs) {
+      ctx.fillStyle = SIGN_POST; ctx.fillRect(sign.x - 3, sign.y - 56, 6, 56);
+      ctx.fillStyle = SIGN_BOARD; ctx.fillRect(sign.x - SIGN_WIDTH / 2, sign.y - 88, SIGN_WIDTH, 32);
+      ctx.fillStyle = '#3b2f22'; ctx.fillText(sign.text, sign.x, sign.y - 67);
+    }
+    ctx.textAlign = 'left';
     const goal = world.goal.rect; // #12 도망가는 목표: 현재(이동 중이면 이동 중인) 위치
-    ctx.fillStyle = '#eab308'; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+    ctx.fillStyle = GOAL_FILL; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
     for (const e of world.enemies) {
       drawEnemy(ctx, e);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
@@ -247,8 +271,8 @@ export class CanvasRenderer {
       ctx.fillStyle = TAUNT_COLOR; ctx.fillText(TAUNTS[world.taunt.kind], VIEW_WIDTH / 2, 124);
       ctx.textAlign = 'left';
     }
-    if (world.cleared) {
-      ctx.fillStyle = '#eab308'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
+    if (world.cleared || world.fakeClear) { // 가짜 클리어(#14)도 똑같이 띄운다
+      ctx.fillStyle = GOAL_FILL; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
       ctx.fillText('LEVEL CLEAR', VIEW_WIDTH / 2, 80);
       ctx.textAlign = 'left';
     }

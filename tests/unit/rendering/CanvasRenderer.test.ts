@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, DEATH_CAUSE_OVERLAY, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { CanvasRenderer, DEATH_CAUSE_OVERLAY, GOAL_FILL, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
+import { testLevel } from '../world/fixtures';
 
 // happy-dom에는 Canvas 2D 구현이 없다. 모든 메서드 호출을 받아 주되 fillRect만 그 시점의 fillStyle과
 // 함께 기록하는 가짜 컨텍스트로, "어느 영역을 어떤 색으로 칠했는지"를 검증한다.
@@ -213,5 +214,30 @@ describe('CanvasRenderer forced flight and reverse traps', () => {
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
     expect(world.reverse).not.toBeNull();
     expect(render(world).texts).toContain(REVERSE_MARK);
+  });
+});
+
+describe('CanvasRenderer fake clear and fake signs', () => {
+  const flag = { x: 700, y: 440, width: 40, height: 60 };
+  const floor = { x: 600, y: 500, width: 240, height: 120 };
+  const level = testLevel({ fakeGoals: [{ flag, floor: [floor] }], signs: [{ x: 300, y: 500, text: '여기서 점프!' }] });
+
+  it('draws the fake flag like the goal, and LEVEL CLEAR while the fake clear lasts', () => {
+    const world = new World(level);
+    const same = (f: { style: string; x: number; y: number; width: number; height: number }, r: typeof flag) =>
+      f.x === r.x && f.y === r.y && f.width === r.width && f.height === r.height;
+    expect(renderFills(world).some((f) => f.style === GOAL_FILL && same(f, flag))).toBe(true);
+    expect(renderFills(world).some((f) => same(f, floor))).toBe(true);
+    expect(render(world).texts).not.toContain('LEVEL CLEAR');
+    world.player.x = flag.x; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    expect(render(world).texts).toContain('LEVEL CLEAR');
+    world.collapseFakeFloor();
+    expect(render(world).texts).not.toContain('LEVEL CLEAR');
+    expect(renderFills(world).some((f) => same(f, floor))).toBe(false); // 꺼진 바닥은 그리지 않는다
+  });
+
+  it('draws each sign with its text', () => {
+    expect(render(new World(level)).texts).toContain('여기서 점프!');
   });
 });

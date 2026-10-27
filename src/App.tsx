@@ -15,6 +15,7 @@ export default function App() {
   const prevDeaths = useRef(snapshot.deaths);
   const prevPaused = useRef(snapshot.paused);
   const prevLevel = useRef(snapshot.level);
+  const prevCleared = useRef(snapshot.cleared);
   const allCleared = snapshot.cleared && snapshot.level === snapshot.levelCount;
   const onSnapshot = useCallback((next: HudSnapshot) => setSnapshot(next), []);
 
@@ -25,10 +26,12 @@ export default function App() {
     if (snapshot.level !== prevLevel.current) {
       prevLevel.current = snapshot.level;
       prevDeaths.current = snapshot.deaths;
+      prevCleared.current = snapshot.cleared;
       setAnnouncement(`레벨 ${snapshot.level} 시작`);
       return;
     }
     if (snapshot.cleared) {
+      prevCleared.current = true;
       const record = snapshot.newRecord ? ' — 최고 기록 갱신!' : '';
       const next = snapshot.level === snapshot.levelCount ? ' 모든 레벨을 클리어했습니다.' : ' 다음 레벨 버튼이나 N 키로 계속합니다.';
       setAnnouncement(`레벨 ${snapshot.level} 클리어! 기록 ${snapshot.time.toFixed(1)}초, 사망 ${snapshot.runDeaths}회${record}${next}`);
@@ -39,6 +42,13 @@ export default function App() {
       // 함정에 당했으면 캔버스와 같은 놀리는 문구를 덧붙인다(docs/game-design.md "놀리는 사망 메시지").
       const taunt = snapshot.deathKind ? ` ${TAUNTS[snapshot.deathKind]}` : '';
       setAnnouncement(`사망 ${snapshot.deaths}번째 — ${snapshot.checkpoint ? '체크포인트에서' : '처음부터'} 다시 시작합니다.${taunt}`);
+      prevCleared.current = false;
+      return;
+    }
+    // 클리어 표시가 사망·레벨 전환 없이 풀리면(가짜 클리어 #14에서 멀어짐·바닥 꺼짐, 클리어 후 재시작) 화면 변화와 같이 알린다.
+    if (prevCleared.current) {
+      prevCleared.current = false;
+      setAnnouncement('다시 진행 중');
     }
   }, [snapshot.level, snapshot.levelCount, snapshot.cleared, snapshot.deaths, snapshot.checkpoint, snapshot.time, snapshot.runDeaths, snapshot.newRecord, snapshot.deathKind]);
 
