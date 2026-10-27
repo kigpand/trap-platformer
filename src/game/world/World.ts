@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, Boulder, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -18,6 +18,8 @@ const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지
 const DODGE_DURATION = 0.2; // #8 발판이 미끄러지는 시간
 const GOAL_HOP_DURATION = 0.25; // #12 목표가 다음 위치로 이동하는 시간
 const SKY_DROP_WARNING = 0.4; // #13 경고 시작부터 떨어지기까지
+export const BOULDER_SIZE = 60; // #19 돌덩이 크기
+const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -135,6 +137,16 @@ export interface SpringFloorState { readonly config: SpringFloor; bounced: boole
 function createSpringFloors(level: Level): SpringFloorState[] {
   return level.springFloors.map((config) => ({ config, bounced: false }));
 }
+// #19 따라오는 돌덩이: idle(트리거 전) → rolling(x가 오른쪽으로 180px/s) → gone(끝 x 도달). 그 목숨 동안 한 번만 굴러온다.
+export interface BoulderState { readonly config: Boulder; phase: 'idle' | 'rolling' | 'gone'; x: number }
+function createBoulders(level: Level): BoulderState[] {
+  return level.boulders.map((config) => ({ config, phase: 'idle', x: config.startX }));
+}
+export function boulderRect(b: BoulderState): Rect { return { x: b.x, y: b.config.y, width: BOULDER_SIZE, height: BOULDER_SIZE }; }
+// 사망 원인 표시 영역: 트리거와 굴러간 길(시작 x부터 끝 x까지)을 합친 영역.
+function boulderArea(b: Boulder): Rect {
+  return union(b.trigger, { x: b.startX, y: b.y, width: b.endX - b.startX, height: BOULDER_SIZE });
+}
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -163,7 +175,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 17번 스프링 바닥(튕겨 날아갈 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -202,6 +214,7 @@ export class World {
   skyDrops: SkyDropGroupState[];
   springFloors: SpringFloorState[];
   fakeGoals: FakeGoalState[];
+  boulders: BoulderState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -243,6 +256,7 @@ export class World {
     this.skyDrops = createSkyDrops(level);
     this.springFloors = createSpringFloors(level);
     this.fakeGoals = createFakeGoals(level);
+    this.boulders = createBoulders(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -292,6 +306,7 @@ export class World {
     this.skyDrops = createSkyDrops(this.level);
     this.springFloors = createSpringFloors(this.level);
     this.fakeGoals = createFakeGoals(this.level);
+    this.boulders = createBoulders(this.level);
     this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
@@ -458,6 +473,18 @@ export class World {
       }
     }
 
+    // #19 따라오는 돌덩이: 트리거에 들어온 스텝에 시작 x에 나타나고(그 스텝은 움직이지 않음), 다음 스텝부터 굴러간다.
+    // 지형을 따라 오르내리지 않고 솔리드도 아니다.
+    for (const b of this.boulders) {
+      if (b.phase === 'idle') {
+        if (overlaps(p, b.config.trigger)) b.phase = 'rolling';
+        continue;
+      }
+      if (b.phase !== 'rolling') continue;
+      b.x += BOULDER_SPEED * dt;
+      if (b.x + BOULDER_SIZE >= b.config.endX - 1e-6) b.phase = 'gone';
+    }
+
     // #9 떨어지는 천장: 떨어지는 중 플레이어와 겹치면 깔림(착지 판정보다 먼저 확인해 서 있는 플레이어 위로 떨어져도 깔린다).
     let crushedBy: FallingCeilingState | null = null;
     for (const c of this.fallingCeilings) {
@@ -506,6 +533,8 @@ export class World {
     if (spike) { this.reset(true, { rect: spike.config.spikes, kind: 'popUpSpikes' }); return; }
     const fakeCheckpoint = this.level.fakeCheckpoints.find((zone) => overlaps(p, zone));
     if (fakeCheckpoint) { this.reset(true, { rect: fakeCheckpoint, kind: 'fakeCheckpoint' }); return; }
+    const boulder = this.boulders.find((b) => b.phase === 'rolling' && overlaps(p, boulderRect(b)));
+    if (boulder) { this.reset(true, { rect: boulderArea(boulder.config), kind: 'boulder' }); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));
     if (enemy) { this.reset(true, { rect: patrolArea(enemy), kind: 'enemy' }); return; }
     const skyGroup = this.skyDrops.find((g) => g.enemies.some((se) => se.enemy && overlaps(p, se.enemy)));

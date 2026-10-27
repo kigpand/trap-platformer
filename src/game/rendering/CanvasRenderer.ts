@@ -4,7 +4,7 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { ceilingRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { boulderRect, ceilingRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { TAUNTS } from './taunts';
 
@@ -41,6 +41,8 @@ const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
 export const REVERSE_MARK = '⇄';
 export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 깃발도 같은 색·모양이다
+export const BOULDER_FILL = '#78716c'; // #19 따라오는 돌덩이
+const BOULDER_SHADE = '#57534e';
 const SIGN_WIDTH = 150; // #18 표지판 판자(12자 문구가 들어가는 너비)
 const SIGN_POST = '#8a6d4b';
 const SIGN_BOARD = '#e7d7b5'; // 좌우 반전이 걸린 동안 플레이어 위에 띄우는 표시(#16)
@@ -248,6 +250,21 @@ export class CanvasRenderer {
         }
       }
       if (this.debug) { const t = g.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #19 따라오는 돌덩이: 굴러가는 동안만 모서리를 깎은 돌로 그린다(트리거는 디버그에서만). 굴러가는 느낌을 위해
+    // 이동 거리에 따라 무늬 줄이 돌아간다.
+    for (const b of world.boulders) {
+      if (b.phase === 'rolling') {
+        const r = boulderRect(b);
+        ctx.fillStyle = BOULDER_FILL;
+        ctx.fillRect(r.x + 12, r.y, r.width - 24, r.height);
+        ctx.fillRect(r.x, r.y + 12, r.width, r.height - 24);
+        ctx.fillRect(r.x + 5, r.y + 5, r.width - 10, r.height - 10);
+        const k = ((b.x - b.config.startX) / 16) % 4;
+        ctx.fillStyle = BOULDER_SHADE;
+        ctx.fillRect(r.x + 10 + k * 10, r.y + 14, 6, r.height - 28);
+      }
+      if (this.debug) { const t = b.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
