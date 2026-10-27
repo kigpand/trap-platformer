@@ -68,6 +68,8 @@ export class GameController {
   private paused = false;
   private bests: (BestRecord | null)[] = LEVELS.map((_, i) => loadBest(i));
   private newRecord = false;
+  // #14 가짜 클리어 중 보여 줄 "진짜였다면"의 기록 화면(저장하지 않는다). world.fakeClear가 있을 때만 쓴다.
+  private fakePreview: { best: BestRecord; improved: boolean } | null = null;
   constructor(
     canvas: HTMLCanvasElement,
     private readonly onSnapshot: (snapshot: HudSnapshot) => void,
@@ -92,7 +94,10 @@ export class GameController {
         this.world.update(dt, state.input);
       }
       for (const event of this.world.drainEvents()) {
-        if (event === 'clear') this.recordClear();
+        if (event === 'clear') {
+          if (this.world.fakeClear) this.fakePreview = this.previewClear();
+          else this.recordClear();
+        }
         this.sound.play(event);
       }
       this.sound.updateMusic(!this.paused); // 일시정지(탭 숨김 포함) 중에는 배경 음악도 멈춘다
@@ -101,9 +106,12 @@ export class GameController {
     document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
   private publishSnapshot(): void {
+    // 가짜 클리어 중에는 진짜 클리어였다면 보였을 기록(최고 기록·NEW RECORD!)을 그대로 보여 준다.
+    const preview = this.world.fakeClear ? this.fakePreview : null;
+    const bests = preview ? this.bests.map((b, j) => (j === this.levelIndex ? preview.best : b)) : this.bests;
     const snapshot: HudSnapshot = {
       ...this.world.snapshot(), paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
-      level: this.levelIndex + 1, levelCount: LEVELS.length, best: this.bests[this.levelIndex], bests: this.bests, newRecord: this.newRecord,
+      level: this.levelIndex + 1, levelCount: LEVELS.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
     };
     const serialized = JSON.stringify(snapshot);
     if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
@@ -125,14 +133,18 @@ export class GameController {
   restart(): void { this.restartRun(); this.publishSnapshot(); }
   nextLevel(): void { this.advanceLevel(); this.publishSnapshot(); }
   private restartRun(): void { this.world.reset(); this.newRecord = false; }
-  private recordClear(): void {
+  // 이번 런으로 클리어하면 될 기록. 다른 탭이 그사이 더 좋은 기록을 저장했을 수 있다 — 시작 시 읽은 기록만 믿으면 더 나쁜
+  // 기록으로 덮어쓰고 NEW RECORD!까지 띄운다. 비교·저장 직전에 저장소를 다시 읽어 합친다.
+  private previewClear(): { best: BestRecord; improved: boolean } {
     const snap = this.world.snapshot();
     const i = this.levelIndex;
-    // 다른 탭이 그사이 더 좋은 기록을 저장했을 수 있다 — 시작 시 읽은 기록만 믿으면 더 나쁜
-    // 기록으로 덮어쓰고 NEW RECORD!까지 띄운다. 비교·저장 직전에 저장소를 다시 읽어 합친다.
     const stored = loadBest(i);
     const known = stored ? mergeBest(this.bests[i], stored).best : this.bests[i];
-    const { best, improved } = mergeBest(known, { time: snap.time, deaths: snap.runDeaths });
+    return mergeBest(known, { time: snap.time, deaths: snap.runDeaths });
+  }
+  private recordClear(): void {
+    const i = this.levelIndex;
+    const { best, improved } = this.previewClear();
     this.bests = this.bests.map((b, j) => (j === i ? best : b));
     this.newRecord = improved;
     if (improved) saveBest(i, best);
@@ -140,7 +152,9 @@ export class GameController {
   // 클리어한 레벨에서만 다음 레벨로 넘어간다(버튼·N 키 공통). 마지막 레벨 뒤에는 레벨 1로 돌아가 처음부터 한다.
   // 새 레벨은 새 World로 시작하므로 시간·사망 수·체크포인트도 새로 센다. 다음 레벨 요청은 "이제 플레이하겠다"는
   // 명시적인 행동이므로, 클리어 후 정지해 둔 상태를 새 레벨로 물려주지 않고 재개한다.
+  // 가짜 클리어(#14) 중이면 넘어가는 대신 깃발 아래 바닥이 꺼진다 — 진짜처럼 정지도 풀어 그대로 떨어지게 한다.
   private advanceLevel(): void {
+    if (this.world.collapseFakeFloor()) { this.paused = false; return; }
     if (!this.world.cleared) return;
     this.levelIndex = (this.levelIndex + 1) % LEVELS.length;
     this.world = new World(LEVELS[this.levelIndex]);

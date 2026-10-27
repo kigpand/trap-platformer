@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, DodgingPlatform, FallingCeiling, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -135,6 +135,12 @@ export interface SpringFloorState { readonly config: SpringFloor; bounced: boole
 function createSpringFloors(level: Level): SpringFloorState[] {
   return level.springFloors.map((config) => ({ config, bounced: false }));
 }
+// #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
+export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
+function createFakeGoals(level: Level): FakeGoalState[] {
+  return level.fakeGoals.map((config) => ({ config, collapsed: false }));
+}
+const FAKE_CLEAR_RELEASE = 80; // #14 깃발 영역 좌우로 이만큼 밖으로 나가면 가짜 클리어가 풀린다
 // 강제 비행(#15·#17 공통): 비행 중에는 좌우 입력 대신 vx를 넣는다. launched는 발동한 스텝 표시 — 그 스텝은 착지로 보지 않는다.
 export interface ForcedFlightState { readonly vx: number; launched: boolean }
 // #16 좌우 반전: 걸린 구역과 들어온 쪽. 들어온 쪽의 반대편으로 구역을 완전히 빠져나가야 풀린다.
@@ -157,7 +163,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 17번 스프링 바닥(튕겨 날아갈 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -195,6 +201,10 @@ export class World {
   goal: GoalState;
   skyDrops: SkyDropGroupState[];
   springFloors: SpringFloorState[];
+  fakeGoals: FakeGoalState[];
+  // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
+  // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
+  fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
   flight: ForcedFlightState | null = null;
   reverse: ReverseState | null = null;
   // #16 방금 풀린 구역과 풀릴 때 누르던 좌우 입력(반전 전 원래 값). 그 키를 떼거나 바꾸기 전에는 같은 구역이 다시 걸리지 않는다 —
@@ -232,6 +242,7 @@ export class World {
     this.goal = createGoal(level);
     this.skyDrops = createSkyDrops(level);
     this.springFloors = createSpringFloors(level);
+    this.fakeGoals = createFakeGoals(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -243,6 +254,7 @@ export class World {
     for (const ib of this.invisibleBlocks) if (ib.visible) rects.push(ib.rect);
     for (const c of this.fallingCeilings) if (c !== exclude && (c.phase === 'idle' || c.phase === 'armed' || c.phase === 'landed')) rects.push(ceilingRect(c));
     for (const d of this.dodgingPlatforms) rects.push(dodgingRect(d));
+    for (const fg of this.fakeGoals) if (!fg.collapsed) rects.push(...fg.config.floor);
     return rects;
   }
   drainEvents(): WorldEvent[] {
@@ -279,6 +291,8 @@ export class World {
     this.goal = createGoal(this.level);
     this.skyDrops = createSkyDrops(this.level);
     this.springFloors = createSpringFloors(this.level);
+    this.fakeGoals = createFakeGoals(this.level);
+    this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
     this.reverseRearm = null;
@@ -500,6 +514,15 @@ export class World {
     if (ambush?.enemy) { this.reset(true, { rect: union(ambush.config.trigger, patrolArea(ambush.enemy)), kind: 'ambush' }); return; }
     const conditional = this.conditionalTraps.find((ct) => ct.dwellTime >= CONDITIONAL_DWELL_THRESHOLD);
     if (conditional) { this.reset(true, { rect: conditional.zone, kind: 'conditional' }); return; }
+    // #14 가짜 클리어: 깃발에 닿으면 진짜 클리어와 같은 'clear' 이벤트를 내고(효과음·기록 화면은 컨트롤러가 흉내 낸다),
+    // 깃발에서 좌우 80px 밖으로 나가면 풀린다. 바닥이 꺼진 깃발은 그 목숨 동안 다시 걸리지 않는다.
+    if (this.fakeClear) {
+      const flag = this.fakeClear.goal.config.flag;
+      if (p.x + p.width < flag.x - FAKE_CLEAR_RELEASE || p.x > flag.x + flag.width + FAKE_CLEAR_RELEASE) this.fakeClear = null;
+    } else if (!this.cleared) {
+      const fake = this.fakeGoals.find((fg) => !fg.collapsed && overlaps(p, fg.config.flag));
+      if (fake) { this.fakeClear = { goal: fake, time: this.displayTime() }; this.events.push('clear'); }
+    }
     if (!this.goal.move && overlaps(p, this.goal.rect) && !this.cleared) { this.cleared = true; this.runComplete = true; this.events.push('clear'); }
     if (p.y > this.level.height + 100) {
       // 그냥 구덩이에 빠진 낙사는 표시하지 않고, 직전 3초 안에 무너진 함정이 있으면 그것을 원인으로 본다.
@@ -507,6 +530,17 @@ export class World {
       this.reset(true, fallTrap);
     }
   }
+  // #14 가짜 클리어 중 "다음 레벨"(N·버튼)을 누르면 깃발 아래 바닥이 즉시 사라진다. 가짜 클리어 중이 아니면 false.
+  // 화면은 바로 평소대로 돌아가고, 떨어져 죽으면 3초 규칙으로 가짜 깃발이 원인이 된다.
+  collapseFakeFloor(): boolean {
+    if (!this.fakeClear) return false;
+    const { goal } = this.fakeClear;
+    goal.collapsed = true;
+    this.fakeClear = null;
+    this.lastFallTrap = { cause: { rect: goal.config.flag, kind: 'fakeClear' }, at: this.clock };
+    return true;
+  }
+  private displayTime(): number { return Math.floor(this.runTime * 10 + 1e-6) / 10; } // 1/60 누적 오차로 1.0초가 0.9초로 보이지 않게
   // 강제 비행 발동: 이번 스텝의 속도를 (vx, vy)로 바꾸고 grounded를 해제한다.
   private launch(vx: number, vy: number): void {
     const p = this.player;
@@ -533,9 +567,10 @@ export class World {
   snapshot(): GameSnapshot {
     const p = this.player;
     return {
-      x: Math.round(p.x), y: Math.round(p.y), grounded: p.grounded, deaths: this.deaths, cleared: this.cleared,
+      x: Math.round(p.x), y: Math.round(p.y), grounded: p.grounded, deaths: this.deaths,
+      cleared: this.cleared || this.fakeClear !== null, // 가짜 클리어도 화면에는 클리어로 보인다(#14)
       checkpoint: this.activeCheckpoint !== null,
-      time: Math.floor(this.runTime * 10 + 1e-6) / 10, // 1/60 누적 오차로 1.0초가 0.9초로 보이지 않게
+      time: this.fakeClear ? this.fakeClear.time : this.displayTime(),
       runDeaths: this.runDeaths,
       deathKind: this.lastDeathKind,
     };

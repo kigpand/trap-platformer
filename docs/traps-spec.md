@@ -25,7 +25,8 @@
 - [x] 6. 사라지는 땅 · [x] 7. 투명 블록 · [x] 9. 떨어지는 천장 — `Level.vanishingGrounds`/`invisibleBlocks`/`fallingCeilings`, `World`의 상태와 `dynamicSolids()`, `tests/unit/world/TerrainTraps.test.ts`. 아직 어느 레벨에도 배치하지 않았다(레벨 연장에서 배치)
 - [x] 8. 도망가는 발판 · [x] 10. 솟아오르는 가시 · [x] 11. 가짜 체크포인트 · [x] 12. 도망가는 목표 — `Level.dodgingPlatforms`/`popUpSpikes`/`fakeCheckpoints`/`goalHops`, `World.goal`(현재 목표 위치), `tests/unit/world/TrickTraps.test.ts`. 아직 어느 레벨에도 배치하지 않았다
 - [x] 15. 날려버리는 점프 · [x] 16. 좌우 반전 구간 · [x] 17. 뒷걸음 스프링 바닥 — `Level.flingZones`/`reverseZones`/`springFloors`, `World.flight`(강제 비행)·`World.reverse`(반전 걸림)·`World.springFloors`(튕긴 여부), `tests/unit/world/TauntingTraps.test.ts`. 아직 어느 레벨에도 배치하지 않았다
-- [ ] 14. 가짜 클리어 · [ ] 18. 가짜 안내 표지판 · [ ] 19. 따라오는 돌덩이
+- [x] 14. 가짜 클리어 · [x] 18. 가짜 안내 표지판 — `Level.fakeGoals`/`signs`, `World.fakeClear`·`World.collapseFakeFloor()`, `GameController`의 기록 화면 흉내(`fakePreview`, 저장 안 함), App의 "다시 진행 중" 알림, `tests/unit/world/FakeClear.test.ts`·`tests/unit/core/FakeClearController.test.ts`·`tests/unit/App.test.ts`. 아직 어느 레벨에도 배치하지 않았다
+- [ ] 19. 따라오는 돌덩이
 - [x] 13. 하늘에서 쏟아지는 적 — `Level.skyDrops`, `World.skyDrops`(경고·낙하·착지 후 왕복·구덩이 낙하 제거), `tests/unit/world/SkyDrops.test.ts`. 아직 어느 레벨에도 배치하지 않았다(레벨 3에서 배치)
 
 ## 함정 5종
@@ -142,7 +143,7 @@
 ### 14. 가짜 클리어
 - 정의: 목표 깃발과 똑같이 생긴 깃발. 닿으면 클리어 화면까지 그대로 흉내 내지만, 다음 레벨로 넘어가려는 순간 바닥이 꺼진다.
 - 텔레그래프: 처음엔 진짜 목표와 구분되지 않습니다(의도적 함정). 진짜 목표는 그보다 앞(화면 밖)에 있습니다.
-- 트리거: 깃발에 닿으면 "가짜 클리어" 상태가 됩니다. HUD STATUS·캔버스 "LEVEL CLEAR"·"다음 레벨 (N)" 버튼·클리어 효과음·스크린 리더 알림까지 진짜 클리어와 똑같이 보여 줍니다. 런 시간은 계속 흐르고 기록은 저장하지 않습니다.
+- 트리거: 깃발에 닿으면 "가짜 클리어" 상태가 됩니다. HUD STATUS·캔버스 "LEVEL CLEAR"·"다음 레벨 (N)" 버튼·클리어 효과음·스크린 리더 알림까지 진짜 클리어와 똑같이 보여 줍니다. 런 시간은 계속 흐르고 기록은 저장하지 않습니다. 다만 화면(HUD TIME·클리어 알림)에는 진짜 클리어처럼 깃발에 닿은 순간의 시간을 멈춘 채 보여 주고, 최고 기록·NEW RECORD!도 진짜였다면 보였을 값을 그대로 보여 줍니다(저장은 하지 않음). 풀리면 실제 시간으로 돌아옵니다(프로젝트 오너 결정 — 시간이 계속 오르면 진짜 클리어와 구분됐습니다).
 - 동작: 가짜 클리어 상태에서 N 키나 "다음 레벨" 버튼을 누르면, 깃발 아래 바닥(데이터로 정한 솔리드 구간)이 즉시 사라져 떨어집니다. 깃발에서 멀어지면(플레이어가 깃발 영역 좌우 80px 밖으로 나가면) 가짜 클리어 상태가 풀리고 화면이 평소대로 돌아옵니다. 풀릴 때도 화면 변화와 똑같이 스크린 리더에 알립니다("다시 진행 중") — 클리어를 알렸으면 해제도 같은 경로로 알려, 시각 사용자와 보조기기 사용자가 같은 정보를 얻게 합니다.
 - 실패 결과: 낙사. 원인 표시는 가짜 깃발.
 - 해법: 클리어 화면이 떠도 N을 누르지 말고 계속 오른쪽으로 가서 진짜 목표에 닿습니다.

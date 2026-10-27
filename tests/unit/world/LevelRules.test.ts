@@ -17,4 +17,11 @@ describe('level placement rules (every level)', () => {
       }
     }
   });
+
+  it('keeps every fake sign to 12 characters or fewer', () => {
+    // docs/traps-spec.md #18 배치 제약: 문구는 12자 이하(판자 너비에 맞춤).
+    for (const [i, level] of LEVELS.entries()) {
+      for (const sign of level.signs) expect([...sign.text].length, `level ${i + 1} sign "${sign.text}"`).toBeLessThanOrEqual(12);
+    }
+  });
 });
