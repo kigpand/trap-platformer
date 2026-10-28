@@ -209,6 +209,25 @@ function isOnScreen(rect: Rect, playerX: number, levelWidth: number): boolean {
   return rect.x < left + VIEW_WIDTH && rect.x + rect.width > left;
 }
 
+// #23 점프 궤적 예측: 출발 상태(점프 직후 속도와 수평 속도)에서 입력을 유지한다고 보고 update와 같은 순서
+// (중력 → 충돌 이동 → 레벨 가로 범위 고정)로 고정 스텝을 진행한다. 착지 상태(구덩이로 떨어지거나 상한까지 착지하지
+// 않으면 null)와, 그때까지 지나간 수평 범위(minX ~ maxX, 플레이어 폭 포함)를 돌려준다 — World의 가시 위치와
+// 배치 규칙 테스트(예측 궤적 범위 안에 상태가 바뀌는 솔리드 금지)가 같은 계산을 쓴다.
+export function simulateJump(start: Player, solids: readonly Rect[], level: Pick<Level, 'width' | 'height'>, dt: number): { landing: Player | null; minX: number; maxX: number } {
+  const sim: Player = { ...start };
+  let minX = sim.x, maxX = sim.x + sim.width;
+  for (let i = 0; i < LANDING_PREDICTION_STEPS; i++) {
+    sim.vx = start.vx; // 충돌 이동은 벽에 막히면 vx를 0으로 만든다 — update처럼 매 스텝 입력 속도를 다시 넣는다
+    sim.vy = Math.min(MAX_FALL_SPEED, sim.vy + GRAVITY * dt);
+    moveWithCollisions(sim, solids, sim.vx * dt, sim.vy * dt);
+    sim.x = Math.max(0, Math.min(level.width - sim.width, sim.x));
+    minX = Math.min(minX, sim.x); maxX = Math.max(maxX, sim.x + sim.width);
+    if (sim.grounded) return { landing: sim, minX, maxX };
+    if (sim.y > level.height + 100) break; // 구덩이로 떨어지는 궤적
+  }
+  return { landing: null, minX, maxX };
+}
+
 export class World {
   player: Player;
   deaths = 0;
@@ -597,25 +616,14 @@ export class World {
       this.reset(true, fallTrap);
     }
   }
-  // #23 지금 플레이어 상태(점프 직후 속도, 이번 스텝의 수평 속도)에서 입력을 유지한다고 보고 update와 같은 순서
-  // (중력 → 충돌 이동 → 레벨 가로 범위 고정)로 궤적을 미리 계산해, 착지하면 그 자리에 놓을 가시를 돌려준다.
-  // 솔리드는 지금 상태로 고정해 본다 — 점프 동안 바뀌는 솔리드는 배치 제약으로 예측 범위에 두지 않는다(traps-spec #23).
+  // #23 지금 플레이어 상태(점프 직후 속도, 이번 스텝의 수평 속도)로 궤적을 미리 계산해(simulateJump), 착지하면
+  // 그 자리에 놓을 가시를 돌려준다. 솔리드는 지금 상태로 고정해 본다 — 점프 동안 바뀌는 솔리드는 배치 제약으로
+  // 예측 궤적이 지나가는 범위에 두지 않는다(traps-spec #23, LevelRules.test.ts).
   private predictLandingSpikes(dt: number): Rect | null {
-    const p = this.player;
-    const solids = [...this.level.solids, ...this.dynamicSolids()];
-    const sim: Player = { ...p };
-    for (let i = 0; i < LANDING_PREDICTION_STEPS; i++) {
-      sim.vx = p.vx; // 벽에 막혀도 update처럼 매 스텝 입력 속도를 다시 넣는다
-      sim.vy = Math.min(MAX_FALL_SPEED, sim.vy + GRAVITY * dt);
-      moveWithCollisions(sim, solids, sim.vx * dt, sim.vy * dt);
-      sim.x = Math.max(0, Math.min(this.level.width - sim.width, sim.x));
-      if (sim.grounded) {
-        const bottom = sim.y + sim.height;
-        return { x: sim.x + sim.width / 2 - LANDING_SPIKE_WIDTH / 2, y: bottom - LANDING_SPIKE_HEIGHT, width: LANDING_SPIKE_WIDTH, height: LANDING_SPIKE_HEIGHT };
-      }
-      if (sim.y > this.level.height + 100) return null; // 구덩이로 떨어지는 궤적
-    }
-    return null;
+    const { landing } = simulateJump(this.player, [...this.level.solids, ...this.dynamicSolids()], this.level, dt);
+    if (!landing) return null;
+    const bottom = landing.y + landing.height;
+    return { x: landing.x + landing.width / 2 - LANDING_SPIKE_WIDTH / 2, y: bottom - LANDING_SPIKE_HEIGHT, width: LANDING_SPIKE_WIDTH, height: LANDING_SPIKE_HEIGHT };
   }
   // #14 가짜 클리어 중 "다음 레벨"(N·버튼)을 누르면 깃발 아래 바닥이 즉시 사라진다. 가짜 클리어 중이 아니면 false.
   // 화면은 바로 평소대로 돌아가고, 떨어져 죽으면 3초 규칙으로 가짜 깃발이 원인이 된다.

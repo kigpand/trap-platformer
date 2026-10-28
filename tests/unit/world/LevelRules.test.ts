@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../../../src/game/world/level';
-import { BOULDER_SIZE } from '../../../src/game/world/World';
+import { BOULDER_SIZE, simulateJump, World } from '../../../src/game/world/World';
+import { createPlayer, JUMP_SPEED, SPEED } from '../../../src/game/entities/Player';
+import type { Level } from '../../../src/game/world/level';
+import { testLevel } from './fixtures';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 
@@ -43,20 +46,55 @@ describe('level placement rules (every level)', () => {
     }
   });
 
-  it('keeps changing solids out of every landing-spike prediction range', () => {
-    // docs/traps-spec.md #23 배치 제약: 예측은 점프 순간의 솔리드를 고정된 것으로 보므로, 구역 좌우 200px 안에는
-    // 상태나 위치가 바뀌는 솔리드를 두지 않는다(25·27·30번은 구현할 때 이 목록에 더한다).
+  it('keeps changing solids off every predicted landing-spike trajectory', () => {
     for (const [i, level] of LEVELS.entries()) {
-      const changing: Rect[] = [
-        ...level.hiddenBlocks, ...level.fallingPlatforms, ...level.vanishingGrounds, ...level.invisibleBlocks,
-        ...level.dodgingPlatforms.flatMap((d) => [d.platform, { ...d.platform, ...d.to }]),
-        ...level.fallingCeilings.map((c) => c.block), ...level.fakeGoals.flatMap((g) => g.floor),
-      ];
-      for (const zone of level.landingSpikeZones) {
-        const left = zone.x - 200, right = zone.x + zone.width + 200;
-        const inRange = changing.filter((r) => r.x < right && r.x + r.width > left);
-        expect(inRange, `level ${i + 1} landing-spike zone at ${zone.x}`).toEqual([]);
+      expect(landingPredictionViolations(level), `level ${i + 1}`).toEqual([]);
+    }
+  });
+});
+
+// docs/traps-spec.md #23 배치 제약: 예측은 점프 순간의 솔리드를 고정된 것으로 보므로, 예측 궤적이 지나가는 수평 범위에는
+// 상태나 위치가 바뀌는 솔리드를 두지 않는다. 범위는 구역과 겹치며 솔리드 위에 서 있을 수 있는 모든 정수 x에서, 좌우 입력
+// 세 가지(←·없음·→)로 World와 같은 계산(simulateJump)을 돌려 얻는다 — 고정 거리(±200px)로는 낮은 착지면으로 멀리
+// 떨어지는 궤적을 덮지 못했다(Codex 리뷰). 25·27·30번은 구현할 때 changing 목록에 더한다.
+function landingPredictionViolations(level: Level): Rect[] {
+  const solids = [...level.solids, ...new World(level).dynamicSolids()];
+  const changing: Rect[] = [
+    ...level.hiddenBlocks, ...level.fallingPlatforms, ...level.vanishingGrounds, ...level.invisibleBlocks,
+    ...level.dodgingPlatforms.flatMap((d) => [d.platform, { ...d.platform, ...d.to }]),
+    ...level.fallingCeilings.map((c) => c.block), ...level.fakeGoals.flatMap((g) => g.floor),
+  ];
+  const violations: Rect[] = [];
+  for (const zone of level.landingSpikeZones) {
+    let lo = Infinity, hi = -Infinity;
+    for (const surface of solids) {
+      const y = surface.y - 32; // 그 솔리드 위에 선 플레이어(높이 32)
+      if (y >= zone.y + zone.height || surface.y <= zone.y) continue; // 구역과 세로로 겹치지 않는다
+      for (let x = Math.max(zone.x, surface.x) - 25; x < Math.min(zone.x + zone.width, surface.x + surface.width); x++) {
+        for (const h of [-1, 0, 1]) {
+          const start = { ...createPlayer(x, y), vx: h * SPEED, vy: -JUMP_SPEED };
+          const { minX, maxX } = simulateJump(start, solids, level, 1 / 60);
+          lo = Math.min(lo, minX); hi = Math.max(hi, maxX);
+        }
       }
     }
+    violations.push(...changing.filter((r) => r.x < hi && r.x + r.width > lo));
+  }
+  return violations;
+}
+
+describe('landing-spike prediction rule', () => {
+  // 높은 단(y 300, 0-600) 끝에 구역, 그 아래 낮은 바닥(y 600). 낮은 착지면으로 떨어지는 궤적은 200px를 넘어 간다.
+  const zone = { x: 540, y: 200, width: 60, height: 100 };
+  const base = { solids: [{ x: 0, y: 300, width: 600, height: 320 }, { x: 600, y: 600, width: 1400, height: 20 }], landingSpikeZones: [zone] };
+
+  it('catches a changing solid more than 200px out that a falling trajectory still crosses (Codex review)', () => {
+    const fp = { x: 820, y: 560, width: 60, height: 20 };
+    expect(fp.x - (zone.x + zone.width)).toBeGreaterThan(200); // 예전 ±200px 규칙은 통과시켰다
+    expect(landingPredictionViolations(testLevel({ ...base, fallingPlatforms: [fp] }))).toEqual([fp]);
+  });
+
+  it('allows changing solids beyond every predicted trajectory', () => {
+    expect(landingPredictionViolations(testLevel({ ...base, fallingPlatforms: [{ x: 1500, y: 560, width: 60, height: 20 }] }))).toEqual([]);
   });
 });
