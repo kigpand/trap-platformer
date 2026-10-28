@@ -65,6 +65,14 @@ function drawFlag(ctx: CanvasRenderingContext2D, zone: Rect, color: string): voi
   ctx.closePath();
   ctx.fill();
 }
+// 솟은 가시(#10·#23): 받침과 8px 간격의 삼각형.
+function drawSpikes(ctx: CanvasRenderingContext2D, r: Rect): void {
+  ctx.fillStyle = SPIKE_FILL;
+  ctx.fillRect(r.x, r.y + r.height - 4, r.width, 4); // 받침
+  for (let x = r.x; x + 8 <= r.x + r.width + 0.5; x += 8) {
+    ctx.beginPath(); ctx.moveTo(x, r.y + r.height); ctx.lineTo(x + 4, r.y); ctx.lineTo(x + 8, r.y + r.height); ctx.closePath(); ctx.fill();
+  }
+}
 export class CanvasRenderer {
   debug = false;
   constructor(private readonly canvas: HTMLCanvasElement) {}
@@ -163,13 +171,7 @@ export class CanvasRenderer {
     // #10 솟아오르는 가시: 솟기 전에는 아무것도 없고(바닥과 같음), 솟으면 삼각형 가시를 줄지어 그린다.
     for (const sp of world.popUpSpikes) {
       const r = sp.config.spikes;
-      if (sp.raised) {
-        ctx.fillStyle = SPIKE_FILL;
-        ctx.fillRect(r.x, r.y + r.height - 4, r.width, 4); // 받침
-        for (let x = r.x; x + 8 <= r.x + r.width + 0.5; x += 8) {
-          ctx.beginPath(); ctx.moveTo(x, r.y + r.height); ctx.lineTo(x + 4, r.y); ctx.lineTo(x + 8, r.y + r.height); ctx.closePath(); ctx.fill();
-        }
-      }
+      if (sp.raised) drawSpikes(ctx, r);
       if (this.debug) {
         ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height);
         const t = sp.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(t.x, t.y, t.width, t.height);
@@ -235,6 +237,11 @@ export class CanvasRenderer {
       ctx.fillStyle = '#3b2f22'; ctx.fillText(sign.text, sign.x, sign.y - 67);
     }
     ctx.textAlign = 'left';
+    // #23 착지 예측 가시: 솟은 가시는 10번과 같은 모양. 구역은 보이지 않는다(디버그에서만).
+    for (const ls of world.landingSpikes) {
+      if (ls.spikes) drawSpikes(ctx, ls.spikes);
+      if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(ls.zone.x, ls.zone.y, ls.zone.width, ls.zone.height); }
+    }
     const goal = world.goal.rect; // #12 도망가는 목표: 현재(이동 중이면 이동 중인) 위치
     ctx.fillStyle = GOAL_FILL; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
     for (const e of world.enemies) {
