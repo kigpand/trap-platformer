@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -354,5 +354,25 @@ describe('CanvasRenderer arrow launcher', () => {
     for (let i = 0; i < 30; i++) world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
     const x = world.arrowTraps[0].arrows[0].x;
     expect(renderFills(world).some((f) => f.style === ARROW_FILL && f.x === x)).toBe(true);
+  });
+});
+
+describe('CanvasRenderer mirror enemy and third-landing platform', () => {
+  it('draws one more crack per landing and nothing once it vanishes', () => {
+    const rect = { x: 300, y: 500, width: 300, height: 20 };
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 300, height: 120 }], countingPlatforms: [{ rect, landings: 3 }] }));
+    const cracks = () => renderFills(world).filter((f) => f.style === CRACK_FILL).length;
+    expect(cracks()).toBe(0);
+    world.countingPlatforms[0].count = 2;
+    expect(cracks()).toBe(2);
+    world.countingPlatforms[0].solid = false;
+    expect(renderFills(world).some((f) => f.x === rect.x && f.width === rect.width)).toBe(false);
+  });
+
+  it('draws the mirror enemy where it is, mid-jump included', () => {
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], mirrorEnemies: [{ minX: 600, maxX: 1100, y: 472, jumpSpeed: 720 }] }));
+    world.mirrorEnemies[0].enemy.y = 350;
+    const e = world.mirrorEnemies[0].enemy;
+    expect(renderFills(world).some((f) => f.x >= e.x && f.x < e.x + e.width && f.y >= 350 && f.y < 378)).toBe(true);
   });
 });
