@@ -36,10 +36,10 @@ function respawnAt(index: number): World {
 }
 
 describe('LEVEL_3 (hard)', () => {
-  it('is the last level, longer than level 2, and uses all eight new trap kinds at the spec sizes', () => {
+  it('is the last level and uses all eight new trap kinds at the spec sizes', () => {
     expect(LEVELS[LEVELS.length - 1]).toBe(LEVEL_3);
-    // 맵 3배 확장 중에는 레벨 1(12,000px)이 먼저 늘어나 일시적으로 가장 길다. 레벨 3 확장 PR에서 "모든 레벨보다 길다"로 되돌린다.
-    expect(LEVEL_3.width).toBeGreaterThan(LEVELS[1].width);
+    // 맵 3배 확장 중에는 레벨 1(12,000px)·레벨 2(15,300px)가 먼저 늘어나 레벨 3이 일시적으로 가장 짧다.
+    // 레벨 3 확장 PR에서 "모든 레벨보다 길다"는 확인을 되돌린다(docs/roadmap.md 약올리는 함정 5번).
     const kinds = [LEVEL_3.vanishingGrounds, LEVEL_3.invisibleBlocks, LEVEL_3.fallingCeilings, LEVEL_3.dodgingPlatforms,
       LEVEL_3.popUpSpikes, LEVEL_3.fakeCheckpoints, LEVEL_3.goalHops, LEVEL_3.skyDrops];
     expect(kinds.every((list) => list.length > 0)).toBe(true);

@@ -207,7 +207,7 @@ export const LEVEL_1: Level = {
 // 거리(약 147px)보다 넓어 가운데 낙하 발판을 반드시 밟고 0.4초 안에 다시 뛰어야 한다.
 // 배치 제약(docs/physics-spec.md "레벨 배치 제약")과 도달 가능성은 tests/unit/world/Level2.test.ts가 검증한다.
 export const LEVEL_2: Level = {
-  width: 5100,
+  width: 15300,
   height: 620,
   spawn: { x: 65, y: 350 },
   // groundA: 시작 구간. groundB: 갑자기 출현하는 적·체크포인트·가짜 안전지대·왕복 적 구간. groundC: 틈(1760-1860) 너머 목표 구간.
@@ -215,13 +215,22 @@ export const LEVEL_2: Level = {
     { x: 0, y: 500, width: 400, height: 120 },
     { x: 640, y: 500, width: 1120, height: 120 },
     { x: 1860, y: 500, width: 290, height: 120 },
-    // 함정 확장 구간(2150~). groundD: 가시·가짜 체크포인트, groundE: 천장·적, groundF·G: 도망가는 목표.
+    // 함정 확장 구간(2150~). groundD: 가시·가짜 체크포인트, groundE: 천장·적.
     { x: 2230, y: 500, width: 670, height: 120 },
     { x: 3260, y: 500, width: 640, height: 120 },
-    { x: 4160, y: 500, width: 440, height: 120 },
-    { x: 4700, y: 500, width: 400, height: 120 },
+    // 약올리는 함정 구간(4160~, 맵 3배 확장). 예전 끝(도망가는 목표)은 레벨 끝(14,600~)으로 옮겼다.
+    { x: 4160, y: 500, width: 240, height: 120 }, // 4400-4500: 날려버리는 점프가 떨어뜨리는 뒤쪽 구덩이
+    { x: 4500, y: 500, width: 400, height: 120 }, // 끝 20px(4880-4900)이 날려버리는 점프 구역, 4900-5000 구덩이
+    { x: 5000, y: 500, width: 1200, height: 120 }, // 좌우 반전(5150-5390), 끝 20px(6180-6200)이 무거운 신발 구역, 6200-6300 구덩이
+    { x: 6300, y: 500, width: 3800, height: 120 }, // 착지 예측 가시 → 화살 → 따라 뛰는 적, 10100-10160 구덩이 너머 세 번째 착지 발판
+    { x: 6700, y: 460, width: 40, height: 40 }, // 착지 예측 가시 앞 턱(높이 40)
+    { x: 10240, y: 470, width: 10, height: 30 }, // 세 번째 착지 발판 위 장애물 두 개
+    { x: 10400, y: 470, width: 10, height: 30 },
+    { x: 10550, y: 500, width: 1750, height: 120 }, // 따라오는 돌덩이, 12300-12380 구덩이
+    { x: 12380, y: 500, width: 2420, height: 120 }, // 도망가는 목표(예전 groundF 자리를 옮김), 14800-14900 구덩이
+    { x: 14900, y: 500, width: 400, height: 120 },
   ],
-  goal: { x: 4480, y: 440, width: 40, height: 60 }, // 다가가면 도망간다(goalHops)
+  goal: { x: 14680, y: 440, width: 40, height: 60 }, // 다가가면 도망간다(goalHops)
   // 가짜 안전지대: groundB 위 위장 타일. 앞(1100)에 건너뛸 수 없는 체크포인트가 있어, 이 함정으로
   // 죽으면 체크포인트에서 재시작하고 강조 표시가 화면 안에 보인다(docs/traps-spec.md #4). 체크포인트와
   // 200px 띄운다 — 재시작 위치(공중 y 350)에서 →를 누른 채 떨어져도 착지한 뒤 점프할 거리가 남도록.
@@ -248,6 +257,16 @@ export const LEVEL_2: Level = {
     { zone: { x: 2290, y: 360, width: 40, height: 140 }, respawnX: 2290, respawnY: 350 },
     { zone: { x: 3300, y: 360, width: 40, height: 140 }, respawnX: 3300, respawnY: 350 },
     { zone: { x: 4200, y: 360, width: 40, height: 140 }, respawnX: 4200, respawnY: 350 },
+    // 약올리는 함정 구간: 좌우 반전 앞, 무거운 신발 앞, 착지 예측 가시 앞, 화살 앞, 따라 뛰는 적 앞, 세 번째 착지 발판 앞,
+    // 돌덩이 앞(돌덩이가 나타나는 11,400보다 뒤), 도망가는 목표 앞.
+    { zone: { x: 5060, y: 360, width: 40, height: 140 }, respawnX: 5060, respawnY: 350 },
+    { zone: { x: 5900, y: 360, width: 40, height: 140 }, respawnX: 5900, respawnY: 350 },
+    { zone: { x: 6350, y: 360, width: 40, height: 140 }, respawnX: 6350, respawnY: 350 },
+    { zone: { x: 7250, y: 360, width: 40, height: 140 }, respawnX: 7250, respawnY: 350 },
+    { zone: { x: 8650, y: 360, width: 40, height: 140 }, respawnX: 8650, respawnY: 350 },
+    { zone: { x: 9950, y: 360, width: 40, height: 140 }, respawnX: 9950, respawnY: 350 },
+    { zone: { x: 11300, y: 360, width: 40, height: 140 }, respawnX: 11300, respawnY: 350 },
+    { zone: { x: 14200, y: 360, width: 40, height: 140 }, respawnX: 14200, respawnY: 350 },
   ],
   // 레벨 2(보통): 새 함정 7종을 모두 쓰고, 레벨 1보다 타이밍을 좁힌다(docs/game-design.md "난이도 곡선").
   // 사라지는 땅: groundD 끝(2900)~groundE(3260) 9칸.
@@ -262,27 +281,40 @@ export const LEVEL_2: Level = {
   popUpSpikes: [{ spikes: { x: 2560, y: 476, width: 24, height: 24 }, trigger: { x: 2500, y: 400, width: 60, height: 100 } }],
   // 가짜 체크포인트: 진짜 체크포인트(2290) 뒤. 높이 50px로 점프로 넘을 수 있다.
   fakeCheckpoints: [{ x: 2780, y: 450, width: 40, height: 50 }],
-  // 도망가는 목표: groundF(4480)에서 다가가면 구덩이(4600-4700) 건너 groundG로, 거기서 다시 끝으로 달아난다.
+  // 도망가는 목표: 레벨 끝(14,680)에서 다가가면 구덩이(14,800-14,900) 건너로, 거기서 다시 끝으로 달아난다(예전 끝 구간을 그대로 옮김).
   goalHops: [
-    { trigger: { x: 4400, y: 400, width: 40, height: 100 }, to: { x: 4840, y: 440, width: 40, height: 60 } },
-    { trigger: { x: 4760, y: 400, width: 40, height: 100 }, to: { x: 5040, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 14600, y: 400, width: 40, height: 100 }, to: { x: 15040, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 14960, y: 400, width: 40, height: 100 }, to: { x: 15240, y: 440, width: 40, height: 60 } },
   ],
   skyDrops: [],
-  flingZones: [],
-  reverseZones: [],
+  // 날려버리는 점프: 구덩이(4900) 앞 20px. 그 안에서 뛰면 뒤로 높이 날아가 뒤쪽 구덩이(4400-4500)에 떨어진다. 일찍 뛰어 넘는다.
+  flingZones: [{ zone: { x: 4880, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
+  // 좌우 반전: 구덩이(4900-5000)를 건너 조금 걸어간 곳. 반전된 채 →를 누르면 방금 건넌 구덩이로 걸어 돌아간다.
+  reverseZones: [{ x: 5150, y: 300, width: 240, height: 200 }],
   springFloors: [],
   fakeGoals: [],
   signs: [],
-  boulders: [],
+  // 따라오는 돌덩이: 트리거(11,700) 160px 넘게 뒤(11,400)에서 나타나 13,000까지. 길에는 달리며 넘는 구덩이(80px) 하나뿐.
+  boulders: [{ trigger: { x: 11700, y: 300, width: 40, height: 200 }, startX: 11400, endX: 13000, y: 440 }],
   fakeWalls: [],
   baitGems: [],
-  landingSpikeZones: [],
+  // 착지 예측 가시: 턱(6700) 앞 60px. 그 안에서 뛰면 착지 지점에 가시. 구역 앞에서 뛰면 턱 위에 내려선다.
+  landingSpikeZones: [{ x: 6620, y: 300, width: 60, height: 200 }],
   shadows: [],
-  heavyZones: [],
+  // 무거운 신발: 구덩이(6200) 앞 20px(구덩이 100px — 일찍 뛰는 출발 구간 27px, traps-spec #24 실측).
+  heavyZones: [{ zone: { x: 6180, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
   iceFloors: [],
-  arrowTraps: [],
-  mirrorEnemies: [],
-  countingPlatforms: [],
+  // 화살 발사대: 트리거(7,400)를 지나면 오른쪽 화면 밖에서 낮은 화살(0.3초 뒤 경고) → 높은 화살(1.8초 뒤 경고).
+  // 낮은 화살은 점프로 넘고, 높은 화살은 뛰지 않고 지나가게 둔다. 길(7,000-8,630)에는 솔리드가 없다.
+  arrowTraps: [{ trigger: { x: 7400, y: 300, width: 40, height: 200 }, arrows: [
+    { y: 484, delay: 0.3, fromX: 8600, toX: 7000 },
+    { y: 450, delay: 1.8, fromX: 8600, toX: 7000 },
+  ] }],
+  // 따라 뛰는 적: 8,800-9,300 순찰. 넘으려고 뛰면 같이 높이 뛴다 — 다가올 때 제자리에서 뛰면 머리 위로 넘어간다.
+  mirrorEnemies: [{ minX: 8800, maxX: 9300, y: 472, jumpSpeed: 720 }],
+  // 세 번째 착지 발판: 구덩이(10,100-10,160) 너머 10,160-10,550, 장애물 두 개(10,240·10,400). 구덩이 끝에서 바로 뛰면
+  // 발판 착지 → 장애물 두 번 넘기로 세 번째 착지에 무너진다. 발끝까지 버티다 늦게 뛰면(9~25px 내밂, 실측) 첫 장애물까지 넘어 두 번만 착지한다.
+  countingPlatforms: [{ rect: { x: 10160, y: 500, width: 390, height: 20 }, landings: 3 }],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };

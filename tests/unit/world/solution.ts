@@ -7,6 +7,7 @@ export type Step =
   | { auto: number } // 오른쪽 끝이 x에 닿을 때까지 자동 플레이(보이는 함정·적 회피)로 간다
   | { run: number } // 오른쪽 끝이 x에 닿을 때까지 →만 누른다(점프 없음)
   | { runUntil: (world: World) => boolean } // 조건이 참이 될 때까지 →만 누른다(예: 마주 오는 적과의 거리)
+  | { leftUntil: (world: World) => boolean } // 조건이 참이 될 때까지 ←만 누른다(예: 좌우 반전이 풀릴 때까지)
   | { waitUntil: (world: World) => boolean } // 조건이 참이 될 때까지 가만히 있는다(예: 적이 돌아올 때까지)
   | { jump: true } // →와 함께 점프하고 착지할 때까지 →를 누른다
   | { hop: true } // 제자리에서 점프하고 착지할 때까지 기다린다
@@ -45,6 +46,8 @@ export function playSolution(world: World, steps: readonly Step[]): number {
       ok = until(() => rightEdge() >= s.run, () => input(1));
     } else if ('runUntil' in s) {
       ok = until(() => s.runUntil(world), () => input(1));
+    } else if ('leftUntil' in s) {
+      ok = until(() => s.leftUntil(world), () => input(-1));
     } else if ('waitUntil' in s) {
       ok = until(() => s.waitUntil(world), () => input(0));
     } else if ('jump' in s) {
