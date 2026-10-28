@@ -178,7 +178,7 @@ describe('GameController level progression', () => {
     expect(last().newRecord).toBe(false);
     expect(last().best).toBeNull(); // 레벨 2는 아직 기록 없음
     clearCurrentLevel();
-    expect(localStorage.getItem('trap-runner:best:2')).not.toBeNull();
+    expect(localStorage.getItem('trap-runner:best:v2:2')).not.toBeNull(); // 레벨 2도 맵 확장 뒤의 새 키
     expect(last().bests.slice(0, 2).every((b) => b !== null)).toBe(true); // 클리어한 레벨 1·2의 기록이 완료 화면용 목록에 있다
     controller.dispose();
   });

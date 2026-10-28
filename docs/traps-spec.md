@@ -1,7 +1,7 @@
 # 함정·적 명세 — 프로토타입 v0.1
 
 ## 범위
-함정 작동 시점과 적의 동작 규칙을 정의합니다. 적 이동(Phase 2)과 함정 5종(Phase 3)은 구현을 마쳤고, 함정 6~13번(아래 "함정 확장")도 구현을 마쳤으며, 14~19번(아래 "약올리는 함정")과 20~30번(아래 "함정 추가")도 모두 구현했으며, 맵 3배 확장과 함께 레벨마다 배치하는 중입니다(레벨 1 배치 완료)(현황은 아래 "구현 현황"). 함정·적을 새로 추가하거나 동작을 바꿀 때 이 문서를 먼저 확인합니다.
+함정 작동 시점과 적의 동작 규칙을 정의합니다. 적 이동(Phase 2)과 함정 5종(Phase 3)은 구현을 마쳤고, 함정 6~13번(아래 "함정 확장")도 구현을 마쳤으며, 14~19번(아래 "약올리는 함정")과 20~30번(아래 "함정 추가")도 모두 구현했으며, 맵 3배 확장과 함께 레벨마다 배치하는 중입니다(레벨 1·2 배치 완료)(현황은 아래 "구현 현황"). 함정·적을 새로 추가하거나 동작을 바꿀 때 이 문서를 먼저 확인합니다.
 
 ## 적 충돌 규칙
 - 적과 플레이어의 AABB가 겹치면 접촉 방향과 무관하게 즉시 사망 처리합니다. 스톰프(위에서 밟아 처치)나 무기는 v0.1 범위 밖입니다.
@@ -26,16 +26,16 @@
 - [x] 사망 원인 표시 일반화("공통 규칙") — `World.reset(true, cause)`로 원인 영역을 넘긴다. 적은 왕복 구간, 갑자기 출현하는 적은 트리거+등장 구간, 조건부 함정은 영역, 낙사는 3초 안에 무너진 낙하 발판·숨겨진 블록(`lastFallTrap`). 가짜 안전지대 외의 원인은 `CanvasRenderer`가 반투명 경고색과 테두리를 겹쳐 그림
 - [x] 6. 사라지는 땅 · [x] 7. 투명 블록 · [x] 9. 떨어지는 천장 — `Level.vanishingGrounds`/`invisibleBlocks`/`fallingCeilings`, `World`의 상태와 `dynamicSolids()`, `tests/unit/world/TerrainTraps.test.ts`. 아직 어느 레벨에도 배치하지 않았다(레벨 연장에서 배치)
 - [x] 8. 도망가는 발판 · [x] 10. 솟아오르는 가시 · [x] 11. 가짜 체크포인트 · [x] 12. 도망가는 목표 — `Level.dodgingPlatforms`/`popUpSpikes`/`fakeCheckpoints`/`goalHops`, `World.goal`(현재 목표 위치), `tests/unit/world/TrickTraps.test.ts`. 아직 어느 레벨에도 배치하지 않았다
-- [x] 15. 날려버리는 점프 · [x] 16. 좌우 반전 구간 · [x] 17. 뒷걸음 스프링 바닥 — `Level.flingZones`/`reverseZones`/`springFloors`, `World.flight`(강제 비행)·`World.reverse`(반전 걸림)·`World.springFloors`(튕긴 여부), `tests/unit/world/TauntingTraps.test.ts`. 17번만 레벨 1에 배치했다(15·16번은 아직 어느 레벨에도 배치하지 않았다)
+- [x] 15. 날려버리는 점프 · [x] 16. 좌우 반전 구간 · [x] 17. 뒷걸음 스프링 바닥 — `Level.flingZones`/`reverseZones`/`springFloors`, `World.flight`(강제 비행)·`World.reverse`(반전 걸림)·`World.springFloors`(튕긴 여부), `tests/unit/world/TauntingTraps.test.ts`. 17번은 레벨 1, 15·16번은 레벨 2에 배치했다
 - [x] 14. 가짜 클리어 · [x] 18. 가짜 안내 표지판 — `Level.fakeGoals`/`signs`, `World.fakeClear`·`World.collapseFakeFloor()`, `GameController`의 기록 화면 흉내(`fakePreview`, 저장 안 함), App의 "다시 진행 중" 알림, `tests/unit/world/FakeClear.test.ts`·`tests/unit/core/FakeClearController.test.ts`·`tests/unit/App.test.ts`. 레벨 1에 배치했다(가짜 깃발은 예전 목표 자리 3940)
 - [x] 20. 가짜 벽 · [x] 21. 미끼 보물 — `Level.fakeWalls`/`baitGems`, `World.fakeWalls`(겹치면 그 목숨 동안 revealed)·`World.baitGems`(닿으면 taken, 죽지 않는 문구, 3초 낙사 원인), 가짜 벽 높이 제약은 `LevelRules.test.ts`, `tests/unit/world/DecoyTraps.test.ts`. 레벨 1에 배치했다
-- [x] 23. 착지 예측 가시 — `Level.landingSpikeZones`, `World.landingSpikes`(`predictLandingSpikes`: update와 같은 순서로 궤적 예측, 가시는 플레이어가 벗어난 뒤부터 위험), 예측 범위 제약은 `LevelRules.test.ts`(World와 같은 `simulateJump`로 계산한 실제 예측 궤적 범위), `tests/unit/world/LandingSpikes.test.ts`. 아직 어느 레벨에도 배치하지 않았다
+- [x] 23. 착지 예측 가시 — `Level.landingSpikeZones`, `World.landingSpikes`(`predictLandingSpikes`: update와 같은 순서로 궤적 예측, 가시는 플레이어가 벗어난 뒤부터 위험), 예측 범위 제약은 `LevelRules.test.ts`(World와 같은 `simulateJump`로 계산한 실제 예측 궤적 범위), `tests/unit/world/LandingSpikes.test.ts`. 레벨 2에 배치했다
 - [x] 22. 따라 하는 그림자 — `Level.shadows`, `World.shadows`(트리거한 스텝부터 위치 기록, 120번째 스텝부터 120스텝 전 위치 재생, 기록은 최대 120개만 보관), `tests/unit/world/Shadow.test.ts`. 레벨 1에 배치했다
-- [x] 24. 무거운 신발 구간 · [x] 28. 얼음 바닥 — `Level.heavyZones`/`iceFloors`, `World`의 점프 초기 속도·얼음 위 수평 가속(그 영역 안에서만), `World.heavyShoes`("⤓" 표시), `tests/unit/world/MovementTraps.test.ts`. 28번만 레벨 1에 배치했다(24번은 아직 어느 레벨에도 배치하지 않았다)
+- [x] 24. 무거운 신발 구간 · [x] 28. 얼음 바닥 — `Level.heavyZones`/`iceFloors`, `World`의 점프 초기 속도·얼음 위 수평 가속(그 영역 안에서만), `World.heavyShoes`("⤓" 표시), `tests/unit/world/MovementTraps.test.ts`. 28번은 레벨 1, 24번은 레벨 2에 배치했다
 - [x] 25. 내려오는 천장 · [x] 27. 박자 발판 — `Level.descendingCeilings`/`rhythmPlatforms`, `World.descendingCeilings`·`World.lifeTime`(목숨마다 0부터, `rhythmPhase`를 렌더러와 공유), 둘 다 `dynamicSolids()`에 포함, `tests/unit/world/TimedSolids.test.ts`. 레벨 1에 배치했다
-- [x] 26. 화살 발사대 — `Level.arrowTraps`, `World.arrowTraps`(트리거 스텝부터 시간, 화살마다 경고 0.4초 → 생성 스텝은 정지 → 360px/s, 한 목숨에 한 번), `tests/unit/world/Arrows.test.ts`(시작 위치를 0~59px 바꿔도 통과 누락 없음). 아직 어느 레벨에도 배치하지 않았다
-- [x] 29. 따라 뛰는 적 · [x] 30. 세 번째 착지에 무너지는 발판 — `Level.mirrorEnemies`/`countingPlatforms`, `World.mirrorEnemies`(점프 입력 스텝에 400px 안이면 뜀, 뛰는 동안만 중력)·`World.countingPlatforms`(공중 착지만 셈, 무너지는 스텝에 지지 재계산), `tests/unit/world/MirrorAndCounting.test.ts`. 아직 어느 레벨에도 배치하지 않았다
-- [x] 19. 따라오는 돌덩이 — `Level.boulders`, `World.boulders`(트리거 스텝에 시작 x에 나타나 다음 스텝부터 180px/s, 오른쪽 끝이 끝 x에 닿은 스텝에 사라짐), 생성 위치 제약은 `LevelRules.test.ts`, `tests/unit/world/Boulder.test.ts`. 아직 어느 레벨에도 배치하지 않았다
+- [x] 26. 화살 발사대 — `Level.arrowTraps`, `World.arrowTraps`(트리거 스텝부터 시간, 화살마다 경고 0.4초 → 생성 스텝은 정지 → 360px/s, 한 목숨에 한 번), `tests/unit/world/Arrows.test.ts`(시작 위치를 0~59px 바꿔도 통과 누락 없음). 레벨 2에 배치했다
+- [x] 29. 따라 뛰는 적 · [x] 30. 세 번째 착지에 무너지는 발판 — `Level.mirrorEnemies`/`countingPlatforms`, `World.mirrorEnemies`(점프 입력 스텝에 400px 안이면 뜀, 뛰는 동안만 중력)·`World.countingPlatforms`(공중 착지만 셈, 무너지는 스텝에 지지 재계산), `tests/unit/world/MirrorAndCounting.test.ts`. 레벨 2에 배치했다
+- [x] 19. 따라오는 돌덩이 — `Level.boulders`, `World.boulders`(트리거 스텝에 시작 x에 나타나 다음 스텝부터 180px/s, 오른쪽 끝이 끝 x에 닿은 스텝에 사라짐), 생성 위치 제약은 `LevelRules.test.ts`, `tests/unit/world/Boulder.test.ts`. 레벨 2에 배치했다
 - [x] 13. 하늘에서 쏟아지는 적 — `Level.skyDrops`, `World.skyDrops`(경고·낙하·착지 후 왕복·구덩이 낙하 제거), `tests/unit/world/SkyDrops.test.ts`. 아직 어느 레벨에도 배치하지 않았다(레벨 3에서 배치)
 
 ## 함정 5종
