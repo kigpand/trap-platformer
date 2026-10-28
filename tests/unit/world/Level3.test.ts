@@ -183,4 +183,18 @@ describe('LEVEL_3 (hard)', () => {
       expect(world.snapshot().deathKind, `x ${x}`).toBe('flingJump');
     }
   });
+
+  it('leaves human slack on the rhythm platforms: up to 9 frames after each landing, while ignoring the beat still fails', () => {
+    // 플레이테스트 측정: 박자 발판이 1.0초만 켜져 있을 때는 착지 뒤 0~1프레임 안에 다시 뛰어야 해 사실상 프레임 단위 입력이 필요했다.
+    for (let d = 0; d <= 9; d++) {
+      const world = respawnAt(10);
+      const steps: Step[] = [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 < 1 / 60 }, { jump: true }, { wait: d / 60 }, { jump: true }, { wait: d / 60 }, { jump: true }, { wait: d / 60 }, { jump: true }];
+      expect(playSolution(world, steps), `${d} frames after each landing`).toBe(steps.length);
+      expect(world.deaths).toBe(1);
+    }
+    const offBeat = respawnAt(10);
+    const naive: Step[] = [{ run: 13398 }, { waitUntil: (w) => Math.abs(w.lifeTime % 1.8 - 0.9) < 0.5 / 60 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }];
+    playSolution(offBeat, naive);
+    expect(offBeat.deaths).toBe(2); // 박자를 무시하고 뛰면 여전히 떨어진다
+  });
 });
