@@ -25,6 +25,7 @@ export const TAUNTS: Readonly<Record<TauntKind, string>> = {
   ice: '브레이크 고장',
   descendingCeiling: '납작해졌네',
   rhythmPlatform: '박자 놓쳤어~',
+  arrow: '화살은 피하라고 있는 거야',
   baitGemPickup: '그거 장식인데?',
   flingJump: '점프 금지 구역이었어',
   reverseZone: '왼쪽이 오른쪽이야',

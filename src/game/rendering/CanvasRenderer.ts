@@ -4,7 +4,7 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { arrowRect, boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { TAUNTS } from './taunts';
 
@@ -41,6 +41,8 @@ const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
 export const REVERSE_MARK = '⇄';
 export const HEAVY_MARK = '⤓'; // 무거운 신발 구역 안에 있는 동안 플레이어 위에 띄우는 표시(#24)
+export const ARROW_FILL = '#f8fafc'; // #26 화살
+export const ARROW_WARNING_FILL = '#facc15'; // #26 화살이 들어올 화면 가장자리 경고(다른 경고와 같은 노랑)
 export const RHYTHM_GHOST = 'rgba(153,197,119,0.18)'; // #27 사라진 박자 발판(다시 나타날 자리)
 export const RHYTHM_WARNING_FILL = '#d9f99d'; // #27 사라지기 0.3초 전 깜박임
 export const ICE_FILL = '#bae6fd'; // #28 얼음 바닥
@@ -339,6 +341,24 @@ export class CanvasRenderer {
         ctx.fillRect(r.x, r.y, r.width, r.height);
       }
       if (this.debug) { const t = sh.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #26 화살 발사대: 경고 중에는 화살이 들어올 쪽 화면 가장자리, 화살 높이에 0.1초 간격으로 깜박이는 표시를 띄우고,
+    // 날아가는 동안은 화살대와 촉을 그린다(트리거는 디버그에서만).
+    for (const t of world.arrowTraps) {
+      for (const a of t.arrows) {
+        const dir = a.arrow.toX >= a.arrow.fromX ? 1 : -1;
+        if (a.phase === 'warning' && t.elapsed !== null && Math.floor((t.elapsed - a.arrow.delay) * 10) % 2 === 0) {
+          ctx.fillStyle = ARROW_WARNING_FILL;
+          ctx.fillRect(dir > 0 ? cam : cam + VIEW_WIDTH - 12, a.arrow.y - 3, 12, 12);
+        }
+        if (a.phase === 'flying') {
+          const r = arrowRect(a);
+          ctx.fillStyle = ARROW_FILL; ctx.fillRect(r.x, r.y + 2, r.width, 2);
+          const tip = dir > 0 ? r.x + r.width : r.x;
+          ctx.beginPath(); ctx.moveTo(tip, r.y + 3); ctx.lineTo(tip - dir * 8, r.y); ctx.lineTo(tip - dir * 8, r.y + r.height); ctx.closePath(); ctx.fill();
+        }
+      }
+      if (this.debug) { const tr = t.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(tr.x, tr.y, tr.width, tr.height); }
     }
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);

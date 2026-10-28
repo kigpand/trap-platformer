@@ -36,6 +36,10 @@ export interface HeavyZone { zone: Rect; jumpSpeed: number }
 export interface DescendingCeiling { block: Rect; trigger: Rect; speed: number; floorY: number }
 // 박자 발판(#27): 목숨이 시작된 뒤 t초에 ((t + offset) mod period) < onDuration이면 나타나 있다(솔리드).
 export interface RhythmPlatform { rect: Rect; period: number; onDuration: number; offset: number }
+// 화살 발사대(#26): trigger에 처음 들어온 뒤 화살마다 delay초에 경고, 0.4초 뒤 fromX(화살 왼쪽 끝)에서 나타나 toX를 향해
+// 360px/s로 날아가고 toX에 닿으면 사라진다. y는 화살(30×6) 윗면. 지형을 무시한다.
+export interface Arrow { y: number; delay: number; fromX: number; toX: number }
+export interface ArrowTrap { trigger: Rect; arrows: readonly Arrow[] }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -73,6 +77,7 @@ export interface Level {
   heavyZones: readonly HeavyZone[]; // #24 무거운 신발 구간
   descendingCeilings: readonly DescendingCeiling[]; // #25 내려오는 천장
   rhythmPlatforms: readonly RhythmPlatform[]; // #27 박자 발판
+  arrowTraps: readonly ArrowTrap[]; // #26 화살 발사대
   iceFloors: readonly Rect[]; // #28 얼음 바닥(바닥 윗면에 겹쳐 두는 판정·장식 영역, 스프링 타일과 같은 방식)
 }
 
@@ -152,6 +157,7 @@ export const LEVEL_1: Level = {
   shadows: [],
   heavyZones: [],
   iceFloors: [],
+  arrowTraps: [],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };
@@ -234,6 +240,7 @@ export const LEVEL_2: Level = {
   shadows: [],
   heavyZones: [],
   iceFloors: [],
+  arrowTraps: [],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };
@@ -305,6 +312,7 @@ export const LEVEL_3: Level = {
   shadows: [],
   heavyZones: [],
   iceFloors: [],
+  arrowTraps: [],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };

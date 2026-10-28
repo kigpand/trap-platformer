@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, BaitGem, Boulder, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -22,6 +22,10 @@ export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
 const LANDING_SPIKE_HEIGHT = 16;
+export const ARROW_WIDTH = 30; // #26 화살 크기
+export const ARROW_HEIGHT = 6;
+const ARROW_SPEED = 360; // #26 한 스텝 6px — 플레이어와의 상대 이동량(최대 9.5px)이 폭 합(56px)보다 작아 스텝마다 겹침만 봐도 놓치지 않는다
+export const ARROW_WARNING = 0.4; // #26 경고 시작부터 나오기까지
 const RHYTHM_WARNING = 0.3; // #27 사라지기 전 깜박이는 시간
 const ICE_ACCEL = 300; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에서 멈추기까지 0.7초·약 73px
 export const SHADOW_DELAY_STEPS = 120; // #22 그림자가 따라오기까지(2초)
@@ -186,6 +190,18 @@ export function rhythmPhase(r: RhythmPlatform, t: number): { solid: boolean; war
   const solid = phase < r.onDuration - 1e-6; // 1/60 누적 오차로 경계 스텝이 흔들리지 않게
   return { solid, warning: solid && phase >= r.onDuration - RHYTHM_WARNING - 1e-6 };
 }
+// #26 화살 발사대: 트리거 뒤 경과 시간(elapsed, 트리거 스텝 포함)을 세고, 화살마다 idle → warning(delay부터 0.4초)
+// → flying(fromX에서 나타난 스텝은 움직이지 않음) → gone(toX 도달). 그 목숨 동안 한 번만 발동한다.
+export interface ArrowState { readonly arrow: Arrow; phase: 'idle' | 'warning' | 'flying' | 'gone'; x: number }
+export interface ArrowTrapState { readonly config: ArrowTrap; elapsed: number | null; readonly arrows: ArrowState[] }
+function createArrowTraps(level: Level): ArrowTrapState[] {
+  return level.arrowTraps.map((config) => ({ config, elapsed: null, arrows: config.arrows.map((arrow) => ({ arrow, phase: 'idle', x: arrow.fromX })) }));
+}
+export function arrowRect(a: ArrowState): Rect { return { x: a.x, y: a.arrow.y, width: ARROW_WIDTH, height: ARROW_HEIGHT }; }
+// 사망 원인 표시 영역: 트리거와, 그 발사대의 모든 화살이 날아가는 길을 합친 영역.
+function arrowTrapArea(t: ArrowTrap): Rect {
+  return t.arrows.reduce<Rect>((area, a) => union(area, { x: Math.min(a.fromX, a.toX), y: a.y, width: Math.abs(a.toX - a.fromX) + ARROW_WIDTH, height: ARROW_HEIGHT }), t.trigger);
+}
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -214,7 +230,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform' | 'arrow';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -278,6 +294,7 @@ export class World {
   landingSpikes: LandingSpikeState[];
   shadows: ShadowState[];
   descendingCeilings: DescendingCeilingState[];
+  arrowTraps: ArrowTrapState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -329,6 +346,7 @@ export class World {
     this.landingSpikes = level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
     this.shadows = createShadows(level);
     this.descendingCeilings = createDescendingCeilings(level);
+    this.arrowTraps = createArrowTraps(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -386,6 +404,7 @@ export class World {
     this.landingSpikes = this.level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
     this.shadows = createShadows(this.level);
     this.descendingCeilings = createDescendingCeilings(this.level);
+    this.arrowTraps = createArrowTraps(this.level);
     this.lifeTime = 0;
     this.fakeClear = null;
     this.flight = null;
@@ -615,6 +634,23 @@ export class World {
       if (b.x + BOULDER_SIZE >= b.config.endX - 1e-6) b.phase = 'gone';
     }
 
+    // #26 화살 발사대: 하늘에서 쏟아지는 적(#13)처럼 트리거 스텝부터 시간을 세고, 화살마다 경고 → 생성 → 비행.
+    for (const t of this.arrowTraps) {
+      if (t.elapsed === null) {
+        if (!overlaps(p, t.config.trigger)) continue;
+        t.elapsed = 0;
+      }
+      t.elapsed += dt;
+      for (const a of t.arrows) {
+        if (a.phase === 'idle' && t.elapsed >= a.arrow.delay - 1e-6) a.phase = 'warning';
+        if (a.phase === 'warning' && t.elapsed >= a.arrow.delay + ARROW_WARNING - 1e-6) { a.phase = 'flying'; a.x = a.arrow.fromX; continue; }
+        if (a.phase !== 'flying') continue;
+        const dir = Math.sign(a.arrow.toX - a.arrow.fromX);
+        a.x += dir * ARROW_SPEED * dt;
+        if ((dir >= 0 && a.x >= a.arrow.toX - 1e-6) || (dir < 0 && a.x <= a.arrow.toX + 1e-6)) a.phase = 'gone';
+      }
+    }
+
     // #25 내려오는 천장: 트리거 스텝부터 일정 속도로 내려와, 플레이어와 겹치면 깔린다(9번처럼 이동 뒤 확인).
     let squashedBy: DescendingCeilingState | null = null;
     for (const c of this.descendingCeilings) {
@@ -674,6 +710,8 @@ export class World {
     if (squashedBy) { this.reset(true, { rect: union(squashedBy.config.block, squashedBy.config.trigger), kind: 'descendingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) { this.reset(true, { rect: hazard, kind: 'hazard' }); return; }
+    const arrowTrap = this.arrowTraps.find((t) => t.arrows.some((a) => a.phase === 'flying' && overlaps(p, arrowRect(a))));
+    if (arrowTrap) { this.reset(true, { rect: arrowTrapArea(arrowTrap.config), kind: 'arrow' }); return; }
     const shadow = this.shadows.find((sh) => sh.body && overlaps(p, shadowRect(sh.body)));
     if (shadow) { this.reset(true, { rect: shadow.config.trigger, kind: 'shadow' }); return; }
     const landing = this.landingSpikes.find((s) => s.armed && s.spikes && overlaps(p, s.spikes));
