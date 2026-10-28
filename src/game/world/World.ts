@@ -20,6 +20,9 @@ const GOAL_HOP_DURATION = 0.25; // #12 목표가 다음 위치로 이동하는 �
 const SKY_DROP_WARNING = 0.4; // #13 경고 시작부터 떨어지기까지
 export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
+const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
+const LANDING_SPIKE_HEIGHT = 16;
+const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
@@ -153,6 +156,10 @@ export interface FakeWallState { readonly rect: Rect; revealed: boolean }
 // #21 미끼 보물: 처음 닿으면 사라진다(taken, 그 목숨 동안 유지).
 export interface BaitGemState { readonly config: BaitGem; taken: boolean }
 export function gemRect(g: BaitGem): Rect { return { x: g.x, y: g.y, width: GEM_SIZE, height: GEM_SIZE }; }
+// #23 착지 예측 가시: 구역 안에서 처음 뛴 순간 fired, 착지면이 있었으면 spikes(솟은 가시). 그 목숨 동안 유지.
+// armed는 플레이어가 가시와 처음으로 겹치지 않게 된 뒤 true — 제자리 점프는 솟는 순간 플레이어가 가시 위에 있어,
+// 바로 위험하게 하면 공중에서 비킬 틈도 없이 발동 스텝에 죽는다.
+export interface LandingSpikeState { readonly zone: Rect; fired: boolean; spikes: Rect | null; armed: boolean }
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -181,7 +188,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -223,6 +230,7 @@ export class World {
   boulders: BoulderState[];
   fakeWalls: FakeWallState[];
   baitGems: BaitGemState[];
+  landingSpikes: LandingSpikeState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -267,6 +275,7 @@ export class World {
     this.boulders = createBoulders(level);
     this.fakeWalls = level.fakeWalls.map((rect) => ({ rect, revealed: false }));
     this.baitGems = level.baitGems.map((config) => ({ config, taken: false }));
+    this.landingSpikes = level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -319,6 +328,7 @@ export class World {
     this.boulders = createBoulders(this.level);
     this.fakeWalls = this.level.fakeWalls.map((rect) => ({ rect, revealed: false }));
     this.baitGems = this.level.baitGems.map((config) => ({ config, taken: false }));
+    this.landingSpikes = this.level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
     this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
@@ -386,7 +396,12 @@ export class World {
       if (fling) {
         this.launch(fling.vx, fling.vy);
         this.lastFallTrap = { cause: { rect: fling.zone, kind: 'flingJump' }, at: this.clock };
-      } else { p.vy = -JUMP_SPEED; p.grounded = false; }
+      } else {
+        p.vy = -JUMP_SPEED; p.grounded = false;
+        // #23 착지 예측 가시: 이 점프가 지금 입력을 유지한 채 떨어질 자리에 즉시 가시를 솟게 한다.
+        const ls = this.landingSpikes.find((s) => !s.fired && overlaps(p, s.zone));
+        if (ls) { ls.fired = true; ls.spikes = this.predictLandingSpikes(dt); }
+      }
       this.events.push('jump');
     }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
@@ -419,6 +434,7 @@ export class World {
     this.updateReverse(input.horizontal);
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
     for (const w of this.fakeWalls) if (!w.revealed && overlaps(p, w.rect)) w.revealed = true;
+    for (const ls of this.landingSpikes) if (ls.spikes && !ls.armed && !overlaps(p, ls.spikes)) ls.armed = true;
     for (const g of this.baitGems) {
       if (g.taken || !overlaps(p, gemRect(g.config))) continue;
       g.taken = true;
@@ -549,6 +565,8 @@ export class World {
     if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) { this.reset(true, { rect: hazard, kind: 'hazard' }); return; }
+    const landing = this.landingSpikes.find((s) => s.armed && s.spikes && overlaps(p, s.spikes));
+    if (landing?.spikes) { this.reset(true, { rect: union(landing.spikes, landing.zone), kind: 'landingSpikes' }); return; }
     const spike = this.popUpSpikes.find((sp) => sp.raised && overlaps(p, sp.config.spikes));
     if (spike) { this.reset(true, { rect: spike.config.spikes, kind: 'popUpSpikes' }); return; }
     const fakeCheckpoint = this.level.fakeCheckpoints.find((zone) => overlaps(p, zone));
@@ -578,6 +596,26 @@ export class World {
       const fallTrap = this.lastFallTrap && this.clock - this.lastFallTrap.at <= FALL_CAUSE_WINDOW ? this.lastFallTrap.cause : null;
       this.reset(true, fallTrap);
     }
+  }
+  // #23 지금 플레이어 상태(점프 직후 속도, 이번 스텝의 수평 속도)에서 입력을 유지한다고 보고 update와 같은 순서
+  // (중력 → 충돌 이동 → 레벨 가로 범위 고정)로 궤적을 미리 계산해, 착지하면 그 자리에 놓을 가시를 돌려준다.
+  // 솔리드는 지금 상태로 고정해 본다 — 점프 동안 바뀌는 솔리드는 배치 제약으로 예측 범위에 두지 않는다(traps-spec #23).
+  private predictLandingSpikes(dt: number): Rect | null {
+    const p = this.player;
+    const solids = [...this.level.solids, ...this.dynamicSolids()];
+    const sim: Player = { ...p };
+    for (let i = 0; i < LANDING_PREDICTION_STEPS; i++) {
+      sim.vx = p.vx; // 벽에 막혀도 update처럼 매 스텝 입력 속도를 다시 넣는다
+      sim.vy = Math.min(MAX_FALL_SPEED, sim.vy + GRAVITY * dt);
+      moveWithCollisions(sim, solids, sim.vx * dt, sim.vy * dt);
+      sim.x = Math.max(0, Math.min(this.level.width - sim.width, sim.x));
+      if (sim.grounded) {
+        const bottom = sim.y + sim.height;
+        return { x: sim.x + sim.width / 2 - LANDING_SPIKE_WIDTH / 2, y: bottom - LANDING_SPIKE_HEIGHT, width: LANDING_SPIKE_WIDTH, height: LANDING_SPIKE_HEIGHT };
+      }
+      if (sim.y > this.level.height + 100) return null; // 구덩이로 떨어지는 궤적
+    }
+    return null;
   }
   // #14 가짜 클리어 중 "다음 레벨"(N·버튼)을 누르면 깃발 아래 바닥이 즉시 사라진다. 가짜 클리어 중이 아니면 false.
   // 화면은 바로 평소대로 돌아가고, 떨어져 죽으면 3초 규칙으로 가짜 깃발이 원인이 된다.

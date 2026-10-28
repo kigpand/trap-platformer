@@ -278,3 +278,14 @@ describe('CanvasRenderer decoy traps', () => {
     expect(texts).toContain(TAUNTS.baitGemPickup);
   });
 });
+
+describe('CanvasRenderer landing spikes', () => {
+  it('draws the spikes once raised, at the predicted landing', () => {
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], landingSpikeZones: [{ x: 500, y: 300, width: 60, height: 200 }] }));
+    expect(renderFills(world).some((f) => f.style === SPIKE_FILL)).toBe(false);
+    world.player.x = 510; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 1, jumpPressed: true, restartPressed: false });
+    const spikes = world.landingSpikes[0].spikes!;
+    expect(renderFills(world).some((f) => f.style === SPIKE_FILL && f.x === spikes.x && f.width === spikes.width)).toBe(true);
+  });
+});

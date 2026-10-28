@@ -60,6 +60,7 @@ export interface Level {
   boulders: readonly Boulder[]; // #19 따라오는 돌덩이
   fakeWalls: readonly Rect[]; // #20 가짜 벽(솔리드 아님, 높이 81.375px 초과)
   baitGems: readonly BaitGem[]; // #21 미끼 보물
+  landingSpikeZones: readonly Rect[]; // #23 착지 예측 가시(구역 안에서 뛰면 착지 지점에 가시)
 }
 
 export const LEVEL_1: Level = {
@@ -134,6 +135,7 @@ export const LEVEL_1: Level = {
   boulders: [],
   fakeWalls: [],
   baitGems: [],
+  landingSpikeZones: [],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
@@ -210,6 +212,7 @@ export const LEVEL_2: Level = {
   boulders: [],
   fakeWalls: [],
   baitGems: [],
+  landingSpikeZones: [],
 };
 
 // 레벨 3(어려움): 새 함정 8종을 명세 기본 크기로, 쉴 틈 없이 이어 붙인다(docs/game-design.md "난이도 곡선").
@@ -275,6 +278,7 @@ export const LEVEL_3: Level = {
   boulders: [],
   fakeWalls: [],
   baitGems: [],
+  landingSpikeZones: [],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
