@@ -192,7 +192,7 @@ describe('GameController level progression', () => {
     clearCurrentLevel();
     expect(last().cleared).toBe(true);
     expect(last().level).toBe(last().levelCount); // 완료 화면 조건(App: cleared && level === levelCount)
-    expect(localStorage.getItem(`trap-runner:best:${count}`)).not.toBeNull();
+    expect(localStorage.getItem(`trap-runner:best:v2:${count}`)).not.toBeNull();
     expect(last().bests).toHaveLength(count);
     expect(last().bests.every((b) => b !== null)).toBe(true); // 완료 화면에 모든 레벨 기록이 있다
     controller.dispose();

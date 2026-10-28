@@ -323,7 +323,7 @@ export const LEVEL_2: Level = {
 // 출발 구간 실측: 40px 가시 10px, 높이 60px 가짜 체크포인트 12px, 투명 블록을 피하는 이른 점프 23px.
 // 해법과 도달 가능성은 tests/unit/world/Level3.test.ts가 검증한다.
 export const LEVEL_3: Level = {
-  width: 5600,
+  width: 16800,
   height: 620,
   spawn: { x: 65, y: 350 },
   solids: [
@@ -332,9 +332,22 @@ export const LEVEL_3: Level = {
     { x: 1400, y: 500, width: 1500, height: 120 }, // groundC: 투명 블록 구덩이 너머 — 쏟아지는 적·가짜 체크포인트·천장·가시
     { x: 3160, y: 500, width: 240, height: 120 }, // groundD: 도망가는 발판 너머 짧은 발판
     { x: 3800, y: 500, width: 1200, height: 120 }, // groundE: 사라지는 땅 뒤 가짜 안전지대·쏟아지는 적
-    { x: 5100, y: 500, width: 500, height: 120 }, // groundF: 마지막 구덩이 너머 — 가시와 도망가는 목표
+    // 약올리는 함정 구간(5,100~, 맵 3배 확장): 14~30번을 둘씩 섞어 둔다. 예전 마지막 구간(도망가는 목표)은 레벨 끝으로 옮겼다(+11,200).
+    { x: 5100, y: 500, width: 1200, height: 120 }, // 돌덩이 + 길 가운데 가짜 벽, 6300-6400 구덩이
+    { x: 6400, y: 500, width: 470, height: 120 }, // 6870-6990: 날려버리는 점프가 떨어뜨리는 뒤쪽 구덩이
+    { x: 6990, y: 500, width: 410, height: 120 }, // 얼음(7000-7380) 끝 20px이 날려버리는 점프 구역, 7400-7480 구덩이
+    { x: 7480, y: 500, width: 820, height: 120 }, // 그림자 안에 좌우 반전, 8300-8380 구덩이
+    { x: 8380, y: 500, width: 1620, height: 120 }, // 화살 세 발, 끝 20px(9980-10000)이 무거운 신발 구역, 10000-10100 구덩이
+    { x: 10100, y: 500, width: 1500, height: 120 }, // 따라 뛰는 적 → 착지 예측 가시(턱 11300), 11600-11660 구덩이
+    { x: 11300, y: 460, width: 40, height: 40 }, // 착지 예측 가시 앞 턱
+    { x: 11740, y: 470, width: 10, height: 30 }, // 세 번째 착지 발판 위 장애물 두 개
+    { x: 11900, y: 470, width: 10, height: 30 },
+    { x: 12050, y: 500, width: 1350, height: 120 }, // 13400-13920: 박자 발판 세 개가 놓인 구덩이
+    { x: 13920, y: 500, width: 780, height: 120 }, // 내려오는 천장 통로(14100-14400), 14700-15000은 두 번째 가짜 클리어 바닥
+    { x: 15000, y: 500, width: 1200, height: 120 }, // 스프링(15700), 끝에 도망가는 목표
+    { x: 16300, y: 500, width: 500, height: 120 }, // groundF(옮김): 마지막 구덩이 너머 — 가시와 도망가는 목표
   ],
-  goal: { x: 4950, y: 440, width: 40, height: 60 }, // 다가가면 두 번 달아난다(goalHops)
+  goal: { x: 16150, y: 440, width: 40, height: 60 }, // 다가가면 두 번 달아난다(goalHops)
   // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다. 체크포인트 3(3350)에서
   // 재시작한 화면(오른쪽 끝 3926) 안에 들어오도록 둔다 — 사망 원인 표시를 재시작 직후 바로 본다(physics-spec 배치 제약).
   hazards: [{ x: 3840, y: 495, width: 80, height: 25 }],
@@ -348,6 +361,17 @@ export const LEVEL_3: Level = {
     { zone: { x: 2080, y: 360, width: 40, height: 140 }, respawnX: 2080, respawnY: 350 },
     { zone: { x: 3350, y: 360, width: 40, height: 140 }, respawnX: 3350, respawnY: 350 }, // groundD 끝, 가짜 안전지대가 화면 안
     { zone: { x: 4100, y: 360, width: 40, height: 140 }, respawnX: 4100, respawnY: 350 },
+    // 약올리는 함정 구간마다(함정 쌍 앞).
+    { zone: { x: 5150, y: 360, width: 40, height: 140 }, respawnX: 5150, respawnY: 350 },
+    { zone: { x: 6450, y: 360, width: 40, height: 140 }, respawnX: 6450, respawnY: 350 },
+    { zone: { x: 7500, y: 360, width: 40, height: 140 }, respawnX: 7500, respawnY: 350 },
+    { zone: { x: 9240, y: 360, width: 40, height: 140 }, respawnX: 9240, respawnY: 350 },
+    { zone: { x: 10150, y: 360, width: 40, height: 140 }, respawnX: 10150, respawnY: 350 },
+    { zone: { x: 11450, y: 360, width: 40, height: 140 }, respawnX: 11450, respawnY: 350 },
+    { zone: { x: 13300, y: 360, width: 40, height: 140 }, respawnX: 13300, respawnY: 350 },
+    { zone: { x: 13950, y: 360, width: 40, height: 140 }, respawnX: 13950, respawnY: 350 },
+    { zone: { x: 15050, y: 360, width: 40, height: 140 }, respawnX: 15050, respawnY: 350 },
+    { zone: { x: 15900, y: 360, width: 40, height: 140 }, respawnX: 15900, respawnY: 350 },
   ],
   vanishingGrounds: [{ x: 500, y: 500, width: 400, height: 120 }, { x: 3400, y: 500, width: 400, height: 120 }],
   // 투명 블록: groundB 끝(1300)의 100px 구덩이. 가장자리 점프는 찧고, 가장자리 46~24px 앞의 이른 점프(23px)만 지나간다.
@@ -358,12 +382,12 @@ export const LEVEL_3: Level = {
   popUpSpikes: [
     { spikes: { x: 1000, y: 476, width: 40, height: 24 }, trigger: { x: 940, y: 400, width: 60, height: 100 } },
     { spikes: { x: 2700, y: 476, width: 40, height: 24 }, trigger: { x: 2640, y: 400, width: 60, height: 100 } },
-    { spikes: { x: 5400, y: 476, width: 40, height: 24 }, trigger: { x: 5340, y: 400, width: 60, height: 100 } },
+    { spikes: { x: 16600, y: 476, width: 40, height: 24 }, trigger: { x: 16540, y: 400, width: 60, height: 100 } },
   ],
   fakeCheckpoints: [{ x: 2300, y: 440, width: 40, height: 60 }],
   goalHops: [
-    { trigger: { x: 4870, y: 400, width: 40, height: 100 }, to: { x: 5240, y: 440, width: 40, height: 60 } },
-    { trigger: { x: 5200, y: 400, width: 40, height: 100 }, to: { x: 5540, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 16070, y: 400, width: 40, height: 100 }, to: { x: 16440, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 16400, y: 400, width: 40, height: 100 }, to: { x: 16740, y: 440, width: 40, height: 60 } },
   ],
   // 하늘에서 쏟아지는 적: 순찰 구간 사이에 기다릴 자리(160px)를 둔다(traps-spec #13 배치 제약).
   skyDrops: [
@@ -374,23 +398,47 @@ export const LEVEL_3: Level = {
       { x: 4400, delay: 0, minX: 4360, maxX: 4480 }, { x: 4700, delay: 0.25, minX: 4660, maxX: 4780 },
     ] },
   ],
-  flingZones: [],
-  reverseZones: [],
-  springFloors: [],
-  fakeGoals: [],
-  signs: [],
-  boulders: [],
-  fakeWalls: [],
-  baitGems: [],
-  landingSpikeZones: [],
-  shadows: [],
-  heavyZones: [],
-  iceFloors: [],
-  arrowTraps: [],
-  mirrorEnemies: [],
-  countingPlatforms: [],
-  descendingCeilings: [],
-  rhythmPlatforms: [],
+  // 날려버리는 점프: 얼음 끝 20px. 미끄러지며 일찍 뛰어야 하고, 구역에서 뛰면 뒤쪽 구덩이(6870-6990)로 날아간다.
+  flingZones: [{ zone: { x: 7380, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
+  // 좌우 반전: 그림자 구간 한가운데. 걸리면 머뭇거리지 말고 ←로 빠져나가야 그림자에 안 잡힌다.
+  reverseZones: [{ x: 7900, y: 300, width: 240, height: 200 }],
+  // 뒷걸음 스프링 바닥: 마지막 구간 앞. 튕기면 약 430px 뒤(15,270 근처) 평지에 떨어진다.
+  springFloors: [{ tile: { x: 15700, y: 500, width: 40, height: 20 }, vx: -480, vy: -600 }],
+  // 두 번째 가짜 클리어: 천장 통로를 지나 "진짜 끝!" 표지판 뒤. 바닥(14700-15000)이 깃발 좌우 80px보다 넓다.
+  fakeGoals: [{ flag: { x: 14830, y: 440, width: 40, height: 60 }, floor: [{ x: 14700, y: 500, width: 300, height: 120 }] }],
+  signs: [
+    { x: 11150, y: 500, text: '여기서 점프!' }, // 착지 예측 가시 구역(11220-11280) 바로 앞
+    { x: 14600, y: 500, text: '진짜 끝!' }, // 두 번째 가짜 클리어
+  ],
+  // 따라오는 돌덩이: 트리거(5300)보다 240px 뒤(5000)에서 나타나 6300까지. 길 가운데 가짜 벽(5800)에서 멈칫하면 깔린다.
+  boulders: [{ trigger: { x: 5300, y: 300, width: 40, height: 200 }, startX: 5000, endX: 6300, y: 440 }],
+  fakeWalls: [{ x: 5800, y: 380, width: 40, height: 120 }],
+  // 미끼 보물: 박자 발판 첫째와 둘째 사이 구덩이 안.
+  baitGems: [{ x: 13575, y: 485 }],
+  // 착지 예측 가시: "여기서 점프!" 표지판 바로 뒤, 턱(11300) 앞 60px.
+  landingSpikeZones: [{ x: 11220, y: 300, width: 60, height: 200 }],
+  // 따라 하는 그림자: 7550-8800. 안에 좌우 반전과 달리며 넘는 구덩이(8300-8380).
+  shadows: [{ trigger: { x: 7550, y: 300, width: 40, height: 200 }, endX: 8800 }],
+  // 무거운 신발: 화살 구간 끝, 구덩이(10000) 앞 20px.
+  heavyZones: [{ zone: { x: 9980, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
+  iceFloors: [{ x: 7000, y: 500, width: 380, height: 20 }],
+  // 화살 세 발: 낮은 것 → 높은 것 → 낮은 것. 길(9000-10330)에는 솔리드가 없다.
+  arrowTraps: [{ trigger: { x: 9300, y: 300, width: 40, height: 200 }, arrows: [
+    { y: 484, delay: 0.2, fromX: 10300, toX: 9000 },
+    { y: 450, delay: 1.2, fromX: 10300, toX: 9000 },
+    { y: 484, delay: 2.4, fromX: 10300, toX: 9000 },
+  ] }],
+  mirrorEnemies: [{ minX: 10400, maxX: 10900, y: 472, jumpSpeed: 720 }],
+  // 세 번째 착지 발판: 레벨 2와 같은 배치(구덩이 60px, 장애물 80·240px) — 발끝까지 버티다 늦게 뛰어야 두 번만 착지한다.
+  countingPlatforms: [{ rect: { x: 11660, y: 500, width: 390, height: 20 }, landings: 3 }],
+  // 내려오는 천장: 레벨 1보다 빠른 70px/s. 아랫면 320 → 머리(468)까지 148px, 약 2.1초. 통로를 달려 빠져나가기까지 약 1.7초.
+  descendingCeilings: [{ block: { x: 14100, y: 280, width: 300, height: 40 }, trigger: { x: 14060, y: 300, width: 40, height: 200 }, speed: 70, floorY: 500 }],
+  // 박자 발판 세 개: 1.8초 주기에 1.0초, 차례로 0.6초씩 늦게(이웃과 0.4초 겹침). 첫 발판이 막 나타날 때 연달아 뛰어야 한다.
+  rhythmPlatforms: [
+    { rect: { x: 13470, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.0, offset: 0 },
+    { rect: { x: 13620, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.0, offset: -0.6 },
+    { rect: { x: 13770, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.0, offset: -1.2 },
+  ],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
