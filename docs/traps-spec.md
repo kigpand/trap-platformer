@@ -1,7 +1,7 @@
 # 함정·적 명세 — 프로토타입 v0.1
 
 ## 범위
-함정 작동 시점과 적의 동작 규칙을 정의합니다. 적 이동(Phase 2)과 함정 5종(Phase 3)은 구현을 마쳤고, 함정 6~13번(아래 "함정 확장")도 구현을 마쳤으며, 14~19번(아래 "약올리는 함정")도 구현했지만 아직 어느 레벨에도 배치하지 않았으며, 20~30번(아래 "함정 추가")은 20·21·23번만 구현했고(레벨 미배치) 나머지는 명세만 확정된 상태입니다(현황은 아래 "구현 현황"). 함정·적을 새로 추가하거나 동작을 바꿀 때 이 문서를 먼저 확인합니다.
+함정 작동 시점과 적의 동작 규칙을 정의합니다. 적 이동(Phase 2)과 함정 5종(Phase 3)은 구현을 마쳤고, 함정 6~13번(아래 "함정 확장")도 구현을 마쳤으며, 14~19번(아래 "약올리는 함정")도 구현했지만 아직 어느 레벨에도 배치하지 않았으며, 20~30번(아래 "함정 추가")은 20~23번만 구현했고(레벨 미배치) 나머지는 명세만 확정된 상태입니다(현황은 아래 "구현 현황"). 함정·적을 새로 추가하거나 동작을 바꿀 때 이 문서를 먼저 확인합니다.
 
 ## 적 충돌 규칙
 - 적과 플레이어의 AABB가 겹치면 접촉 방향과 무관하게 즉시 사망 처리합니다. 스톰프(위에서 밟아 처치)나 무기는 v0.1 범위 밖입니다.
@@ -30,7 +30,8 @@
 - [x] 14. 가짜 클리어 · [x] 18. 가짜 안내 표지판 — `Level.fakeGoals`/`signs`, `World.fakeClear`·`World.collapseFakeFloor()`, `GameController`의 기록 화면 흉내(`fakePreview`, 저장 안 함), App의 "다시 진행 중" 알림, `tests/unit/world/FakeClear.test.ts`·`tests/unit/core/FakeClearController.test.ts`·`tests/unit/App.test.ts`. 아직 어느 레벨에도 배치하지 않았다
 - [x] 20. 가짜 벽 · [x] 21. 미끼 보물 — `Level.fakeWalls`/`baitGems`, `World.fakeWalls`(겹치면 그 목숨 동안 revealed)·`World.baitGems`(닿으면 taken, 죽지 않는 문구, 3초 낙사 원인), 가짜 벽 높이 제약은 `LevelRules.test.ts`, `tests/unit/world/DecoyTraps.test.ts`. 아직 어느 레벨에도 배치하지 않았다
 - [x] 23. 착지 예측 가시 — `Level.landingSpikeZones`, `World.landingSpikes`(`predictLandingSpikes`: update와 같은 순서로 궤적 예측, 가시는 플레이어가 벗어난 뒤부터 위험), 예측 범위 제약은 `LevelRules.test.ts`(World와 같은 `simulateJump`로 계산한 실제 예측 궤적 범위), `tests/unit/world/LandingSpikes.test.ts`. 아직 어느 레벨에도 배치하지 않았다
-- [ ] 22. 따라 하는 그림자 · [ ] 24. 무거운 신발 구간 · [ ] 25. 내려오는 천장 · [ ] 26. 화살 발사대 · [ ] 27. 박자 발판 · [ ] 28. 얼음 바닥 · [ ] 29. 따라 뛰는 적 · [ ] 30. 세 번째 착지에 무너지는 발판
+- [x] 22. 따라 하는 그림자 — `Level.shadows`, `World.shadows`(트리거한 스텝부터 위치 기록, 120번째 스텝부터 120스텝 전 위치 재생, 기록은 최대 120개만 보관), `tests/unit/world/Shadow.test.ts`. 아직 어느 레벨에도 배치하지 않았다
+- [ ] 24. 무거운 신발 구간 · [ ] 25. 내려오는 천장 · [ ] 26. 화살 발사대 · [ ] 27. 박자 발판 · [ ] 28. 얼음 바닥 · [ ] 29. 따라 뛰는 적 · [ ] 30. 세 번째 착지에 무너지는 발판
 - [x] 19. 따라오는 돌덩이 — `Level.boulders`, `World.boulders`(트리거 스텝에 시작 x에 나타나 다음 스텝부터 180px/s, 오른쪽 끝이 끝 x에 닿은 스텝에 사라짐), 생성 위치 제약은 `LevelRules.test.ts`, `tests/unit/world/Boulder.test.ts`. 아직 어느 레벨에도 배치하지 않았다
 - [x] 13. 하늘에서 쏟아지는 적 — `Level.skyDrops`, `World.skyDrops`(경고·낙하·착지 후 왕복·구덩이 낙하 제거), `tests/unit/world/SkyDrops.test.ts`. 아직 어느 레벨에도 배치하지 않았다(레벨 3에서 배치)
 

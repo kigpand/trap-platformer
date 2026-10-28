@@ -20,6 +20,7 @@ export const TAUNTS: Readonly<Record<TauntKind, string>> = {
   boulder: '뒤도 좀 봐',
   baitGem: '보석이 그렇게 좋았어?',
   landingSpikes: '착지 지점 예약 완료~',
+  shadow: '너의 적은 너야',
   baitGemPickup: '그거 장식인데?',
   flingJump: '점프 금지 구역이었어',
   reverseZone: '왼쪽이 오른쪽이야',
