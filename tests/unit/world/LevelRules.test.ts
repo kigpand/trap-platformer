@@ -56,13 +56,15 @@ describe('level placement rules (every level)', () => {
 // docs/traps-spec.md #23 배치 제약: 예측은 점프 순간의 솔리드를 고정된 것으로 보므로, 예측 궤적이 지나가는 수평 범위에는
 // 상태나 위치가 바뀌는 솔리드를 두지 않는다. 범위는 구역과 겹치며 솔리드 위에 서 있을 수 있는 모든 정수 x에서, 좌우 입력
 // 세 가지(←·없음·→)로 World와 같은 계산(simulateJump)을 돌려 얻는다 — 고정 거리(±200px)로는 낮은 착지면으로 멀리
-// 떨어지는 궤적을 덮지 못했다(Codex 리뷰). 25·27·30번은 구현할 때 changing 목록에 더한다.
+// 떨어지는 궤적을 덮지 못했다(Codex 리뷰). 30번은 구현할 때 changing 목록에 더한다.
 function landingPredictionViolations(level: Level): Rect[] {
   const solids = [...level.solids, ...new World(level).dynamicSolids()];
   const changing: Rect[] = [
     ...level.hiddenBlocks, ...level.fallingPlatforms, ...level.vanishingGrounds, ...level.invisibleBlocks,
     ...level.dodgingPlatforms.flatMap((d) => [d.platform, { ...d.platform, ...d.to }]),
     ...level.fallingCeilings.map((c) => c.block), ...level.fakeGoals.flatMap((g) => g.floor),
+    ...level.descendingCeilings.map((c) => ({ ...c.block, height: c.floorY - c.block.y })), // 내려오며 지나가는 범위 전체
+    ...level.rhythmPlatforms.map((r) => r.rect),
   ];
   const violations: Rect[] = [];
   for (const zone of level.landingSpikeZones) {
@@ -96,5 +98,16 @@ describe('landing-spike prediction rule', () => {
 
   it('allows changing solids beyond every predicted trajectory', () => {
     expect(landingPredictionViolations(testLevel({ ...base, fallingPlatforms: [{ x: 1500, y: 560, width: 60, height: 20 }] }))).toEqual([]);
+  });
+});
+
+describe('landing-spike prediction rule covers timed solids', () => {
+  const zone = { x: 540, y: 300, width: 60, height: 200 };
+  const ground = { x: 0, y: 500, width: 2000, height: 120 };
+  it('rejects a descending ceiling or a rhythm platform on the predicted path', () => {
+    const ceiling = { block: { x: 650, y: 200, width: 60, height: 40 }, trigger: { x: 900, y: 300, width: 40, height: 200 }, speed: 60, floorY: 500 };
+    expect(landingPredictionViolations(testLevel({ solids: [ground], landingSpikeZones: [zone], descendingCeilings: [ceiling] }))).toHaveLength(1);
+    const rhythm = { rect: { x: 640, y: 440, width: 60, height: 20 }, period: 2, onDuration: 1, offset: 0 };
+    expect(landingPredictionViolations(testLevel({ solids: [ground], landingSpikeZones: [zone], rhythmPlatforms: [rhythm] }))).toEqual([rhythm.rect]);
   });
 });

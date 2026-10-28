@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -317,5 +317,29 @@ describe('CanvasRenderer movement traps', () => {
     world.player.x = 710; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
     expect(render(world).texts.some((t) => t.includes(HEAVY_MARK))).toBe(true);
+  });
+});
+
+describe('CanvasRenderer timed solids', () => {
+  it('draws the descending ceiling where it is now', () => {
+    const block = { x: 600, y: 300, width: 300, height: 40 };
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], descendingCeilings: [{ block, trigger: { x: 560, y: 300, width: 40, height: 200 }, speed: 60, floorY: 500 }] }));
+    world.player.x = 560; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    for (let i = 0; i < 30; i++) world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    const y = world.descendingCeilings[0].y;
+    expect(y).toBeGreaterThan(300);
+    expect(renderFills(world).some((f) => f.x === block.x && f.y === y && f.height === block.height)).toBe(true);
+  });
+
+  it('flashes the rhythm platform before it vanishes and leaves a ghost while it is gone', () => {
+    const rect = { x: 300, y: 500, width: 80, height: 20 };
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 200, height: 120 }], rhythmPlatforms: [{ rect, period: 2, onDuration: 1.2, offset: 0 }] }));
+    world.lifeTime = 1.05; // 깜박임 구간, 켜진 박자(0.1초 단위 짝수)
+    expect(renderFills(world).some((f) => f.style === RHYTHM_WARNING_FILL && f.x === rect.x)).toBe(true);
+    world.lifeTime = 1.5;
+    expect(renderFills(world).some((f) => f.style === RHYTHM_GHOST && f.x === rect.x)).toBe(true);
+    world.lifeTime = 0.5;
+    const fills = renderFills(world);
+    expect(fills.some((f) => f.style === RHYTHM_GHOST || f.style === RHYTHM_WARNING_FILL)).toBe(false);
   });
 });
