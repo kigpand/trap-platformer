@@ -40,6 +40,11 @@ export interface RhythmPlatform { rect: Rect; period: number; onDuration: number
 // 360px/s로 날아가고 toX에 닿으면 사라진다. y는 화살(30×6) 윗면. 지형을 무시한다.
 export interface Arrow { y: number; delay: number; fromX: number; toX: number }
 export interface ArrowTrap { trigger: Rect; arrows: readonly Arrow[] }
+// 따라 뛰는 적(#29): 일반 왕복 적(minX~maxX, 높이 y)이지만, 플레이어가 점프 입력으로 바닥을 떠나면 400px 안에서 바닥에 있을 때
+// −jumpSpeed(기본 720)로 뛰고 중력을 받아 y로 내려온다.
+export interface MirrorEnemy { minX: number; maxX: number; y: number; jumpSpeed: number }
+// 세 번째 착지에 무너지는 발판(#30): 공중에서 이 발판에 착지한 횟수가 landings(기본 3)가 되는 스텝에 사라진다.
+export interface CountingPlatform { rect: Rect; landings: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -78,6 +83,8 @@ export interface Level {
   descendingCeilings: readonly DescendingCeiling[]; // #25 내려오는 천장
   rhythmPlatforms: readonly RhythmPlatform[]; // #27 박자 발판
   arrowTraps: readonly ArrowTrap[]; // #26 화살 발사대
+  mirrorEnemies: readonly MirrorEnemy[]; // #29 따라 뛰는 적
+  countingPlatforms: readonly CountingPlatform[]; // #30 세 번째 착지에 무너지는 발판
   iceFloors: readonly Rect[]; // #28 얼음 바닥(바닥 윗면에 겹쳐 두는 판정·장식 영역, 스프링 타일과 같은 방식)
 }
 
@@ -158,6 +165,8 @@ export const LEVEL_1: Level = {
   heavyZones: [],
   iceFloors: [],
   arrowTraps: [],
+  mirrorEnemies: [],
+  countingPlatforms: [],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };
@@ -241,6 +250,8 @@ export const LEVEL_2: Level = {
   heavyZones: [],
   iceFloors: [],
   arrowTraps: [],
+  mirrorEnemies: [],
+  countingPlatforms: [],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };
@@ -313,6 +324,8 @@ export const LEVEL_3: Level = {
   heavyZones: [],
   iceFloors: [],
   arrowTraps: [],
+  mirrorEnemies: [],
+  countingPlatforms: [],
   descendingCeilings: [],
   rhythmPlatforms: [],
 };

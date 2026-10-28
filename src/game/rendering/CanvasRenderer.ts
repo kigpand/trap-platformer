@@ -41,6 +41,7 @@ const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
 export const REVERSE_MARK = '⇄';
 export const HEAVY_MARK = '⤓'; // 무거운 신발 구역 안에 있는 동안 플레이어 위에 띄우는 표시(#24)
+export const CRACK_FILL = '#1f2a1a'; // #30 착지할 때마다 하나씩 늘어나는 금
 export const ARROW_FILL = '#f8fafc'; // #26 화살
 export const ARROW_WARNING_FILL = '#facc15'; // #26 화살이 들어올 화면 가장자리 경고(다른 경고와 같은 노랑)
 export const RHYTHM_GHOST = 'rgba(153,197,119,0.18)'; // #27 사라진 박자 발판(다시 나타날 자리)
@@ -277,6 +278,20 @@ export class CanvasRenderer {
     }
     const goal = world.goal.rect; // #12 도망가는 목표: 현재(이동 중이면 이동 중인) 위치
     ctx.fillStyle = GOAL_FILL; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+    // #30 세 번째 착지에 무너지는 발판: 일반 발판에 착지 횟수만큼 금(세로 줄)을 긋는다. 무너지면 그리지 않는다.
+    for (const c of world.countingPlatforms) {
+      if (!c.solid) continue;
+      const r = c.config.rect;
+      ctx.fillStyle = '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
+      ctx.fillStyle = '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
+      ctx.fillStyle = CRACK_FILL;
+      for (let i = 0; i < c.count; i++) ctx.fillRect(r.x + ((i + 1) * r.width) / (c.config.landings + 1) - 1, r.y, 2, r.height);
+    }
+    // #29 따라 뛰는 적: 일반 왕복 적과 똑같이 그린다(처음엔 구분되지 않아야 한다).
+    for (const m of world.mirrorEnemies) {
+      drawEnemy(ctx, m.enemy);
+      if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(m.enemy.x, m.enemy.y, m.enemy.width, m.enemy.height); }
+    }
     for (const e of world.enemies) {
       drawEnemy(ctx, e);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }

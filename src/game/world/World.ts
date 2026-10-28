@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, CountingPlatform, MirrorEnemy, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -22,6 +22,7 @@ export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
 const LANDING_SPIKE_HEIGHT = 16;
+const MIRROR_RANGE = 400; // #29 플레이어와 이만큼(수평 거리) 안에 있어야 따라 뛴다
 export const ARROW_WIDTH = 30; // #26 화살 크기
 export const ARROW_HEIGHT = 6;
 const ARROW_SPEED = 360; // #26 한 스텝 6px — 플레이어와의 상대 이동량(최대 9.5px)이 폭 합(56px)보다 작아 스텝마다 겹침만 봐도 놓치지 않는다
@@ -202,6 +203,21 @@ export function arrowRect(a: ArrowState): Rect { return { x: a.x, y: a.arrow.y, 
 function arrowTrapArea(t: ArrowTrap): Rect {
   return t.arrows.reduce<Rect>((area, a) => union(area, { x: Math.min(a.fromX, a.toX), y: a.y, width: Math.abs(a.toX - a.fromX) + ARROW_WIDTH, height: ARROW_HEIGHT }), t.trigger);
 }
+// #29 따라 뛰는 적: 일반 왕복 적에 점프 상태(vy, airborne)만 더한다. 중력은 뛰는 동안에만 받는다(traps-spec "적 충돌 규칙" 예외).
+export interface MirrorEnemyState { readonly config: MirrorEnemy; readonly enemy: Enemy; vy: number; airborne: boolean }
+function createMirrorEnemies(level: Level): MirrorEnemyState[] {
+  return level.mirrorEnemies.map((config) => ({ config, enemy: createEnemy(config.minX, config.maxX, config.y), vy: 0, airborne: false }));
+}
+// 사망 원인 표시 영역: 왕복 구간과 점프 높이(v²/2g)를 합친 영역.
+function mirrorArea(m: MirrorEnemy): Rect {
+  const apex = (m.jumpSpeed * m.jumpSpeed) / (2 * GRAVITY);
+  return { x: m.minX, y: m.y - apex, width: m.maxX - m.minX, height: apex + ENEMY_HEIGHT };
+}
+// #30 세 번째 착지에 무너지는 발판: 공중에서 착지한 횟수(count)와 아직 솔리드인지.
+export interface CountingPlatformState { readonly config: CountingPlatform; count: number; solid: boolean }
+function createCountingPlatforms(level: Level): CountingPlatformState[] {
+  return level.countingPlatforms.map((config) => ({ config, count: 0, solid: true }));
+}
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -230,7 +246,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform' | 'arrow';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform' | 'arrow' | 'mirrorEnemy' | 'countingPlatform';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -295,6 +311,8 @@ export class World {
   shadows: ShadowState[];
   descendingCeilings: DescendingCeilingState[];
   arrowTraps: ArrowTrapState[];
+  mirrorEnemies: MirrorEnemyState[];
+  countingPlatforms: CountingPlatformState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -347,6 +365,8 @@ export class World {
     this.shadows = createShadows(level);
     this.descendingCeilings = createDescendingCeilings(level);
     this.arrowTraps = createArrowTraps(level);
+    this.mirrorEnemies = createMirrorEnemies(level);
+    this.countingPlatforms = createCountingPlatforms(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -361,6 +381,7 @@ export class World {
     for (const fg of this.fakeGoals) if (!fg.collapsed) rects.push(...fg.config.floor);
     for (const c of this.descendingCeilings) rects.push(descendingRect(c));
     for (const r of this.level.rhythmPlatforms) if (rhythmPhase(r, this.lifeTime).solid) rects.push(r.rect);
+    for (const c of this.countingPlatforms) if (c.solid) rects.push(c.config.rect);
     return rects;
   }
   drainEvents(): WorldEvent[] {
@@ -405,6 +426,8 @@ export class World {
     this.shadows = createShadows(this.level);
     this.descendingCeilings = createDescendingCeilings(this.level);
     this.arrowTraps = createArrowTraps(this.level);
+    this.mirrorEnemies = createMirrorEnemies(this.level);
+    this.countingPlatforms = createCountingPlatforms(this.level);
     this.lifeTime = 0;
     this.fakeClear = null;
     this.flight = null;
@@ -502,6 +525,13 @@ export class World {
         if (ls) { ls.fired = true; ls.spikes = this.predictLandingSpikes(dt); }
       }
       this.events.push('jump');
+      // #29 따라 뛰는 적: 점프 입력으로 바닥을 떠난 스텝(보통·무거운 신발·날려버리는 점프)에 400px 안의 바닥에 있는 적이 같이 뛴다.
+      // 스프링 바닥(#17)은 여기를 거치지 않으므로 뛰지 않는다.
+      const center = p.x + p.width / 2;
+      for (const m of this.mirrorEnemies) {
+        if (m.airborne || Math.abs(m.enemy.x + m.enemy.width / 2 - center) > MIRROR_RANGE) continue;
+        m.airborne = true; m.vy = -m.config.jumpSpeed;
+      }
     }
     p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
     // #7 투명 블록: 이번 이동으로 머리가 아랫면을 지나가면(위로 이동 중, 블록 아래에서 출발) 나타나 솔리드가 된다.
@@ -525,6 +555,17 @@ export class World {
     const wasAirborne = !p.grounded; // 이동 전 공중 여부 — 이번 스텝에 착지해도 "공중에서 들어온 것"으로 본다(#8)
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
+    // #30 세 번째 착지에 무너지는 발판: 공중에서 이 발판에 착지한 스텝만 센다(옆에서 걸어 올라오면 세지 않음). 정한 횟수째 착지한
+    // 스텝에 사라지고, 같은 스텝 안에서 남은 솔리드로 지지를 다시 계산한다 — 착지로 grounded=true가 된 채 두면 다음 스텝에
+    // 공중에서 뛸 수 있다(1·2번 붕괴 함정의 "붕괴 직후 한 프레임 점프"와 같은 결함, Codex 리뷰).
+    if (wasAirborne && p.grounded) {
+      const landedOn = this.countingPlatforms.find((c) => c.solid && isStandingOn(p, c.config.rect));
+      if (landedOn && ++landedOn.count >= landedOn.config.landings) {
+        landedOn.solid = false;
+        this.lastFallTrap = { cause: { rect: landedOn.config.rect, kind: 'countingPlatform' }, at: this.clock };
+        if (![...this.level.solids, ...this.dynamicSolids()].some((s) => isStandingOn(p, s))) p.grounded = false;
+      }
+    }
     // 강제 비행은 발동한 다음 스텝부터, 이동 뒤 grounded가 된 첫 스텝(착지)에서 끝난다. 천장 충돌은 grounded가 아니다.
     if (this.flight) {
       if (!this.flight.launched && p.grounded) this.flight = null;
@@ -556,6 +597,13 @@ export class World {
     }
 
     for (const e of this.enemies) updateEnemy(e, dt);
+    for (const m of this.mirrorEnemies) {
+      updateEnemy(m.enemy, dt); // 뛰는 동안에도 왕복은 그대로
+      if (!m.airborne) continue;
+      m.vy = Math.min(MAX_FALL_SPEED, m.vy + GRAVITY * dt);
+      m.enemy.y += m.vy * dt;
+      if (m.enemy.y >= m.config.y) { m.enemy.y = m.config.y; m.vy = 0; m.airborne = false; } // 원래 높이로 착지
+    }
 
     // #8 도망가는 발판: 공중에서 트리거에 들어오면 한 번만 미끄러진다. 3초 안의 낙사는 발판의 원래 위치를 원인으로 본다.
     // 공중 여부는 이동 전·후 둘 중 하나라도 공중이면 참이다 — 이동 뒤 grounded만 보면 착지하는 바로 그 스텝에
@@ -722,6 +770,8 @@ export class World {
     if (fakeCheckpoint) { this.reset(true, { rect: fakeCheckpoint, kind: 'fakeCheckpoint' }); return; }
     const boulder = this.boulders.find((b) => b.phase === 'rolling' && overlaps(p, boulderRect(b)));
     if (boulder) { this.reset(true, { rect: boulderArea(boulder.config), kind: 'boulder' }); return; }
+    const mirror = this.mirrorEnemies.find((m) => overlaps(p, m.enemy));
+    if (mirror) { this.reset(true, { rect: mirrorArea(mirror.config), kind: 'mirrorEnemy' }); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));
     if (enemy) { this.reset(true, { rect: patrolArea(enemy), kind: 'enemy' }); return; }
     const skyGroup = this.skyDrops.find((g) => g.enemies.some((se) => se.enemy && overlaps(p, se.enemy)));
