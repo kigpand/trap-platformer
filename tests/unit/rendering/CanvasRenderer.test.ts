@@ -43,8 +43,12 @@ const hazardFill = (fills: FillCall[]): FillCall | undefined =>
   fills.find((f) => f.x === hazard.x && f.y === hazard.y && f.width === hazard.width && f.height === hazard.height);
 
 describe('CanvasRenderer fake safe zone', () => {
+  // 렌더러는 화면 밖 지형을 그리지 않는다 — 카메라가 가짜 안전지대를 비추도록 플레이어를 그 앞에 둔다.
+  const lookAtHazard = (world: World): void => { world.player.x = hazard.x - 100; };
+
   it('draws the hazard like normal ground when no reveal is active', () => {
     const world = new World(LEVEL_1);
+    lookAtHazard(world);
     expect(hazardFill(renderFills(world))?.style).toBe('#627e55'); // 일반 바닥(SOLIDS)과 같은 색
   });
 
@@ -54,6 +58,7 @@ describe('CanvasRenderer fake safe zone', () => {
     world.player.y = hazard.y - world.player.height + 1;
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
     expect(world.deathCause).not.toBeNull();
+    lookAtHazard(world);
     expect(hazardFill(renderFills(world))?.style).toBe(HAZARD_REVEAL_FILL);
 
     world.deathCause = null; // 2초 경과 후와 같은 상태
@@ -374,5 +379,19 @@ describe('CanvasRenderer mirror enemy and third-landing platform', () => {
     world.mirrorEnemies[0].enemy.y = 350;
     const e = world.mirrorEnemies[0].enemy;
     expect(renderFills(world).some((f) => f.x >= e.x && f.x < e.x + e.width && f.y >= 350 && f.y < 378)).toBe(true);
+  });
+});
+
+describe('CanvasRenderer off-screen culling', () => {
+  it('draws terrain only where the camera looks', () => {
+    const near = { x: 100, y: 500, width: 200, height: 120 };
+    const far = { x: 3000, y: 500, width: 200, height: 120 };
+    const world = new World(testLevel({ width: 4000, solids: [near, far], iceFloors: [{ ...far, height: 20 }] }));
+    const drawn = (r: { x: number; width: number }) => renderFills(world).some((f) => f.x === r.x && f.width === r.width);
+    expect(drawn(near)).toBe(true);
+    expect(drawn(far)).toBe(false);
+    world.player.x = 3050; // 카메라를 먼 쪽으로
+    expect(drawn(far)).toBe(true);
+    expect(drawn(near)).toBe(false);
   });
 });
