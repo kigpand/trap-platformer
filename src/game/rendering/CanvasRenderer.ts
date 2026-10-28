@@ -98,17 +98,22 @@ export class CanvasRenderer {
     const level = world.level;
     const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
     ctx.save(); ctx.translate(-cam, 0);
+    // 화면(카메라 가로 범위)과 겹치는 사각형만 그린다 — 레벨이 길어져도 바닥·함정 타일을 그리는 양이 화면 크기만큼으로 유지된다.
+    // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
+    const inView = (r: Rect): boolean => r.x < cam + VIEW_WIDTH && r.x + r.width > cam;
     // 배경 건물: 130px 간격으로 반복하되 카메라에 보이는 것만 그린다 — 레벨이 길어져도 끝까지 이어지고 그리기 양은 같다.
     ctx.fillStyle = '#293b4d';
     const firstBuilding = Math.max(0, Math.floor(cam / BUILDING_SPACING) - 1);
     const lastBuilding = Math.ceil((cam + VIEW_WIDTH) / BUILDING_SPACING);
     for (let i = firstBuilding; i <= lastBuilding; i++) ctx.fillRect(i * BUILDING_SPACING, 390 - (i % 4) * 35, 90, 200);
     for (const p of level.solids) {
+      if (!inView(p)) continue;
       ctx.fillStyle = '#627e55'; ctx.fillRect(p.x, p.y, p.width, p.height);
       ctx.fillStyle = '#99c577'; ctx.fillRect(p.x, p.y, p.width, Math.min(8, p.height));
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     }
     for (const h of level.hazards) {
+      if (!inView(h)) continue;
       // 평소엔 일반 바닥과 똑같이 그리고, 이 타일로 사망한 직후에만 경고색으로 원인을 드러낸다(traps-spec #4).
       const revealed = world.deathCause?.rect === h;
       ctx.fillStyle = revealed ? HAZARD_REVEAL_FILL : '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
@@ -120,6 +125,7 @@ export class CanvasRenderer {
     for (const vg of world.vanishingGrounds) {
       for (let i = vg.tilesGone; i < vanishingTileCount(vg.rect); i++) {
         const t = vanishingTile(vg.rect, i);
+        if (!inView(t)) continue;
         const warning = vg.elapsed !== null && i === vg.tilesGone;
         ctx.fillStyle = warning ? VANISH_WARNING_FILL : '#627e55'; ctx.fillRect(t.x, t.y, t.width, t.height);
         ctx.fillStyle = warning ? VANISH_WARNING_FILL : '#99c577'; ctx.fillRect(t.x, t.y, t.width, Math.min(8, t.height));
@@ -197,6 +203,7 @@ export class CanvasRenderer {
     // #27 박자 발판: 나타나 있으면 일반 발판, 사라지기 0.3초 전에는 0.1초마다 깜박이고, 사라진 동안은 흐린 자리만 보인다.
     for (const rp of level.rhythmPlatforms) {
       const r = rp.rect;
+      if (!inView(r)) continue;
       const { solid, warning } = rhythmPhase(rp, world.lifeTime);
       if (!solid) { ctx.fillStyle = RHYTHM_GHOST; ctx.fillRect(r.x, r.y, r.width, r.height); continue; }
       const flash = warning && Math.floor(world.lifeTime * 10) % 2 === 0;
@@ -205,6 +212,7 @@ export class CanvasRenderer {
     }
     // #28 얼음 바닥: 바닥 윗면을 얼음색으로 덮고 반짝이 줄을 긋는다(보이는 함정).
     for (const t of level.iceFloors) {
+      if (!inView(t)) continue;
       ctx.fillStyle = ICE_FILL; ctx.fillRect(t.x, t.y, t.width, Math.min(10, t.height));
       ctx.fillStyle = ICE_SHINE;
       for (let x = t.x + 6; x + 10 <= t.x + t.width; x += 24) ctx.fillRect(x, t.y + 2, 10, 2);
@@ -232,6 +240,7 @@ export class CanvasRenderer {
     }
     // #20 가짜 벽: 공중 블록과 똑같이 그리다가, 한 번 겹치면 그 목숨 동안 반투명하게.
     for (const w of world.fakeWalls) {
+      if (!inView(w.rect)) continue;
       const r = w.rect;
       if (w.revealed) { ctx.fillStyle = FAKE_WALL_REVEALED; ctx.fillRect(r.x, r.y, r.width, r.height); }
       else {
@@ -280,7 +289,7 @@ export class CanvasRenderer {
     ctx.fillStyle = GOAL_FILL; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
     // #30 세 번째 착지에 무너지는 발판: 일반 발판에 착지 횟수만큼 금(세로 줄)을 긋는다. 무너지면 그리지 않는다.
     for (const c of world.countingPlatforms) {
-      if (!c.solid) continue;
+      if (!c.solid || !inView(c.config.rect)) continue;
       const r = c.config.rect;
       ctx.fillStyle = '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
       ctx.fillStyle = '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
