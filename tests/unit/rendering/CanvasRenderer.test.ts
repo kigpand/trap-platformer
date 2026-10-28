@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -341,5 +341,18 @@ describe('CanvasRenderer timed solids', () => {
     world.lifeTime = 0.5;
     const fills = renderFills(world);
     expect(fills.some((f) => f.style === RHYTHM_GHOST || f.style === RHYTHM_WARNING_FILL)).toBe(false);
+  });
+});
+
+describe('CanvasRenderer arrow launcher', () => {
+  it('blinks a warning at the screen edge the arrow comes from, then draws the arrow', () => {
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], arrowTraps: [{ trigger: { x: 400, y: 300, width: 40, height: 200 }, arrows: [{ y: 484, delay: 0, fromX: 1300, toX: 200 }] }] }));
+    world.player.x = 410; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    const right = cameraX(world.player.x, VIEW_WIDTH, world.level.width) + VIEW_WIDTH;
+    expect(renderFills(world).some((f) => f.style === ARROW_WARNING_FILL && f.x === right - 12 && f.y === 481)).toBe(true);
+    for (let i = 0; i < 30; i++) world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    const x = world.arrowTraps[0].arrows[0].x;
+    expect(renderFills(world).some((f) => f.style === ARROW_FILL && f.x === x)).toBe(true);
   });
 });
