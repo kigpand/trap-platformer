@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, GOAL_FILL, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -250,5 +250,31 @@ describe('CanvasRenderer rolling boulder', () => {
     world.player.x = 600; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
     expect(renderFills(world).some((f) => f.style === BOULDER_FILL && f.x >= 380 && f.x < 440 && f.y >= 440 && f.y < 500)).toBe(true);
+  });
+});
+
+describe('CanvasRenderer decoy traps', () => {
+  const wall = { x: 600, y: 400, width: 40, height: 100 };
+  const level = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], fakeWalls: [wall], baitGems: [{ x: 300, y: 470 }] });
+  const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
+
+  it('draws the fake wall like a solid block until overlapped, then translucent', () => {
+    const world = new World(level);
+    const drawnAs = (style: string) => renderFills(world).some((f) => f.style === style && f.x === wall.x && f.y === wall.y && f.height === wall.height);
+    expect(drawnAs(FAKE_WALL_REVEALED)).toBe(false);
+    expect(renderFills(world).some((f) => f.x === wall.x && f.y === wall.y && f.width === wall.width && f.height === wall.height)).toBe(true);
+    world.player.x = 610; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, idle);
+    expect(drawnAs(FAKE_WALL_REVEALED)).toBe(true);
+  });
+
+  it('draws the gem until it is taken', () => {
+    const world = new World(level);
+    expect(renderFills(world).some((f) => f.style === GEM_SHINE)).toBe(true);
+    world.player.x = 300; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, idle);
+    const { fills, texts } = render(world);
+    expect(fills.some((f) => f.style === GEM_SHINE)).toBe(false);
+    expect(texts).toContain(TAUNTS.baitGemPickup);
   });
 });

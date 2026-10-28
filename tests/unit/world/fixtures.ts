@@ -6,7 +6,7 @@ export function testLevel(parts: Partial<Level>): Level {
   return {
     width: 2000, height: 620, spawn: { x: 65, y: 350 }, solids: [], goal: { x: 1990, y: 0, width: 10, height: 10 },
     hazards: [], fallingPlatforms: [], hiddenBlocks: [], enemies: [], ambushes: [], conditionalTraps: [], checkpoints: [],
-    vanishingGrounds: [], invisibleBlocks: [], fallingCeilings: [], dodgingPlatforms: [], popUpSpikes: [], fakeCheckpoints: [], goalHops: [], skyDrops: [], flingZones: [], reverseZones: [], springFloors: [], fakeGoals: [], signs: [], boulders: [],
+    vanishingGrounds: [], invisibleBlocks: [], fallingCeilings: [], dodgingPlatforms: [], popUpSpikes: [], fakeCheckpoints: [], goalHops: [], skyDrops: [], flingZones: [], reverseZones: [], springFloors: [], fakeGoals: [], signs: [], boulders: [], fakeWalls: [], baitGems: [],
     ...parts,
   };
 }

@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, Boulder, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, BaitGem, Boulder, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -19,6 +19,7 @@ const DODGE_DURATION = 0.2; // #8 발판이 미끄러지는 시간
 const GOAL_HOP_DURATION = 0.25; // #12 목표가 다음 위치로 이동하는 시간
 const SKY_DROP_WARNING = 0.4; // #13 경고 시작부터 떨어지기까지
 export const BOULDER_SIZE = 60; // #19 돌덩이 크기
+export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
@@ -147,6 +148,11 @@ export function boulderRect(b: BoulderState): Rect { return { x: b.x, y: b.confi
 function boulderArea(b: Boulder): Rect {
   return union(b.trigger, { x: b.startX, y: b.y, width: b.endX - b.startX, height: BOULDER_SIZE });
 }
+// #20 가짜 벽: 플레이어가 한 번 겹치면 그 목숨 동안 반투명하게 그린다(revealed). 솔리드가 아니다.
+export interface FakeWallState { readonly rect: Rect; revealed: boolean }
+// #21 미끼 보물: 처음 닿으면 사라진다(taken, 그 목숨 동안 유지).
+export interface BaitGemState { readonly config: BaitGem; taken: boolean }
+export function gemRect(g: BaitGem): Rect { return { x: g.x, y: g.y, width: GEM_SIZE, height: GEM_SIZE }; }
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -175,9 +181,9 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder';
-// 놀리는 문구의 종류: 사망 원인 + 죽지 않는 17번 스프링 바닥(튕겨 날아갈 때 같은 자리에 띄운다).
-export type TauntKind = DeathCauseKind | 'springFloor';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem';
+// 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
+export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
 export interface DeathCauseState { readonly rect: Rect; readonly kind: DeathCauseKind; remaining: number }
 
@@ -215,6 +221,8 @@ export class World {
   springFloors: SpringFloorState[];
   fakeGoals: FakeGoalState[];
   boulders: BoulderState[];
+  fakeWalls: FakeWallState[];
+  baitGems: BaitGemState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -257,6 +265,8 @@ export class World {
     this.springFloors = createSpringFloors(level);
     this.fakeGoals = createFakeGoals(level);
     this.boulders = createBoulders(level);
+    this.fakeWalls = level.fakeWalls.map((rect) => ({ rect, revealed: false }));
+    this.baitGems = level.baitGems.map((config) => ({ config, taken: false }));
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -307,6 +317,8 @@ export class World {
     this.springFloors = createSpringFloors(this.level);
     this.fakeGoals = createFakeGoals(this.level);
     this.boulders = createBoulders(this.level);
+    this.fakeWalls = this.level.fakeWalls.map((rect) => ({ rect, revealed: false }));
+    this.baitGems = this.level.baitGems.map((config) => ({ config, taken: false }));
     this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
@@ -405,6 +417,14 @@ export class World {
       else this.flight.launched = false;
     }
     this.updateReverse(input.horizontal);
+    // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
+    for (const w of this.fakeWalls) if (!w.revealed && overlaps(p, w.rect)) w.revealed = true;
+    for (const g of this.baitGems) {
+      if (g.taken || !overlaps(p, gemRect(g.config))) continue;
+      g.taken = true;
+      this.taunt = { kind: 'baitGemPickup', remaining: TAUNT_DURATION };
+      this.lastFallTrap = { cause: { rect: gemRect(g.config), kind: 'baitGem' }, at: this.clock };
+    }
 
     for (const e of this.enemies) updateEnemy(e, dt);
 
