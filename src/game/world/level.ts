@@ -89,7 +89,7 @@ export interface Level {
 }
 
 export const LEVEL_1: Level = {
-  width: 4000,
+  width: 12000,
   height: 620,
   spawn: { x: 65, y: 350 },
   // ground1a/ground1b: 숨겨진 블록(hiddenBlocks)이 메우는 틈(300-380)으로 나뉜 시작 구간.
@@ -99,11 +99,20 @@ export const LEVEL_1: Level = {
     { x: 380, y: 500, width: 140, height: 120 },
     { x: 620, y: 500, width: 570, height: 120 },
     { x: 1290, y: 500, width: 670, height: 120 },
-    // 함정 확장 구간(1960~): ground4는 떨어지는 천장·솟아오르는 가시, ground5는 도망가는 발판 너머 목표 구간.
+    // 함정 확장 구간(1960~): ground4는 떨어지는 천장·솟아오르는 가시, ground5는 도망가는 발판 너머 예전 목표 구간.
     { x: 2240, y: 500, width: 760, height: 120 },
-    { x: 3260, y: 500, width: 740, height: 120 },
+    { x: 3260, y: 500, width: 540, height: 120 },
+    // 약올리는 함정 구간(3800~, 맵 3배 확장): 예전 목표 자리(3940)는 가짜 클리어 깃발이 되고, 그 아래 3800-4100은
+    // 가짜 깃발의 바닥(fakeGoals.floor)이다. 그 뒤로 보석 구덩이 → 내려오는 천장 통로 → 얼음 → 박자 발판 → 그림자 → 스프링.
+    { x: 4100, y: 500, width: 700, height: 120 }, // 4800-4900 보석 구덩이
+    { x: 4900, y: 500, width: 700, height: 120 }, // 내려오는 천장 통로(5150-5450), 5600-5700 구덩이
+    { x: 5700, y: 500, width: 800, height: 120 }, // 끝 400px(6100-6500)가 얼음, 6500-6600 구덩이
+    { x: 6600, y: 500, width: 800, height: 120 }, // 7400-7800 박자 발판 구덩이
+    { x: 7800, y: 500, width: 500, height: 120 }, // 그림자 구간: 8300-8400·8700-8800 구덩이
+    { x: 8400, y: 500, width: 300, height: 120 },
+    { x: 8800, y: 500, width: 3200, height: 120 },
   ],
-  goal: { x: 3940, y: 440, width: 40, height: 60 },
+  goal: { x: 11900, y: 440, width: 40, height: 60 },
   // 가짜 안전지대: 실제 바닥(ground2) 위에 겹쳐진 위장 타일. 걸어서 그대로 도달 가능하며
   // 시각적으로는 일반 바닥과 동일하게 그려짐 (docs/traps-spec.md #4)
   hazards: [{ x: 1060, y: 495, width: 80, height: 25 }],
@@ -138,6 +147,11 @@ export const LEVEL_1: Level = {
     // 함정 확장 구간마다 둔 체크포인트: 사라지는 땅 앞, 도망가는 발판 앞.
     { zone: { x: 1800, y: 360, width: 40, height: 140 }, respawnX: 1800, respawnY: 350 },
     { zone: { x: 2760, y: 360, width: 40, height: 140 }, respawnX: 2760, respawnY: 350 },
+    // 약올리는 함정 구간: 가짜 클리어가 풀린 뒤(4060 너머), 구덩이 건너 얼음 앞, 박자 발판 앞(지켜볼 수 있는 평지), 그림자 끝 뒤.
+    { zone: { x: 4300, y: 360, width: 40, height: 140 }, respawnX: 4300, respawnY: 350 },
+    { zone: { x: 5800, y: 360, width: 40, height: 140 }, respawnX: 5800, respawnY: 350 },
+    { zone: { x: 6800, y: 360, width: 40, height: 140 }, respawnX: 6800, respawnY: 350 },
+    { zone: { x: 9700, y: 360, width: 40, height: 140 }, respawnX: 9700, respawnY: 350 },
   ],
   // 레벨 1은 새 함정을 하나씩 소개하는 쉬운 단계다(docs/game-design.md "레벨 진행" 난이도 곡선).
   // 사라지는 땅: ground3 끝(1960)에서 ground4(2240)까지 7칸. 멈추지 않고 달리면 지나간다.
@@ -154,21 +168,38 @@ export const LEVEL_1: Level = {
   skyDrops: [],
   flingZones: [],
   reverseZones: [],
-  springFloors: [],
-  fakeGoals: [],
-  signs: [],
+  // 뒷걸음 스프링 바닥: 목표(11900) 직전. 튕기면 약 430px 뒤 평지에 떨어진다(구덩이·함정 없음). 타일을 점프로 넘는다.
+  springFloors: [{ tile: { x: 11600, y: 500, width: 40, height: 20 }, vx: -480, vy: -600 }],
+  // 가짜 클리어: 예전 목표 자리. 바닥(3800-4100)이 깃발 좌우 80px보다 넓게 덮어, N을 누르면 어디서든 떨어진다.
+  fakeGoals: [{ flag: { x: 3940, y: 440, width: 40, height: 60 }, floor: [{ x: 3800, y: 500, width: 300, height: 120 }] }],
+  // 가짜 안내 표지판: 짝이 되는 함정 바로 앞. 조작 규칙에 대해서는 거짓말하지 않는다.
+  signs: [
+    { x: 3700, y: 500, text: '여기가 끝!' }, // 가짜 클리어
+    { x: 6000, y: 500, text: '멈추면 안전' }, // 얼음(멈추면 미끄러져 떨어진다)
+    { x: 11450, y: 500, text: '거의 다 왔어!' }, // 스프링
+  ],
   boulders: [],
-  fakeWalls: [],
-  baitGems: [],
+  // 가짜 벽: 내려오는 천장 통로 끝을 막은 것처럼 보이는 벽(높이 120 > 최대 점프). 멈칫하면 천장에 깔린다. 그대로 지나간다.
+  fakeWalls: [{ x: 5400, y: 380, width: 40, height: 120 }],
+  // 미끼 보물: 구덩이(4800-4900) 안, 바닥 높이 바로 아래. 먹으려면 구덩이로 떨어져야 한다. 보통 점프로 넘으면 한참 위를 지난다.
+  baitGems: [{ x: 4840, y: 485 }],
   landingSpikeZones: [],
-  shadows: [],
+  // 따라 하는 그림자: 박자 발판을 건넌 뒤 7900부터 9200까지. 그 사이에는 달리며 넘는 구덩이(100px)만 있다.
+  shadows: [{ trigger: { x: 7900, y: 300, width: 40, height: 200 }, endX: 9200 }],
   heavyZones: [],
-  iceFloors: [],
+  // 얼음 바닥: 구덩이(6500) 앞 400px. 끝 가까이에서 키를 떼면 약 73px 미끄러져 떨어진다. 달리던 그대로 뛰어 건넌다.
+  iceFloors: [{ x: 6100, y: 500, width: 400, height: 20 }],
   arrowTraps: [],
   mirrorEnemies: [],
   countingPlatforms: [],
-  descendingCeilings: [],
-  rhythmPlatforms: [],
+  // 내려오는 천장: 통로(5150-5450) 위 블록 아랫면 320 — 서 있는 머리(468)까지 148px, 60px/s로 약 2.47초.
+  // 트리거(5110)에서 통로를 빠져나가기까지 달려서 약 1.74초라 0.5초 넘게 여유가 있다(traps-spec #25).
+  descendingCeilings: [{ block: { x: 5150, y: 280, width: 300, height: 40 }, trigger: { x: 5110, y: 300, width: 40, height: 200 }, speed: 60, floorY: 500 }],
+  // 박자 발판: 2초 주기에 1.2초 나타난다. 두 번째는 0.5초 늦게 — 나타나 있는 시간이 0.7초 겹친다(traps-spec #27: 0.3초 이상).
+  rhythmPlatforms: [
+    { rect: { x: 7480, y: 500, width: 80, height: 20 }, period: 2, onDuration: 1.2, offset: 0 },
+    { rect: { x: 7640, y: 500, width: 80, height: 20 }, period: 2, onDuration: 1.2, offset: -0.5 },
+  ],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.

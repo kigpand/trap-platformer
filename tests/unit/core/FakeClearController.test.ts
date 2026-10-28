@@ -40,7 +40,7 @@ describe('GameController fake clear', () => {
     expect(last().newRecord).toBe(true); // 기록이 없으니 진짜였다면 NEW RECORD!
     expect(last().best).toEqual({ time: last().time, deaths: 0 });
     expect(play).toHaveBeenCalledWith('clear');
-    expect(localStorage.getItem('trap-runner:best')).toBeNull();
+    expect(localStorage.getItem('trap-runner:best:v2:1')).toBeNull();
     controller.dispose();
   });
 
@@ -57,7 +57,7 @@ describe('GameController fake clear', () => {
     expect(last().deaths).toBe(1);
     expect(last().deathKind).toBe('fakeClear');
     expect(last().level).toBe(1);
-    expect(localStorage.getItem('trap-runner:best')).toBeNull();
+    expect(localStorage.getItem('trap-runner:best:v2:1')).toBeNull();
     controller.dispose();
   });
 

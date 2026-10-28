@@ -244,11 +244,11 @@ test('the run timer counts while playing and stops while paused', async ({ page 
 
 test('shows the stored best record, and ignores a corrupted one', async ({ page }) => {
   const best = page.locator('.hud span', { hasText: 'BEST' });
-  await page.addInitScript(() => localStorage.setItem('trap-runner:best', JSON.stringify({ time: 12.3, deaths: 2 })));
+  await page.addInitScript(() => localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 12.3, deaths: 2 })));
   await page.goto('/');
   await expect(best).toHaveText('BEST 12.3s / 2 FALLS');
 
-  await page.addInitScript(() => localStorage.setItem('trap-runner:best', '{not json'));
+  await page.addInitScript(() => localStorage.setItem('trap-runner:best:v2:1', '{not json'));
   await page.reload();
   await expect(best).toHaveText('BEST —');
   await expect(page.getByRole('alert')).toHaveCount(0);

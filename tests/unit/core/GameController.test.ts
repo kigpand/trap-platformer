@@ -44,14 +44,23 @@ describe('GameController best record', () => {
     const last = snapshots[snapshots.length - 1];
     expect(last.best).toEqual({ time: 0, deaths: 0 });
     expect(last.newRecord).toBe(true);
-    expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 0, deaths: 0 });
+    expect(JSON.parse(localStorage.getItem('trap-runner:best:v2:1') ?? 'null')).toEqual({ time: 0, deaths: 0 });
     controller.restart();
     expect(snapshots[snapshots.length - 1].newRecord).toBe(false);
     controller.dispose();
   });
 
+  it('starts level 1 records afresh after the map expansion: the old key is no longer read', () => {
+    // 맵 3배 확장으로 레벨 1이 길어져 예전(4,000px) 기록은 깰 수 없다 — 새 키(trap-runner:best:v2:1)로 새로 시작한다.
+    localStorage.setItem('trap-runner:best', JSON.stringify({ time: 1, deaths: 0 }));
+    const { controller, snapshots, fire } = startWithManualFrames();
+    fire(0);
+    expect(snapshots[snapshots.length - 1].best).toBeNull();
+    controller.dispose();
+  });
+
   it('does not overwrite a better stored record', () => {
-    localStorage.setItem('trap-runner:best', JSON.stringify({ time: 0, deaths: 0 }));
+    localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 0, deaths: 0 }));
     vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['clear']);
     vi.spyOn(World.prototype, 'snapshot').mockReturnValue({
       x: 0, y: 0, grounded: true, deaths: 4, cleared: true, checkpoint: false, time: 30, runDeaths: 4, deathKind: null,
@@ -60,7 +69,7 @@ describe('GameController best record', () => {
     fire(0);
     fire(1000 / 60);
     expect(snapshots[snapshots.length - 1].newRecord).toBe(false);
-    expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 0, deaths: 0 });
+    expect(JSON.parse(localStorage.getItem('trap-runner:best:v2:1') ?? 'null')).toEqual({ time: 0, deaths: 0 });
     controller.dispose();
   });
 
@@ -84,12 +93,12 @@ describe('GameController best record', () => {
     drain.mockReturnValueOnce(['clear']);
     tabA.start(); fire(0); fire(1000 / 60);
     tabA.dispose();
-    expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 10, deaths: 0 });
+    expect(JSON.parse(localStorage.getItem('trap-runner:best:v2:1') ?? 'null')).toEqual({ time: 10, deaths: 0 });
 
     run = { time: 20, runDeaths: 3 };
     drain.mockReturnValueOnce(['clear']);
     tabB.start(); fire(2000); fire(2000 + 1000 / 60);
-    expect(JSON.parse(localStorage.getItem('trap-runner:best') ?? 'null')).toEqual({ time: 10, deaths: 0 });
+    expect(JSON.parse(localStorage.getItem('trap-runner:best:v2:1') ?? 'null')).toEqual({ time: 10, deaths: 0 });
     const last = snapshotsB[snapshotsB.length - 1];
     expect(last.newRecord).toBe(false);
     expect(last.best).toEqual({ time: 10, deaths: 0 }); // 다른 탭의 기록이 이 탭 HUD에도 반영된다
@@ -161,7 +170,7 @@ describe('GameController level progression', () => {
     const { controller, clearCurrentLevel, last } = setup();
     clearCurrentLevel();
     expect(last().cleared).toBe(true);
-    expect(localStorage.getItem('trap-runner:best')).not.toBeNull(); // 레벨 1은 기존 키
+    expect(localStorage.getItem('trap-runner:best:v2:1')).not.toBeNull(); // 레벨 1은 맵 확장 뒤의 새 키
     controller.nextLevel();
     expect(last().level).toBe(2);
     expect(last().cleared).toBe(false);
@@ -197,7 +206,7 @@ describe('GameController level progression', () => {
   });
 
   it('carries over the record saved before levels existed as the level 1 record', () => {
-    localStorage.setItem('trap-runner:best', JSON.stringify({ time: 12.3, deaths: 2 }));
+    localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 12.3, deaths: 2 }));
     const { controller, last } = setup();
     expect(last().bests[0]).toEqual({ time: 12.3, deaths: 2 });
     expect(last().best).toEqual({ time: 12.3, deaths: 2 });

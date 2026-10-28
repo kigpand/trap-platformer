@@ -1,4 +1,4 @@
-import type { World } from '../../../src/game/world/World';
+import type { InputState, World } from '../../../src/game/world/World';
 import { shouldJump } from './autopilot';
 
 // 트롤 함정은 "보이는 것을 피하는" 자동 플레이로 깰 수 없어, 레벨마다 해법을 실제 입력 명령으로 적는다
@@ -73,4 +73,15 @@ export function jumpSkyDropHeadOn(group: number, index: number): Step[] {
     { runUntil: (w) => { const e = w.skyDrops[group].enemies[index].enemy; return !!e && w.player.grounded && e.x - (w.player.x + w.player.width) <= 45; } },
     { jump: true },
   ];
+}
+
+// 해법을 실행하며 스텝마다 넣은 입력을 기록한다 — E2E가 브라우저에서 같은 입력을 같은 스텝 순서로 재생할 때 쓴다.
+export function recordInputs(world: World, steps: readonly Step[]): InputState[] {
+  const recorded: InputState[] = [];
+  const update = world.update.bind(world);
+  world.update = (dt, input) => { recorded.push({ ...input }); update(dt, input); };
+  const done = playSolution(world, steps);
+  world.update = update;
+  if (done !== steps.length) throw new Error(`solution stopped at step ${done}`);
+  return recorded;
 }
