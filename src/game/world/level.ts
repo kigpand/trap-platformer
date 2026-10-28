@@ -30,6 +30,8 @@ export interface Boulder { trigger: Rect; startX: number; endX: number; y: numbe
 export interface BaitGem { x: number; y: number }
 // 따라 하는 그림자(#22): trigger에 처음 들어오면 2초 늦게 플레이어의 위치를 그대로 따라오고, 그림자의 x가 endX를 넘으면 사라진다.
 export interface Shadow { trigger: Rect; endX: number }
+// 무거운 신발 구간(#24): zone 안에서 바닥에 선 채 뛰면 점프 초기 속도가 −jumpSpeed가 된다(기본 300).
+export interface HeavyZone { zone: Rect; jumpSpeed: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -64,6 +66,8 @@ export interface Level {
   baitGems: readonly BaitGem[]; // #21 미끼 보물
   landingSpikeZones: readonly Rect[]; // #23 착지 예측 가시(구역 안에서 뛰면 착지 지점에 가시)
   shadows: readonly Shadow[]; // #22 따라 하는 그림자
+  heavyZones: readonly HeavyZone[]; // #24 무거운 신발 구간
+  iceFloors: readonly Rect[]; // #28 얼음 바닥(바닥 윗면에 겹쳐 두는 판정·장식 영역, 스프링 타일과 같은 방식)
 }
 
 export const LEVEL_1: Level = {
@@ -140,6 +144,8 @@ export const LEVEL_1: Level = {
   baitGems: [],
   landingSpikeZones: [],
   shadows: [],
+  heavyZones: [],
+  iceFloors: [],
 };
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
@@ -218,6 +224,8 @@ export const LEVEL_2: Level = {
   baitGems: [],
   landingSpikeZones: [],
   shadows: [],
+  heavyZones: [],
+  iceFloors: [],
 };
 
 // 레벨 3(어려움): 새 함정 8종을 명세 기본 크기로, 쉴 틈 없이 이어 붙인다(docs/game-design.md "난이도 곡선").
@@ -285,6 +293,8 @@ export const LEVEL_3: Level = {
   baitGems: [],
   landingSpikeZones: [],
   shadows: [],
+  heavyZones: [],
+  iceFloors: [],
 };
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.

@@ -40,6 +40,9 @@ export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 �
 const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
 export const REVERSE_MARK = '⇄';
+export const HEAVY_MARK = '⤓'; // 무거운 신발 구역 안에 있는 동안 플레이어 위에 띄우는 표시(#24)
+export const ICE_FILL = '#bae6fd'; // #28 얼음 바닥
+const ICE_SHINE = '#f0f9ff';
 export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 깃발도 같은 색·모양이다
 export const FAKE_WALL_REVEALED = 'rgba(138,109,75,0.35)'; // #20 한 번 겹친 가짜 벽(반투명)
 export const GEM_FILL = '#22d3ee'; // #21 미끼 보물
@@ -179,6 +182,14 @@ export class CanvasRenderer {
         const t = sp.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(t.x, t.y, t.width, t.height);
       }
     }
+    // #28 얼음 바닥: 바닥 윗면을 얼음색으로 덮고 반짝이 줄을 긋는다(보이는 함정).
+    for (const t of level.iceFloors) {
+      ctx.fillStyle = ICE_FILL; ctx.fillRect(t.x, t.y, t.width, Math.min(10, t.height));
+      ctx.fillStyle = ICE_SHINE;
+      for (let x = t.x + 6; x + 10 <= t.x + t.width; x += 24) ctx.fillRect(x, t.y + 2, 10, 2);
+    }
+    // #24 무거운 신발 구역은 보이지 않는다(디버그에서만).
+    if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; for (const h of level.heavyZones) ctx.strokeRect(h.zone.x, h.zone.y, h.zone.width, h.zone.height); }
     // #17 스프링 바닥: 튕기기 전에는 아래 바닥과 똑같아 따로 그리지 않고, 튕긴 뒤에는 그 목숨 동안 눌린 스프링으로 그린다.
     for (const sf of world.springFloors) {
       const t = sf.config.tile;
@@ -314,9 +325,11 @@ export class CanvasRenderer {
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
-    if (world.reverse) {
+    // 플레이어를 바꾸는 구역 표시: 좌우 반전(#16) "⇄", 무거운 신발(#24) "⤓". 명세상 두 구역은 겹치지 않지만 겹쳐도 함께 보인다.
+    const marks = [world.reverse ? REVERSE_MARK : '', world.heavyShoes ? HEAVY_MARK : ''].filter(Boolean).join(' ');
+    if (marks) {
       ctx.fillStyle = TAUNT_COLOR; ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText(REVERSE_MARK, p.x + p.width / 2, p.y - 8);
+      ctx.fillText(marks, p.x + p.width / 2, p.y - 8);
       ctx.textAlign = 'left';
     }
     ctx.restore();
