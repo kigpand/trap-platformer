@@ -2,7 +2,7 @@ import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, BaitGem, Boulder, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, BaitGem, Boulder, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -22,6 +22,7 @@ export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
 const LANDING_SPIKE_HEIGHT = 16;
+const RHYTHM_WARNING = 0.3; // #27 사라지기 전 깜박이는 시간
 const ICE_ACCEL = 300; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에서 멈추기까지 0.7초·약 73px
 export const SHADOW_DELAY_STEPS = 120; // #22 그림자가 따라오기까지(2초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
@@ -173,6 +174,18 @@ function createShadows(level: Level): ShadowState[] {
   return level.shadows.map((config) => ({ config, phase: 'idle', steps: 0, origin: null, body: null, trail: [] }));
 }
 export function shadowRect(pos: { x: number; y: number }): Rect { return { x: pos.x, y: pos.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }; }
+// #25 내려오는 천장: idle → descending(트리거 뒤 일정 속도) → stopped(아랫면이 floorY). 언제나 현재 위치의 솔리드다.
+export interface DescendingCeilingState { readonly config: DescendingCeiling; phase: 'idle' | 'descending' | 'stopped'; y: number }
+function createDescendingCeilings(level: Level): DescendingCeilingState[] {
+  return level.descendingCeilings.map((config) => ({ config, phase: 'idle', y: config.block.y }));
+}
+export function descendingRect(c: DescendingCeilingState): Rect { return { ...c.config.block, y: c.y }; }
+// #27 박자 발판의 t초 상태: 나타나 있는지와, 사라지기 0.3초 전 깜박임 구간인지. World와 렌더러가 같은 계산을 쓴다.
+export function rhythmPhase(r: RhythmPlatform, t: number): { solid: boolean; warning: boolean } {
+  const phase = (((t + r.offset) % r.period) + r.period) % r.period;
+  const solid = phase < r.onDuration - 1e-6; // 1/60 누적 오차로 경계 스텝이 흔들리지 않게
+  return { solid, warning: solid && phase >= r.onDuration - RHYTHM_WARNING - 1e-6 };
+}
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -201,7 +214,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -264,6 +277,7 @@ export class World {
   baitGems: BaitGemState[];
   landingSpikes: LandingSpikeState[];
   shadows: ShadowState[];
+  descendingCeilings: DescendingCeilingState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -271,6 +285,8 @@ export class World {
   reverse: ReverseState | null = null;
   // #24 이동을 마친 위치가 무거운 신발 구역 안이면 true — 렌더러가 "⤓" 표시를 띄운다.
   heavyShoes = false;
+  // #27 이번 목숨이 시작된 뒤 흐른 시뮬레이션 시간 — 박자 발판의 박자는 목숨마다 처음부터 시작한다.
+  lifeTime = 0;
   // #16 방금 풀린 구역과 풀릴 때 누르던 좌우 입력(반전 전 원래 값). 그 키를 떼거나 바꾸기 전에는 같은 구역이 다시 걸리지 않는다 —
   // 풀린 스텝에 플레이어는 경계 바로 밖에 있어, 누르던 키로 다시 겹치자마자 반대쪽 진입으로 걸려 떨렸다(Codex 리뷰).
   private reverseRearm: { readonly zone: Rect; readonly horizontal: -1 | 0 | 1 } | null = null;
@@ -312,6 +328,7 @@ export class World {
     this.baitGems = level.baitGems.map((config) => ({ config, taken: false }));
     this.landingSpikes = level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
     this.shadows = createShadows(level);
+    this.descendingCeilings = createDescendingCeilings(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -324,6 +341,8 @@ export class World {
     for (const c of this.fallingCeilings) if (c !== exclude && (c.phase === 'idle' || c.phase === 'armed' || c.phase === 'landed')) rects.push(ceilingRect(c));
     for (const d of this.dodgingPlatforms) rects.push(dodgingRect(d));
     for (const fg of this.fakeGoals) if (!fg.collapsed) rects.push(...fg.config.floor);
+    for (const c of this.descendingCeilings) rects.push(descendingRect(c));
+    for (const r of this.level.rhythmPlatforms) if (rhythmPhase(r, this.lifeTime).solid) rects.push(r.rect);
     return rects;
   }
   drainEvents(): WorldEvent[] {
@@ -366,6 +385,8 @@ export class World {
     this.baitGems = this.level.baitGems.map((config) => ({ config, taken: false }));
     this.landingSpikes = this.level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
     this.shadows = createShadows(this.level);
+    this.descendingCeilings = createDescendingCeilings(this.level);
+    this.lifeTime = 0;
     this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
@@ -376,6 +397,15 @@ export class World {
     if (input.restartPressed) { this.reset(); return; }
     if (!this.runComplete) this.runTime += dt;
     this.clock += dt;
+    // #27 박자 발판: 시간을 먼저 흘려 이번 스텝의 켜짐·꺼짐을 정하고, 아래 지지 재확인이 꺼진 발판을 바로 반영한다.
+    // 꺼지는 순간 그 위에 서 있었을 때만 3초 낙사 원인으로 기록한다 — 박자 발판은 화면 밖에서도 계속 꺼지므로,
+    // 꺼질 때마다 기록하면 상관없는 낙사까지 먼 발판 탓이 된다.
+    for (const r of this.level.rhythmPlatforms) {
+      if (rhythmPhase(r, this.lifeTime).solid && !rhythmPhase(r, this.lifeTime + dt).solid && isStandingOn(this.player, r.rect)) {
+        this.lastFallTrap = { cause: { rect: r.rect, kind: 'rhythmPlatform' }, at: this.clock };
+      }
+    }
+    this.lifeTime += dt;
     if (this.taunt) {
       this.taunt.remaining -= dt;
       if (this.taunt.remaining <= 1e-6) this.taunt = null;
@@ -585,6 +615,20 @@ export class World {
       if (b.x + BOULDER_SIZE >= b.config.endX - 1e-6) b.phase = 'gone';
     }
 
+    // #25 내려오는 천장: 트리거 스텝부터 일정 속도로 내려와, 플레이어와 겹치면 깔린다(9번처럼 이동 뒤 확인).
+    let squashedBy: DescendingCeilingState | null = null;
+    for (const c of this.descendingCeilings) {
+      if (c.phase === 'idle') {
+        if (!overlaps(p, c.config.trigger)) continue;
+        c.phase = 'descending';
+      }
+      if (c.phase !== 'descending') continue;
+      const stopY = c.config.floorY - c.config.block.height;
+      c.y = Math.min(stopY, c.y + c.config.speed * dt);
+      if (c.y >= stopY - 1e-6) { c.y = stopY; c.phase = 'stopped'; }
+      if (overlaps(p, descendingRect(c))) squashedBy = c;
+    }
+
     // #9 떨어지는 천장: 떨어지는 중 플레이어와 겹치면 깔림(착지 판정보다 먼저 확인해 서 있는 플레이어 위로 떨어져도 깔린다).
     let crushedBy: FallingCeilingState | null = null;
     for (const c of this.fallingCeilings) {
@@ -627,6 +671,7 @@ export class World {
     }
 
     if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
+    if (squashedBy) { this.reset(true, { rect: union(squashedBy.config.block, squashedBy.config.trigger), kind: 'descendingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) { this.reset(true, { rect: hazard, kind: 'hazard' }); return; }
     const shadow = this.shadows.find((sh) => sh.body && overlaps(p, shadowRect(sh.body)));

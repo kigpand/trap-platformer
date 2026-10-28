@@ -23,6 +23,8 @@ export const TAUNTS: Readonly<Record<TauntKind, string>> = {
   shadow: '너의 적은 너야',
   heavyShoes: '오늘따라 몸이 무겁네',
   ice: '브레이크 고장',
+  descendingCeiling: '납작해졌네',
+  rhythmPlatform: '박자 놓쳤어~',
   baitGemPickup: '그거 장식인데?',
   flingJump: '점프 금지 구역이었어',
   reverseZone: '왼쪽이 오른쪽이야',

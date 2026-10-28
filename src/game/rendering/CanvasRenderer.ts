@@ -4,7 +4,7 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { boulderRect, ceilingRect, gemRect, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { TAUNTS } from './taunts';
 
@@ -41,6 +41,8 @@ const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
 export const REVERSE_MARK = '⇄';
 export const HEAVY_MARK = '⤓'; // 무거운 신발 구역 안에 있는 동안 플레이어 위에 띄우는 표시(#24)
+export const RHYTHM_GHOST = 'rgba(153,197,119,0.18)'; // #27 사라진 박자 발판(다시 나타날 자리)
+export const RHYTHM_WARNING_FILL = '#d9f99d'; // #27 사라지기 0.3초 전 깜박임
 export const ICE_FILL = '#bae6fd'; // #28 얼음 바닥
 const ICE_SHINE = '#f0f9ff';
 export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 깃발도 같은 색·모양이다
@@ -181,6 +183,22 @@ export class CanvasRenderer {
         ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height);
         const t = sp.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(t.x, t.y, t.width, t.height);
       }
+    }
+    // #25 내려오는 천장: 현재 위치에 평범한 블록으로 그린다(트리거는 디버그에서만).
+    for (const c of world.descendingCeilings) {
+      const r = descendingRect(c);
+      ctx.fillStyle = BLOCK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
+      ctx.fillStyle = BLOCK_TOP; ctx.fillRect(r.x, r.y + r.height - 4, r.width, 4); // 아랫면 테두리(내려오는 쪽)
+      if (this.debug) { const t = c.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #27 박자 발판: 나타나 있으면 일반 발판, 사라지기 0.3초 전에는 0.1초마다 깜박이고, 사라진 동안은 흐린 자리만 보인다.
+    for (const rp of level.rhythmPlatforms) {
+      const r = rp.rect;
+      const { solid, warning } = rhythmPhase(rp, world.lifeTime);
+      if (!solid) { ctx.fillStyle = RHYTHM_GHOST; ctx.fillRect(r.x, r.y, r.width, r.height); continue; }
+      const flash = warning && Math.floor(world.lifeTime * 10) % 2 === 0;
+      ctx.fillStyle = flash ? RHYTHM_WARNING_FILL : '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
+      ctx.fillStyle = flash ? RHYTHM_WARNING_FILL : '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
     }
     // #28 얼음 바닥: 바닥 윗면을 얼음색으로 덮고 반짝이 줄을 긋는다(보이는 함정).
     for (const t of level.iceFloors) {
