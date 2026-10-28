@@ -4,7 +4,7 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { boulderRect, ceilingRect, gemRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { boulderRect, ceilingRect, gemRect, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { TAUNTS } from './taunts';
 
@@ -44,6 +44,8 @@ export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 �
 export const FAKE_WALL_REVEALED = 'rgba(138,109,75,0.35)'; // #20 한 번 겹친 가짜 벽(반투명)
 export const GEM_FILL = '#22d3ee'; // #21 미끼 보물
 export const GEM_SHINE = '#ecfeff';
+export const SHADOW_FILL = 'rgba(91,33,182,0.7)'; // #22 따라오는(충돌하는) 그림자
+export const SHADOW_OUTLINE_RGB = '167,139,250'; // #22 충돌 없는 흐린 윤곽(점점 진해짐)
 export const BOULDER_FILL = '#78716c'; // #19 따라오는 돌덩이
 const BOULDER_SHADE = '#57534e';
 const SIGN_WIDTH = 150; // #18 표지판 판자(12자 문구가 들어가는 너비)
@@ -296,6 +298,18 @@ export class CanvasRenderer {
         ctx.fillRect(r.x + 10 + k * 10, r.y + 14, 6, r.height - 28);
       }
       if (this.debug) { const t = b.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #22 따라 하는 그림자: 120번째 스텝 전에는 트리거한 자리에 충돌 없는 윤곽이 점점 진해지고, 그 뒤에는 반투명한 그림자.
+    for (const sh of world.shadows) {
+      if (sh.body) {
+        const r = shadowRect(sh.body);
+        ctx.fillStyle = SHADOW_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
+      } else if (sh.phase === 'active' && sh.origin) {
+        const r = shadowRect(sh.origin);
+        ctx.fillStyle = `rgba(${SHADOW_OUTLINE_RGB},${(0.5 * Math.min(1, sh.steps / SHADOW_DELAY_STEPS)).toFixed(3)})`;
+        ctx.fillRect(r.x, r.y, r.width, r.height);
+      }
+      if (this.debug) { const t = sh.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);

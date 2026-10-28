@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -287,5 +287,23 @@ describe('CanvasRenderer landing spikes', () => {
     world.update(1 / 60, { horizontal: 1, jumpPressed: true, restartPressed: false });
     const spikes = world.landingSpikes[0].spikes!;
     expect(renderFills(world).some((f) => f.style === SPIKE_FILL && f.x === spikes.x && f.width === spikes.width)).toBe(true);
+  });
+});
+
+describe('CanvasRenderer mimic shadow', () => {
+  it('draws a fading-in outline before step 120 and the shadow after', () => {
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], shadows: [{ trigger: { x: 400, y: 300, width: 40, height: 200 }, endX: 1500 }] }));
+    world.player.x = 380; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    const outline = () => renderFills(world).find((f) => f.style.startsWith(`rgba(${SHADOW_OUTLINE_RGB},`));
+    expect(outline()).toBeUndefined();
+    for (let i = 0; i < 30; i++) world.update(1 / 60, { horizontal: 1, jumpPressed: false, restartPressed: false });
+    const early = outline();
+    expect(early).toBeDefined();
+    for (let i = 0; i < 60; i++) world.update(1 / 60, { horizontal: 1, jumpPressed: false, restartPressed: false });
+    expect(Number(outline()?.style.split(',')[3].replace(')', ''))).toBeGreaterThan(Number(early?.style.split(',')[3].replace(')', ''))); // 진해진다
+    expect(renderFills(world).some((f) => f.style === SHADOW_FILL)).toBe(false);
+    for (let i = 0; i < 40; i++) world.update(1 / 60, { horizontal: 1, jumpPressed: false, restartPressed: false });
+    expect(renderFills(world).some((f) => f.style === SHADOW_FILL)).toBe(true);
+    expect(outline()).toBeUndefined();
   });
 });

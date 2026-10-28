@@ -1,8 +1,8 @@
 import { overlaps, type Rect } from '../physics/AABB';
-import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, SPEED, type Player } from '../entities/Player';
+import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, SPEED, type Player } from '../entities/Player';
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, BaitGem, Boulder, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, BaitGem, Boulder, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
@@ -22,6 +22,7 @@ export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
 const LANDING_SPIKE_HEIGHT = 16;
+export const SHADOW_DELAY_STEPS = 120; // #22 그림자가 따라오기까지(2초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
 
@@ -160,6 +161,17 @@ export function gemRect(g: BaitGem): Rect { return { x: g.x, y: g.y, width: GEM_
 // armed는 플레이어가 가시와 처음으로 겹치지 않게 된 뒤 true — 제자리 점프는 솟는 순간 플레이어가 가시 위에 있어,
 // 바로 위험하게 하면 공중에서 비킬 틈도 없이 발동 스텝에 죽는다.
 export interface LandingSpikeState { readonly zone: Rect; fired: boolean; spikes: Rect | null; armed: boolean }
+// #22 따라 하는 그림자: idle → active(트리거한 스텝부터 위치 기록) → gone(끝 x를 넘음). steps는 트리거 뒤 기록한 스텝 수,
+// origin은 트리거한 순간의 위치(0~119번째 스텝에 충돌 없는 흐린 윤곽을 그릴 자리), body는 120번째 스텝부터 충돌하는
+// 그림자의 위치(120스텝 전 기록). trail은 아직 재생하지 않은 기록만 담아 최대 120개를 넘지 않는다.
+export interface ShadowState {
+  readonly config: Shadow; phase: 'idle' | 'active' | 'gone'; steps: number;
+  origin: { x: number; y: number } | null; body: { x: number; y: number } | null; readonly trail: { x: number; y: number }[];
+}
+function createShadows(level: Level): ShadowState[] {
+  return level.shadows.map((config) => ({ config, phase: 'idle', steps: 0, origin: null, body: null, trail: [] }));
+}
+export function shadowRect(pos: { x: number; y: number }): Rect { return { x: pos.x, y: pos.y, width: PLAYER_WIDTH, height: PLAYER_HEIGHT }; }
 // #14 가짜 클리어: 바닥이 꺼졌는지(그 목숨 동안 유지).
 export interface FakeGoalState { readonly config: FakeGoal; collapsed: boolean }
 function createFakeGoals(level: Level): FakeGoalState[] {
@@ -188,7 +200,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -250,6 +262,7 @@ export class World {
   fakeWalls: FakeWallState[];
   baitGems: BaitGemState[];
   landingSpikes: LandingSpikeState[];
+  shadows: ShadowState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -295,6 +308,7 @@ export class World {
     this.fakeWalls = level.fakeWalls.map((rect) => ({ rect, revealed: false }));
     this.baitGems = level.baitGems.map((config) => ({ config, taken: false }));
     this.landingSpikes = level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
+    this.shadows = createShadows(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -348,6 +362,7 @@ export class World {
     this.fakeWalls = this.level.fakeWalls.map((rect) => ({ rect, revealed: false }));
     this.baitGems = this.level.baitGems.map((config) => ({ config, taken: false }));
     this.landingSpikes = this.level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
+    this.shadows = createShadows(this.level);
     this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
@@ -454,6 +469,19 @@ export class World {
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
     for (const w of this.fakeWalls) if (!w.revealed && overlaps(p, w.rect)) w.revealed = true;
     for (const ls of this.landingSpikes) if (ls.spikes && !ls.armed && !overlaps(p, ls.spikes)) ls.armed = true;
+    // #22 따라 하는 그림자: 트리거한 스텝(0번째)부터 이동을 마친 위치를 기록하고, 120번째 스텝부터 120스텝 전 기록을 재생한다.
+    for (const sh of this.shadows) {
+      if (sh.phase === 'idle') {
+        if (!overlaps(p, sh.config.trigger)) continue;
+        sh.phase = 'active';
+        sh.origin = { x: p.x, y: p.y };
+      }
+      if (sh.phase !== 'active') continue;
+      sh.trail.push({ x: p.x, y: p.y });
+      sh.steps++;
+      if (sh.trail.length > SHADOW_DELAY_STEPS) sh.body = sh.trail.shift() ?? null;
+      if (sh.body && sh.body.x > sh.config.endX) { sh.phase = 'gone'; sh.body = null; sh.trail.length = 0; }
+    }
     for (const g of this.baitGems) {
       if (g.taken || !overlaps(p, gemRect(g.config))) continue;
       g.taken = true;
@@ -584,6 +612,8 @@ export class World {
     if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
     if (hazard) { this.reset(true, { rect: hazard, kind: 'hazard' }); return; }
+    const shadow = this.shadows.find((sh) => sh.body && overlaps(p, shadowRect(sh.body)));
+    if (shadow) { this.reset(true, { rect: shadow.config.trigger, kind: 'shadow' }); return; }
     const landing = this.landingSpikes.find((s) => s.armed && s.spikes && overlaps(p, s.spikes));
     if (landing?.spikes) { this.reset(true, { rect: union(landing.spikes, landing.zone), kind: 'landingSpikes' }); return; }
     const spike = this.popUpSpikes.find((sp) => sp.raised && overlaps(p, sp.config.spikes));
