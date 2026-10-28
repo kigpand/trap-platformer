@@ -16,8 +16,10 @@ export interface HudSnapshot extends GameSnapshot {
 const MUTED_STORAGE_KEY = 'trap-runner:muted';
 const VOLUME_STORAGE_KEY = 'trap-runner:volume';
 const DEFAULT_VOLUME = 0.8;
-// 레벨 1은 레벨 진행 도입 전부터 쓰던 키를 그대로 써서 기존 기록을 이어받는다. 레벨 2부터는 번호를 붙인다.
-const bestStorageKey = (levelIndex: number): string => (levelIndex === 0 ? 'trap-runner:best' : `trap-runner:best:${levelIndex + 1}`);
+// 레벨별 최고 기록 저장 키. 맵 3배 확장으로 길어진 레벨은 예전(짧은 맵) 기록을 깰 수 없으므로 새 키로 새로 시작한다 —
+// 확장한 레벨만 키를 바꾼다(docs/roadmap.md 약올리는 함정 5번). 예전 키(레벨 1 'trap-runner:best')는 더 읽지 않는다.
+const BEST_STORAGE_KEYS = ['trap-runner:best:v2:1', 'trap-runner:best:2', 'trap-runner:best:3'];
+const bestStorageKey = (levelIndex: number): string => BEST_STORAGE_KEYS[levelIndex] ?? `trap-runner:best:${levelIndex + 1}`;
 // 음소거 설정은 새로고침 후에도 유지한다. 시크릿 모드·저장소 차단 등으로 localStorage
 // 접근이 예외를 던질 수 있으므로, 실패하면 기본값(소리 켬)으로 동작하고 저장은 건너뛴다.
 function loadMuted(): boolean {
