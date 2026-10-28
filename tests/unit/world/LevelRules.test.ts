@@ -34,4 +34,11 @@ describe('level placement rules (every level)', () => {
       }
     }
   });
+
+  it('makes every fake wall taller than the highest jump', () => {
+    // docs/traps-spec.md #20 배치 제약: 최대 점프 높이(81.375px, docs/physics-spec.md)보다 높아 넘을 수 없어 보여야 한다.
+    for (const [i, level] of LEVELS.entries()) {
+      for (const w of level.fakeWalls) expect(w.height, `level ${i + 1} fake wall at ${w.x}`).toBeGreaterThan(81.375);
+    }
+  });
 });

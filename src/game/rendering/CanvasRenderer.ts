@@ -4,7 +4,7 @@ import { cameraX, VIEW_WIDTH } from '../world/viewport';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { boulderRect, ceilingRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { boulderRect, ceilingRect, gemRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { TAUNTS } from './taunts';
 
@@ -41,6 +41,9 @@ const CHECKPOINT_IDLE = '#64748b';
 export const SPRING_FILL = '#94a3b8'; // 한 번 튕긴 뒤의 눌린 스프링(#17)
 export const REVERSE_MARK = '⇄';
 export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 깃발도 같은 색·모양이다
+export const FAKE_WALL_REVEALED = 'rgba(138,109,75,0.35)'; // #20 한 번 겹친 가짜 벽(반투명)
+export const GEM_FILL = '#22d3ee'; // #21 미끼 보물
+export const GEM_SHINE = '#ecfeff';
 export const BOULDER_FILL = '#78716c'; // #19 따라오는 돌덩이
 const BOULDER_SHADE = '#57534e';
 const SIGN_WIDTH = 150; // #18 표지판 판자(12자 문구가 들어가는 너비)
@@ -190,6 +193,27 @@ export class CanvasRenderer {
       ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2;
       for (const f of level.flingZones) ctx.strokeRect(f.zone.x, f.zone.y, f.zone.width, f.zone.height);
       for (const z of level.reverseZones) ctx.strokeRect(z.x, z.y, z.width, z.height);
+    }
+    // #20 가짜 벽: 공중 블록과 똑같이 그리다가, 한 번 겹치면 그 목숨 동안 반투명하게.
+    for (const w of world.fakeWalls) {
+      const r = w.rect;
+      if (w.revealed) { ctx.fillStyle = FAKE_WALL_REVEALED; ctx.fillRect(r.x, r.y, r.width, r.height); }
+      else {
+        ctx.fillStyle = BLOCK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
+        ctx.fillStyle = BLOCK_TOP; ctx.fillRect(r.x, r.y, r.width, Math.min(4, r.height));
+      }
+      if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height); }
+    }
+    // #21 미끼 보물: 마름모 보석에 반짝임. 먹으면 그리지 않는다.
+    for (const g of world.baitGems) {
+      if (g.taken) continue;
+      const r = gemRect(g.config);
+      ctx.fillStyle = GEM_FILL;
+      ctx.beginPath();
+      ctx.moveTo(r.x + r.width / 2, r.y); ctx.lineTo(r.x + r.width, r.y + r.height / 2);
+      ctx.lineTo(r.x + r.width / 2, r.y + r.height); ctx.lineTo(r.x, r.y + r.height / 2);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = GEM_SHINE; ctx.fillRect(r.x + r.width / 2 - 2, r.y + 5, 4, 4);
     }
     // #14 가짜 클리어: 바닥은 일반 바닥처럼(꺼지면 그리지 않음), 깃발은 진짜 목표와 똑같이 그린다.
     for (const fg of world.fakeGoals) {
