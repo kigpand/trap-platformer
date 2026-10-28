@@ -17,6 +17,7 @@ export const TAUNTS: Readonly<Record<TauntKind, string>> = {
   fleeingGoal: '목표가 도망갔어 ㅋ',
   skyDrop: '오늘 날씨: 적',
   fakeClear: '벌써 끝난 줄 알았지?',
+  boulder: '뒤도 좀 봐',
   flingJump: '점프 금지 구역이었어',
   reverseZone: '왼쪽이 오른쪽이야',
   springFloor: '다시 처음부터~',

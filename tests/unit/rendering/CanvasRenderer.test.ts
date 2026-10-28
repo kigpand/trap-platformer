@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { CanvasRenderer, DEATH_CAUSE_OVERLAY, GOAL_FILL, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, GOAL_FILL, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -239,5 +239,16 @@ describe('CanvasRenderer fake clear and fake signs', () => {
 
   it('draws each sign with its text', () => {
     expect(render(new World(level)).texts).toContain('여기서 점프!');
+  });
+});
+
+describe('CanvasRenderer rolling boulder', () => {
+  it('draws the boulder only while it rolls', () => {
+    const trigger = { x: 600, y: 300, width: 40, height: 200 };
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], boulders: [{ trigger, startX: 380, endX: 1900, y: 440 }] }));
+    expect(renderFills(world).some((f) => f.style === BOULDER_FILL)).toBe(false);
+    world.player.x = 600; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    expect(renderFills(world).some((f) => f.style === BOULDER_FILL && f.x >= 380 && f.x < 440 && f.y >= 440 && f.y < 500)).toBe(true);
   });
 });

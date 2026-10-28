@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../../../src/game/world/level';
+import { BOULDER_SIZE } from '../../../src/game/world/World';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 
 // 모든 레벨 데이터에 대한 배치 규칙(docs/physics-spec.md "레벨 배치 제약").
@@ -22,6 +23,15 @@ describe('level placement rules (every level)', () => {
     // docs/traps-spec.md #18 배치 제약: 문구는 12자 이하(판자 너비에 맞춤).
     for (const [i, level] of LEVELS.entries()) {
       for (const sign of level.signs) expect([...sign.text].length, `level ${i + 1} sign "${sign.text}"`).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it('spawns every rolling boulder at least 160px behind its trigger', () => {
+    // docs/traps-spec.md #19 배치 제약: 시작 x + 60 ≤ 트리거 x − 160 — 트리거 근처에서 생기면 피할 수 없이 깔린다.
+    for (const [i, level] of LEVELS.entries()) {
+      for (const b of level.boulders) {
+        expect(b.startX + BOULDER_SIZE, `level ${i + 1} boulder triggered at ${b.trigger.x}`).toBeLessThanOrEqual(b.trigger.x - 160);
+      }
     }
   });
 });
