@@ -433,11 +433,12 @@ export const LEVEL_3: Level = {
   countingPlatforms: [{ rect: { x: 11660, y: 500, width: 390, height: 20 }, landings: 3 }],
   // 내려오는 천장: 레벨 1보다 빠른 70px/s. 아랫면 320 → 머리(468)까지 148px, 약 2.1초. 통로를 달려 빠져나가기까지 약 1.7초.
   descendingCeilings: [{ block: { x: 14100, y: 280, width: 300, height: 40 }, trigger: { x: 14060, y: 300, width: 40, height: 200 }, speed: 70, floorY: 500 }],
-  // 박자 발판 세 개: 1.8초 주기에 1.0초, 차례로 0.6초씩 늦게(이웃과 0.4초 겹침). 첫 발판이 막 나타날 때 연달아 뛰어야 한다.
+  // 박자 발판 세 개: 1.8초 주기에 1.4초, 차례로 0.6초씩 늦게(이웃과 0.8초 겹침). 첫 발판이 나타날 무렵 연달아 뛰어야 한다.
+  // 처음엔 1.0초였는데 착지 뒤 다시 뛸 여유가 0~1프레임뿐이라(시뮬레이션 실측) 사람 손으로는 사실상 불가능해, 착지마다 0~9프레임 여유가 생기는 1.4초로 늘렸다.
   rhythmPlatforms: [
-    { rect: { x: 13470, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.0, offset: 0 },
-    { rect: { x: 13620, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.0, offset: -0.6 },
-    { rect: { x: 13770, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.0, offset: -1.2 },
+    { rect: { x: 13470, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: 0 },
+    { rect: { x: 13620, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -0.6 },
+    { rect: { x: 13770, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -1.2 },
   ],
 };
 
