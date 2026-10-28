@@ -22,6 +22,7 @@ export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
 const LANDING_SPIKE_HEIGHT = 16;
+const ICE_ACCEL = 300; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에서 멈추기까지 0.7초·약 73px
 export const SHADOW_DELAY_STEPS = 120; // #22 그림자가 따라오기까지(2초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
@@ -200,7 +201,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
@@ -268,6 +269,8 @@ export class World {
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
   flight: ForcedFlightState | null = null;
   reverse: ReverseState | null = null;
+  // #24 이동을 마친 위치가 무거운 신발 구역 안이면 true — 렌더러가 "⤓" 표시를 띄운다.
+  heavyShoes = false;
   // #16 방금 풀린 구역과 풀릴 때 누르던 좌우 입력(반전 전 원래 값). 그 키를 떼거나 바꾸기 전에는 같은 구역이 다시 걸리지 않는다 —
   // 풀린 스텝에 플레이어는 경계 바로 밖에 있어, 누르던 키로 다시 겹치자마자 반대쪽 진입으로 걸려 떨렸다(Codex 리뷰).
   private reverseRearm: { readonly zone: Rect; readonly horizontal: -1 | 0 | 1 } | null = null;
@@ -367,6 +370,7 @@ export class World {
     this.flight = null;
     this.reverse = null;
     this.reverseRearm = null;
+    this.heavyShoes = false;
   }
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
@@ -419,19 +423,31 @@ export class World {
     }
     // #16 좌우 반전은 공중에서도 걸려 있다. 강제 비행 중에는 어차피 좌우 입력을 쓰지 않는다.
     const horizontal = this.reverse ? -input.horizontal as -1 | 0 | 1 : input.horizontal;
+    // #28 얼음 바닥: 얼음 위에 서 있고 이번 스텝에 뛰지 않으면 수평 속도가 목표 속도로 300px/s²씩만 바뀐다.
+    // 뛰는 스텝과 공중·일반 바닥에서는 평소처럼 즉시 바뀐다(docs/physics-spec.md의 함정 예외).
+    const jumping = input.jumpPressed && p.grounded;
+    const ice = !this.flight && !jumping && p.grounded ? this.level.iceFloors.find((t) => isStandingOn(p, t)) : undefined;
     if (this.flight) p.vx = this.flight.vx;
     else {
-      p.vx = horizontal * SPEED;
+      const target = horizontal * SPEED;
+      if (ice) {
+        const dv = ICE_ACCEL * dt;
+        p.vx = Math.max(p.vx - dv, Math.min(p.vx + dv, target));
+        this.lastFallTrap = { cause: { rect: ice, kind: 'ice' }, at: this.clock }; // 미끄러져 떨어지면 얼음 탓(3초 규칙)
+      } else p.vx = target;
       if (horizontal !== 0) p.facing = horizontal;
     }
-    if (input.jumpPressed && p.grounded) {
+    if (jumping) {
       // #15 날려버리는 점프: 구역 안에서 바닥에 선 채 뛰면 보통 점프 대신 강제 비행.
       const fling = this.level.flingZones.find((f) => overlaps(p, f.zone));
       if (fling) {
         this.launch(fling.vx, fling.vy);
         this.lastFallTrap = { cause: { rect: fling.zone, kind: 'flingJump' }, at: this.clock };
       } else {
-        p.vy = -JUMP_SPEED; p.grounded = false;
+        // #24 무거운 신발: 구역 안에서 뛰면 낮고 짧은 점프. 떨어지면 3초 규칙으로 구역 탓.
+        const heavy = this.level.heavyZones.find((h) => overlaps(p, h.zone));
+        if (heavy) this.lastFallTrap = { cause: { rect: heavy.zone, kind: 'heavyShoes' }, at: this.clock };
+        p.vy = -(heavy ? heavy.jumpSpeed : JUMP_SPEED); p.grounded = false;
         // #23 착지 예측 가시: 이 점프가 지금 입력을 유지한 채 떨어질 자리에 즉시 가시를 솟게 한다.
         const ls = this.landingSpikes.find((s) => !s.fired && overlaps(p, s.zone));
         if (ls) { ls.fired = true; ls.spikes = this.predictLandingSpikes(dt); }
@@ -466,6 +482,7 @@ export class World {
       else this.flight.launched = false;
     }
     this.updateReverse(input.horizontal);
+    this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
     for (const w of this.fakeWalls) if (!w.revealed && overlaps(p, w.rect)) w.revealed = true;
     for (const ls of this.landingSpikes) if (ls.spikes && !ls.armed && !overlaps(p, ls.spikes)) ls.armed = true;

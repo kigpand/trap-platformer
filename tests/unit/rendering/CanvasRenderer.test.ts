@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { BOULDER_FILL, CanvasRenderer, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -305,5 +305,17 @@ describe('CanvasRenderer mimic shadow', () => {
     for (let i = 0; i < 40; i++) world.update(1 / 60, { horizontal: 1, jumpPressed: false, restartPressed: false });
     expect(renderFills(world).some((f) => f.style === SHADOW_FILL)).toBe(true);
     expect(outline()).toBeUndefined();
+  });
+});
+
+describe('CanvasRenderer movement traps', () => {
+  it('draws ice tiles, and the heavy mark only inside the heavy zone', () => {
+    const ice = { x: 300, y: 500, width: 200, height: 20 };
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], iceFloors: [ice], heavyZones: [{ zone: { x: 700, y: 300, width: 60, height: 200 }, jumpSpeed: 300 }] }));
+    expect(renderFills(world).some((f) => f.style === ICE_FILL && f.x === ice.x && f.width === ice.width)).toBe(true);
+    expect(render(world).texts.some((t) => t.includes(HEAVY_MARK))).toBe(false);
+    world.player.x = 710; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+    world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    expect(render(world).texts.some((t) => t.includes(HEAVY_MARK))).toBe(true);
   });
 });

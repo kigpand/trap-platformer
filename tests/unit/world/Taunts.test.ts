@@ -16,7 +16,7 @@ function dieUntil(world: World, steps = 240): void {
 describe('death cause kinds and taunts', () => {
   it('has a non-empty taunt for every kind in the design table', () => {
     const kinds: DeathCauseKind[] = ['hiddenBlock', 'fallingPlatform', 'ambush', 'hazard', 'conditional', 'enemy', 'vanishingGround',
-      'invisibleBlock', 'dodgingPlatform', 'fallingCeiling', 'popUpSpikes', 'fakeCheckpoint', 'fleeingGoal', 'skyDrop', 'flingJump', 'reverseZone', 'fakeClear', 'boulder', 'baitGem', 'landingSpikes', 'shadow'];
+      'invisibleBlock', 'dodgingPlatform', 'fallingCeiling', 'popUpSpikes', 'fakeCheckpoint', 'fleeingGoal', 'skyDrop', 'flingJump', 'reverseZone', 'fakeClear', 'boulder', 'baitGem', 'landingSpikes', 'shadow', 'heavyShoes', 'ice'];
     expect(Object.keys(TAUNTS).sort()).toEqual([...kinds, 'springFloor', 'baitGemPickup'].sort());
     expect(TAUNTS.springFloor.length).toBeGreaterThan(0);
     expect(kinds.every((k) => TAUNTS[k].length > 0)).toBe(true);
