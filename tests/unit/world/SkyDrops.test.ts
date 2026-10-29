@@ -20,7 +20,7 @@ const L = testLevel({ solids: [ground], skyDrops: [group] });
 const steps = (world: World, n: number) => { for (let i = 0; i < n; i++) world.update(dt, idle); };
 
 describe('#13 enemies raining from the sky', () => {
-  it('warns 0.4s before each drop, starting each warning at its delay', () => {
+  it('warns 0.25s before each drop, starting each warning at its delay', () => {
     const world = new World(L);
     standAt(world, 410); // 트리거 안
     world.update(dt, idle); // 1스텝: 트리거
@@ -29,15 +29,14 @@ describe('#13 enemies raining from the sky', () => {
     expect(b.phase).toBe('idle');
     standAt(world, 300); // 떨어지는 곳에서 비켜 서 있는다
     steps(world, 13); // 14스텝
-    expect(b.phase).toBe('idle');
-    steps(world, 1); // 15스텝 = 0.25초
-    expect(b.phase).toBe('warning');
-    steps(world, 8); // 23스텝
     expect(a.phase).toBe('warning');
-    steps(world, 1); // 24스텝 = 0.4초: 경고 없이 떨어지는 적은 없다
+    expect(b.phase).toBe('idle');
+    steps(world, 1); // 15스텝 = 0.25초: 첫 적은 경고를 마치고 떨어지고, 둘째 적(지연 0.25초)은 경고를 시작한다
     expect(a.phase).toBe('falling');
     expect(a.enemy?.y).toBeLessThan(0); // 화면 위 바깥에서 생성
-    steps(world, 15); // 39스텝 = 0.25 + 0.4초
+    expect(a.vy).toBe(900); // 처음부터 최대 낙하 속도
+    expect(b.phase).toBe('warning');
+    steps(world, 15); // 30스텝 = 0.25 + 0.25초
     expect(b.phase).toBe('falling');
   });
 

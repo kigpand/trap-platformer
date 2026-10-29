@@ -48,8 +48,10 @@ describe('World trap and goal rules', () => {
     world.player.x = platform.x + 10;
     world.player.y = platform.y - world.player.height;
     world.player.grounded = true;
-    for (let i = 0; i < 60; i++) world.update(dt, noInput);
+    // 유예 0.2초(12스텝) 뒤 붕괴. 그 뒤 떨어져 사망하면 레벨이 초기화되므로 붕괴한 순간에 멈춰 확인한다.
+    for (let i = 0; i < 60 && world.fallingPlatforms[0].solid; i++) world.update(dt, noInput);
     expect(world.fallingPlatforms[0].solid).toBe(false);
+    expect(world.deaths).toBe(0);
   });
 
   it('keeps a falling platform solid for a player standing on it under the trigger delay', () => {
@@ -58,7 +60,7 @@ describe('World trap and goal rules', () => {
     world.player.x = platform.x + 10;
     world.player.y = platform.y - world.player.height;
     world.player.grounded = true;
-    for (let i = 0; i < 10; i++) world.update(dt, noInput); // 10/60s < 0.4s delay
+    for (let i = 0; i < 10; i++) world.update(dt, noInput); // 10/60s < 0.2s delay
     expect(world.fallingPlatforms[0].solid).toBe(true);
   });
 

@@ -158,7 +158,7 @@ export const LEVEL_1: Level = {
   vanishingGrounds: [{ x: 1960, y: 500, width: 280, height: 120 }],
   invisibleBlocks: [],
   // 떨어지는 천장: 그냥 지나가면 깔린다. 트리거에 살짝 들어갔다 물러서 떨어뜨린 뒤 넘는다(높이 40px).
-  fallingCeilings: [{ block: { x: 2450, y: 380, width: 40, height: 40 }, trigger: { x: 2400, y: 380, width: 90, height: 120 } }],
+  fallingCeilings: [{ block: { x: 2450, y: 380, width: 40, height: 40 }, trigger: { x: 2420, y: 380, width: 70, height: 120 } }],
   // 도망가는 발판: ground4 끝(3000)과 ground5(3260) 사이 260px 구덩이. 제자리 점프로 먼저 도망가게 한 뒤 바뀐 자리로 뛴다.
   dodgingPlatforms: [{ platform: { x: 3030, y: 480, width: 60, height: 20 }, trigger: { x: 2960, y: 380, width: 40, height: 100 }, to: { x: 3120, y: 480 } }],
   // 솟아오르는 가시: 레벨 1은 좁은 가시(16px)로 넘을 여유를 넉넉히 준다.
@@ -168,8 +168,8 @@ export const LEVEL_1: Level = {
   skyDrops: [],
   flingZones: [],
   reverseZones: [],
-  // 뒷걸음 스프링 바닥: 목표(11900) 직전. 튕기면 약 430px 뒤 평지에 떨어진다(구덩이·함정 없음). 타일을 점프로 넘는다.
-  springFloors: [{ tile: { x: 11600, y: 500, width: 40, height: 20 }, vx: -480, vy: -600 }],
+  // 뒷걸음 스프링 바닥: 목표(11900) 직전. 밟는 순간 세게 튕겨 약 710px 뒤 평지에 떨어진다(구덩이·함정 없음). 타일을 점프로 넘는다.
+  springFloors: [{ tile: { x: 11600, y: 500, width: 40, height: 20 }, vx: -600, vy: -800 }],
   // 가짜 클리어: 예전 목표 자리. 바닥(3800-4100)이 깃발 좌우 80px보다 넓게 덮어, N을 누르면 어디서든 떨어진다.
   fakeGoals: [{ flag: { x: 3940, y: 440, width: 40, height: 60 }, floor: [{ x: 3800, y: 500, width: 300, height: 120 }] }],
   // 가짜 안내 표지판: 짝이 되는 함정 바로 앞. 조작 규칙에 대해서는 거짓말하지 않는다.
@@ -192,9 +192,9 @@ export const LEVEL_1: Level = {
   arrowTraps: [],
   mirrorEnemies: [],
   countingPlatforms: [],
-  // 내려오는 천장: 통로(5150-5450) 위 블록 아랫면 320 — 서 있는 머리(468)까지 148px, 60px/s로 약 2.47초.
-  // 트리거(5110)에서 통로를 빠져나가기까지 달려서 약 1.74초라 0.5초 넘게 여유가 있다(traps-spec #25).
-  descendingCeilings: [{ block: { x: 5150, y: 280, width: 300, height: 40 }, trigger: { x: 5110, y: 300, width: 40, height: 200 }, speed: 60, floorY: 500 }],
+  // 내려오는 천장: 통로(5150-5450) 위 블록이 화면 위쪽(아랫면 130)에서 150px/s로 빠르게 내려온다 — 서 있는 머리(468)까지
+  // 338px, 약 2.25초. 트리거(5110)에서 통로를 빠져나가기까지 달려서 약 1.74초라 0.5초 여유가 있다(traps-spec #25).
+  descendingCeilings: [{ block: { x: 5150, y: 90, width: 300, height: 40 }, trigger: { x: 5110, y: 300, width: 40, height: 200 }, speed: 150, floorY: 500 }],
   // 박자 발판: 2초 주기에 1.2초 나타난다. 두 번째는 0.5초 늦게 — 나타나 있는 시간이 0.7초 겹친다(traps-spec #27: 0.3초 이상).
   rhythmPlatforms: [
     { rect: { x: 7480, y: 500, width: 80, height: 20 }, period: 2, onDuration: 1.2, offset: 0 },
@@ -274,7 +274,7 @@ export const LEVEL_2: Level = {
   // 투명 블록: groundC 끝(2150)의 80px 구덩이 바로 위. 가장자리에서 뛰는 보통 점프(오른쪽 끝 2130~2150)는 머리를 찧고
   // 떨어진다. 시뮬레이션 실측으로 오른쪽 끝 2084~2126(43px)에서 일찍 뛰면 블록 아래를 지나 건너편에 착지한다.
   invisibleBlocks: [{ x: 2140, y: 420, width: 80, height: 20 }],
-  fallingCeilings: [{ block: { x: 3560, y: 380, width: 40, height: 40 }, trigger: { x: 3510, y: 380, width: 90, height: 120 } }],
+  fallingCeilings: [{ block: { x: 3560, y: 380, width: 40, height: 40 }, trigger: { x: 3530, y: 380, width: 70, height: 120 } }],
   // 도망가는 발판: groundE 끝(3900)~groundF(4160) 260px 구덩이.
   dodgingPlatforms: [{ platform: { x: 3930, y: 480, width: 60, height: 20 }, trigger: { x: 3860, y: 380, width: 40, height: 100 }, to: { x: 4020, y: 480 } }],
   // 솟아오르는 가시: 레벨 1(16px)보다 넓은 24px.
@@ -376,7 +376,7 @@ export const LEVEL_3: Level = {
   vanishingGrounds: [{ x: 500, y: 500, width: 400, height: 120 }, { x: 3400, y: 500, width: 400, height: 120 }],
   // 투명 블록: groundB 끝(1300)의 100px 구덩이. 가장자리 점프는 찧고, 가장자리 46~24px 앞의 이른 점프(23px)만 지나간다.
   invisibleBlocks: [{ x: 1290, y: 420, width: 80, height: 20 }],
-  fallingCeilings: [{ block: { x: 2500, y: 380, width: 40, height: 40 }, trigger: { x: 2450, y: 380, width: 90, height: 120 } }],
+  fallingCeilings: [{ block: { x: 2500, y: 380, width: 40, height: 40 }, trigger: { x: 2470, y: 380, width: 70, height: 120 } }],
   dodgingPlatforms: [{ platform: { x: 2930, y: 480, width: 60, height: 20 }, trigger: { x: 2860, y: 380, width: 40, height: 100 }, to: { x: 3020, y: 480 } }],
   // 솟아오르는 가시(40px, 명세 기본 크기): 사라지는 땅 직후, 천장 직후, 마지막 구간.
   popUpSpikes: [
@@ -402,8 +402,8 @@ export const LEVEL_3: Level = {
   flingZones: [{ zone: { x: 7380, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
   // 좌우 반전: 그림자 구간 한가운데. 걸리면 머뭇거리지 말고 ←로 빠져나가야 그림자에 안 잡힌다.
   reverseZones: [{ x: 7900, y: 300, width: 240, height: 200 }],
-  // 뒷걸음 스프링 바닥: 마지막 구간 앞. 튕기면 약 430px 뒤(15,270 근처) 평지에 떨어진다.
-  springFloors: [{ tile: { x: 15700, y: 500, width: 40, height: 20 }, vx: -480, vy: -600 }],
+  // 뒷걸음 스프링 바닥: 마지막 구간 앞. 밟는 순간 세게 튕겨 약 710px 뒤(15,140 근처) 평지에 떨어진다 — 두 번째 가짜 클리어 바닥(~15,000)보다 뒤.
+  springFloors: [{ tile: { x: 15850, y: 500, width: 40, height: 20 }, vx: -600, vy: -800 }],
   // 두 번째 가짜 클리어: 천장 통로를 지나 "진짜 끝!" 표지판 뒤. 바닥(14700-15000)이 깃발 좌우 80px보다 넓다.
   fakeGoals: [{ flag: { x: 14830, y: 440, width: 40, height: 60 }, floor: [{ x: 14700, y: 500, width: 300, height: 120 }] }],
   signs: [
@@ -431,8 +431,8 @@ export const LEVEL_3: Level = {
   mirrorEnemies: [{ minX: 10400, maxX: 10900, y: 472, jumpSpeed: 720 }],
   // 세 번째 착지 발판: 레벨 2와 같은 배치(구덩이 60px, 장애물 80·240px) — 발끝까지 버티다 늦게 뛰어야 두 번만 착지한다.
   countingPlatforms: [{ rect: { x: 11660, y: 500, width: 390, height: 20 }, landings: 3 }],
-  // 내려오는 천장: 레벨 1보다 빠른 70px/s. 아랫면 320 → 머리(468)까지 148px, 약 2.1초. 통로를 달려 빠져나가기까지 약 1.7초.
-  descendingCeilings: [{ block: { x: 14100, y: 280, width: 300, height: 40 }, trigger: { x: 14060, y: 300, width: 40, height: 200 }, speed: 70, floorY: 500 }],
+  // 내려오는 천장: 레벨 1보다 빠른 170px/s, 화면 맨 위(아랫면 85)에서. 머리(468)까지 383px, 약 2.25초. 통로를 달려 빠져나가기까지 약 1.74초.
+  descendingCeilings: [{ block: { x: 14100, y: 45, width: 300, height: 40 }, trigger: { x: 14060, y: 300, width: 40, height: 200 }, speed: 170, floorY: 500 }],
   // 박자 발판 세 개: 1.8초 주기에 1.4초, 차례로 0.6초씩 늦게(이웃과 0.8초 겹침). 첫 발판이 나타날 무렵 연달아 뛰어야 한다.
   // 처음엔 1.0초였는데 착지 뒤 다시 뛸 여유가 0~1프레임뿐이라(시뮬레이션 실측) 사람 손으로는 사실상 불가능해, 착지마다 0~9프레임 여유가 생기는 1.4초로 늘렸다.
   rhythmPlatforms: [

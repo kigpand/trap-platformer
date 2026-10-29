@@ -16,7 +16,7 @@ const SKY_DROPS_1: Step[] = [
 ];
 const FAKE_CEILING_SPIKES: Step[] = [
   { run: 2258 }, { jump: true }, // 높이 60px 가짜 체크포인트(출발 구간 12px)
-  { run: 2445 }, { right: 4 }, { left: 20 }, { wait: 1 }, { run: 2475 }, { jump: true }, // 천장을 떨어뜨리고 넘는다
+  { run: 2465 }, { right: 4 }, { left: 20 }, { wait: 1 }, { run: 2475 }, { jump: true }, // 천장을 떨어뜨리고 넘는다(트리거 2470)
   { run: 2634 }, { jump: true }, // 착지하자마자 두 번째 가시
 ];
 const DODGE: Step[] = [{ run: 2898 }, { hop: true }, { wait: 0.3 }, { jump: true }, { run: 3070 }, { jump: true }];
@@ -44,7 +44,7 @@ const MIRROR_SPIKES: Step[] = [
 ];
 const COUNTING: Step[] = [{ run: 11615 }, { jump: true }, { run: 11900 }, { jump: true }]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지
 const RHYTHM: Step[] = [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 < 1 / 60 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }];
-const CEILING_FAKE_SPRING: Step[] = [{ run: 15685 }, { jump: true }]; // 천장 통로·두 번째 가짜 클리어를 멈추지 않고 지나 스프링을 넘는다
+const CEILING_FAKE_SPRING: Step[] = [{ run: 15835 }, { jump: true }]; // 천장 통로·두 번째 가짜 클리어를 멈추지 않고 지나 스프링을 넘는다
 const FINALE: Step[] = [{ run: 16185 }, { jump: true }, { run: 16534 }, { jump: true }, { run: 16760 }]; // 도망가는 목표·구덩이·가시
 const TAUNTING: Step[] = [...BOULDER_WALL, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE];
 const FULL: Step[] = [...VANISH_SPIKES, ...INVISIBLE_BLOCK, ...SKY_DROPS_1, ...FAKE_CEILING_SPIKES, ...DODGE, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING];
