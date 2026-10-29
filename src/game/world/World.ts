@@ -5,19 +5,20 @@ import { moveWithCollisions } from '../physics/Collision';
 import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, CountingPlatform, MirrorEnemy, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
-const FALL_TRIGGER_DELAY = 0.4; // docs/traps-spec.md #2 유예 시간
-const HIDDEN_BLOCK_DELAY = 0.2; // docs/traps-spec.md #1 유예 시간
+const FALL_TRIGGER_DELAY = 0.2; // docs/traps-spec.md #2 유예 시간
+const HIDDEN_BLOCK_DELAY = 0.1; // docs/traps-spec.md #1 유예 시간
 const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
 const DEATH_CAUSE_DURATION = 2.0; // docs/traps-spec.md "사망 원인 표시": 화면에 보이는 동안 2초 강조
 const FALL_CAUSE_WINDOW = 3.0; // 낙사형 함정은 사망 직전 3초 안에 마지막으로 발동한 함정을 원인으로 본다
 const TAUNT_DURATION = 2.0; // docs/game-design.md "놀리는 사망 메시지": 재시작 직후 2초
 const VANISH_TILE = 40; // docs/traps-spec.md #6 칸 너비
-const VANISH_SPEED = 150; // #6 붕괴 전선 속도(플레이어 210px/s보다 느림)
-const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지
+const VANISH_SPEED = 190; // #6 붕괴 전선 속도(플레이어 210px/s보다 조금 느림 — 멈추지 않고 달리면 지나간다)
+const CEILING_DELAY = 0.1; // #9 트리거 후 낙하까지. 떨어지기 시작하면 최대 속도라 0.1초 + 약 0.09초(80px) 만에 바닥에 닿는다
+const FALL_START_SPEED = MAX_FALL_SPEED; // #9 떨어지는 천장·#13 쏟아지는 적은 최대 낙하 속도로 떨어지기 시작한다(반응하기 어렵게, 원인 표시로 학습)
 const DODGE_DURATION = 0.2; // #8 발판이 미끄러지는 시간
 const GOAL_HOP_DURATION = 0.25; // #12 목표가 다음 위치로 이동하는 시간
-const SKY_DROP_WARNING = 0.4; // #13 경고 시작부터 떨어지기까지
+const SKY_DROP_WARNING = 0.25; // #13 경고 시작부터 떨어지기까지
 export const BOULDER_SIZE = 60; // #19 돌덩이 크기
 export const GEM_SIZE = 20; // #21 미끼 보물 크기
 const LANDING_SPIKE_WIDTH = 40; // #23 착지 예측 가시 크기
@@ -29,7 +30,7 @@ const ARROW_SPEED = 360; // #26 한 스텝 6px — 플레이어와의 상대 이
 export const ARROW_WARNING = 0.4; // #26 경고 시작부터 나오기까지
 const RHYTHM_WARNING = 0.3; // #27 사라지기 전 깜박이는 시간
 const ICE_ACCEL = 300; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에서 멈추기까지 0.7초·약 73px
-export const SHADOW_DELAY_STEPS = 120; // #22 그림자가 따라오기까지(2초)
+export const SHADOW_DELAY_STEPS = 42; // #22 그림자가 따라오기까지(0.7초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
 
@@ -484,15 +485,6 @@ export class World {
       if (!stillSupported) p.grounded = false;
     }
 
-    // #17 스프링 바닥: 타일 위에 서 있으면 강제 비행으로 튕긴다(죽지 않으므로 사망 원인 대신 놀리는 문구만 띄운다).
-    if (!this.flight) {
-      const spring = this.springFloors.find((sf) => isStandingOn(p, sf.config.tile));
-      if (spring) {
-        spring.bounced = true;
-        this.launch(spring.config.vx, spring.config.vy);
-        this.taunt = { kind: 'springFloor', remaining: TAUNT_DURATION };
-      }
-    }
     // #16 좌우 반전은 공중에서도 걸려 있다. 강제 비행 중에는 어차피 좌우 입력을 쓰지 않는다.
     const horizontal = this.reverse ? -input.horizontal as -1 | 0 | 1 : input.horizontal;
     // #28 얼음 바닥: 얼음 위에 서 있고 이번 스텝에 뛰지 않으면 수평 속도가 목표 속도로 300px/s²씩만 바뀐다.
@@ -570,6 +562,16 @@ export class World {
     if (this.flight) {
       if (!this.flight.launched && p.grounded) this.flight = null;
       else this.flight.launched = false;
+    }
+    // #17 스프링 바닥: 이동을 마치고 타일 위에 서게 된 바로 그 스텝(걸어 올라섬·착지)에 강제 비행으로 튕긴다 — 다음 스텝
+    // 시작까지 기다리지 않는다. 비행이 끝나며 타일 위에 착지해도 같은 스텝에 다시 튕긴다. 죽지 않으므로 놀리는 문구만 띄운다.
+    if (!this.flight) {
+      const spring = this.springFloors.find((sf) => isStandingOn(p, sf.config.tile));
+      if (spring) {
+        spring.bounced = true;
+        this.launch(spring.config.vx, spring.config.vy);
+        this.taunt = { kind: 'springFloor', remaining: TAUNT_DURATION };
+      }
     }
     this.updateReverse(input.horizontal);
     this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));
@@ -655,7 +657,7 @@ export class World {
         if (se.phase === 'warning' && g.elapsed >= se.drop.delay + SKY_DROP_WARNING - 1e-6) {
           se.enemy = { ...createEnemy(se.drop.minX, se.drop.maxX, -ENEMY_HEIGHT), x: se.drop.x };
           se.phase = 'falling';
-          se.vy = 0;
+          se.vy = FALL_START_SPEED;
           continue; // 생성된 스텝에는 화면 위 바깥에 둔다
         }
         const e = se.enemy;
@@ -719,7 +721,7 @@ export class World {
       if (c.phase === 'idle' && overlaps(p, c.config.trigger)) { c.phase = 'armed'; c.timer = CEILING_DELAY; }
       if (c.phase === 'armed') {
         c.timer -= dt;
-        if (c.timer <= 1e-6) c.phase = 'falling'; // 0.1 − 6 × (1/60)이 부동소수 오차로 0보다 조금 크게 남아 한 프레임 늦어지지 않게
+        if (c.timer <= 1e-6) { c.phase = 'falling'; c.vy = FALL_START_SPEED; } // 부동소수 오차로 0보다 조금 크게 남아 한 프레임 늦어지지 않게
       }
       if (c.phase !== 'falling') continue;
       c.vy = Math.min(MAX_FALL_SPEED, c.vy + GRAVITY * dt);

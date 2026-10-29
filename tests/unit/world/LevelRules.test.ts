@@ -113,3 +113,13 @@ describe('landing-spike prediction rule covers timed solids', () => {
     expect(landingPredictionViolations(testLevel({ solids: [ground], landingSpikeZones: [zone], countingPlatforms: [counting] }))).toEqual([counting.rect]);
   });
 });
+
+describe('falling ceiling placement (every level)', () => {
+  it('starts each trigger at most 30px before its block, so a full-speed drop still catches a walker', () => {
+    // docs/traps-spec.md #9: 트리거 0.1초 뒤 최대 속도로 떨어져 약 0.19초 만에 닿는다. 그사이 걸어오는 플레이어는 약 40px 나아가므로,
+    // 트리거가 블록보다 그보다 멀리 앞에 있으면 블록이 플레이어 앞에 떨어져 그냥 장애물이 된다.
+    for (const [i, level] of LEVELS.entries()) {
+      for (const c of level.fallingCeilings) expect(c.block.x - c.trigger.x, `level ${i + 1} ceiling at ${c.block.x}`).toBeLessThanOrEqual(30);
+    }
+  });
+});

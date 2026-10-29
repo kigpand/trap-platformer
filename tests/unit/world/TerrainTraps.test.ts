@@ -20,15 +20,15 @@ describe('#6 vanishing ground (chain collapse)', () => {
   const vanishing: Rect = { x: 300, y: 500, width: 400, height: 120 };
   const L = level({ solids: [{ x: 0, y: 500, width: 300, height: 120 }, { x: 700, y: 500, width: 1300, height: 120 }], vanishingGrounds: [vanishing] });
 
-  it('starts collapsing from the section start when stepped on, removing the first tile ~0.267s later', () => {
+  it('starts collapsing from the section start when stepped on, removing the first tile ~0.21s later', () => {
     const world = new World(L);
     standAt(world, 400); // 구간 중간(칸 2)에 서 있어도 전선은 시작점에서 출발한다
     world.update(dt, idle);
     const vg = world.vanishingGrounds[0];
     expect(vg.elapsed).not.toBeNull();
-    runUntil(world, idle, 14); // 트리거 스텝 포함 15스텝 = 0.25초
+    runUntil(world, idle, 11); // 트리거 스텝 포함 12스텝 = 0.2초
     expect(vg.tilesGone).toBe(0);
-    world.update(dt, idle); // 16스텝 = 0.2667초
+    world.update(dt, idle); // 13스텝 ≈ 0.217초(40 / 190 = 0.21초가 지난 첫 스텝)
     expect(vg.tilesGone).toBe(1);
     expect(world.dynamicSolids()).not.toContainEqual(vanishingTile(vanishing, 0));
   });
@@ -42,15 +42,15 @@ describe('#6 vanishing ground (chain collapse)', () => {
   });
 
   it('removes a shorter last tile only after a full tile\'s time, like the others', () => {
-    // 100px 구간 = 40px·40px·20px 칸. 마지막(짧은) 칸도 명세 공식대로 3 × 40 / 150 = 0.8초(48스텝)에 사라진다.
+    // 100px 구간 = 40px·40px·20px 칸. 마지막(짧은) 칸도 명세 공식대로 3 × 40 / 190 ≈ 0.63초(38스텝)에 사라진다.
     const shortSection: Rect = { x: 300, y: 500, width: 100, height: 120 };
     const world = new World(level({ solids: [{ x: 0, y: 500, width: 300, height: 120 }, { x: 400, y: 500, width: 1600, height: 120 }], vanishingGrounds: [shortSection] }));
     standAt(world, 310);
     world.update(dt, idle); // 1스텝: 트리거
     standAt(world, 600); // 붕괴는 계속 진행되지만 플레이어는 안전한 바닥으로 옮겨 사망으로 초기화되지 않게 한다
-    runUntil(world, idle, 46); // 47스텝 ≈ 0.783초
+    runUntil(world, idle, 36); // 37스텝 ≈ 0.617초
     expect(world.vanishingGrounds[0].tilesGone).toBe(2);
-    world.update(dt, idle); // 48스텝 = 0.8초
+    world.update(dt, idle); // 38스텝 ≈ 0.633초
     expect(world.vanishingGrounds[0].tilesGone).toBe(3);
   });
 
@@ -125,7 +125,8 @@ describe('#7 invisible block', () => {
 
 describe('#9 falling ceiling', () => {
   // 공중 블록(600-640, 높이 40)과 그 앞·아래 트리거(560-640). 떨어지면 바닥(500) 위 높이 40px 장애물이 된다.
-  const ceiling = { block: { x: 600, y: 380, width: 40, height: 40 }, trigger: { x: 560, y: 380, width: 80, height: 120 } };
+  // 트리거는 블록 30px 앞부터(traps-spec #9 배치 제약) — 최대 속도로 떨어지는 블록이 그냥 걸어오는 플레이어를 덮칠 수 있는 거리.
+  const ceiling = { block: { x: 600, y: 380, width: 40, height: 40 }, trigger: { x: 570, y: 380, width: 70, height: 120 } };
   const L = level({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], fallingCeilings: [ceiling] });
 
   it('crushes a player who walks straight under it, and blames the block', () => {
@@ -138,7 +139,7 @@ describe('#9 falling ceiling', () => {
 
   it('can be dropped first by stepping into the trigger and back, then jumped over once landed', () => {
     const world = new World(L);
-    standAt(world, 534); // 오른쪽 끝이 트리거 바로 앞(560)
+    standAt(world, 544); // 오른쪽 끝이 트리거 바로 앞(570)
     world.update(dt, right); world.update(dt, right); // 트리거에 살짝 들어간다
     runUntil(world, left, 20); // 물러선다
     runUntil(world, idle, 60, () => world.fallingCeilings[0].phase === 'landed');
@@ -170,7 +171,7 @@ describe('#9 falling ceiling', () => {
     expect(world.fallingCeilings[0].y).toBe(ceiling.block.y);
     world.update(dt, idle); // 6스텝 = 0.1초
     expect(world.fallingCeilings[0].phase).toBe('falling');
-    expect(world.fallingCeilings[0].y).toBeGreaterThan(ceiling.block.y);
+    expect(world.fallingCeilings[0].y).toBe(ceiling.block.y + 15); // 처음부터 최대 낙하 속도(900px/s = 스텝당 15px)
   });
 
   it('lands on a 20px platform without tunneling even at max fall speed', () => {

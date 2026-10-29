@@ -16,15 +16,29 @@ function runUntil(world: World, input: typeof idle, steps: number, stop: () => b
 
 describe('forced flight (common to #15 and #17)', () => {
   it('does not end on the launch step even when it starts on the ground, but on the first landing after', () => {
-    // vy = 0이면 발동한 스텝에 바로 바닥에 닿아 grounded가 된다 — 그래도 그 스텝은 착지로 보지 않는다.
-    const tile = { x: 1000, y: 500, width: 40, height: 20 };
+    // vy = 0이면 튕긴 다음 스텝에 바로 바닥에 닿아 grounded가 된다 — 그래도 발동한 비행의 첫 스텝은 착지로 보지 않는다.
+    const tile = { x: 1000, y: 500, width: 10, height: 20 }; // 좁은 타일: 비행이 끝난 뒤 다시 튕기지 않게
     const world = new World(testLevel({ solids: [flat], springFloors: [{ tile, vx: -480, vy: 0 }] }));
-    standAt(world, 1000);
-    world.update(dt, idle);
+    standAt(world, 990);
+    world.update(dt, idle); // 서 있는 채 이동을 마친 이 스텝에 튕긴다
+    expect(world.flight?.launched).toBe(true);
+    world.update(dt, idle); // 비행 첫 스텝: 바로 바닥에 닿지만 끝나지 않는다
     expect(world.player.grounded).toBe(true);
     expect(world.flight).not.toBeNull();
     world.update(dt, idle);
     expect(world.flight).toBeNull();
+  });
+
+  it('springs in the very step the player walks onto the tile, not a step later', () => {
+    const tile = { x: 1000, y: 500, width: 40, height: 20 };
+    const world = new World(testLevel({ solids: [flat], springFloors: [{ tile, vx: -600, vy: -800 }] }));
+    standAt(world, 960);
+    for (let i = 0; i < 30; i++) {
+      world.update(dt, right);
+      const onTile = world.player.x + world.player.width > tile.x;
+      if (onTile) { expect(world.flight, `step ${i}`).not.toBeNull(); break; } // 타일에 처음 올라선 바로 그 스텝
+    }
+    expect(world.taunt?.kind).toBe('springFloor');
   });
 
   it('ignores left/right input for the whole flight and gives it back after landing', () => {
