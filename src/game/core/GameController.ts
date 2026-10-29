@@ -105,6 +105,7 @@ export class GameController {
       this.publishSnapshot();
     }, (metrics) => this.renderer.render(this.world, metrics, this.paused), onError);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('storage', this.onStorage);
   }
   private publishSnapshot(): void {
     // 가짜 클리어 중에는 진짜 클리어였다면 보였을 기록(최고 기록·NEW RECORD!)을 그대로 보여 준다.
@@ -127,6 +128,17 @@ export class GameController {
     this.paused = true;
     this.input.clearInput();
     this.sound.updateMusic(false);
+    this.publishSnapshot();
+  };
+  // 다른 탭이 최고 기록을 저장하면 이 탭의 BEST 표시·완료 화면에도 바로 합친다(storage 이벤트는 다른 탭에서 바뀔 때만 온다).
+  // 클리어할 때처럼 시간과 사망 수를 따로 합쳐, 이 탭이 가진 더 좋은 값은 그대로 남는다. 깨진 값이나 다른 키는 무시한다.
+  private onStorage = (event: StorageEvent): void => {
+    const i = LEVELS.findIndex((_, j) => bestStorageKey(j) === event.key);
+    if (i < 0) return;
+    const stored = loadBest(i);
+    if (!stored) return;
+    const { best } = mergeBest(this.bests[i], stored);
+    this.bests = this.bests.map((b, j) => (j === i ? best : b));
     this.publishSnapshot();
   };
   // 키보드(R/P) 외에 화면의 버튼에서도 같은 동작을 호출할 수 있도록 공개한다 —
@@ -173,5 +185,6 @@ export class GameController {
     this.input.dispose();
     this.sound.dispose();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('storage', this.onStorage);
   }
 }

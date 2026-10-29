@@ -59,6 +59,36 @@ describe('GameController best record', () => {
     controller.dispose();
   });
 
+  it('merges a best record saved by another tab as soon as it arrives', () => {
+    // 백로그: 예전엔 이 탭에서 클리어할 때만 다른 탭의 기록이 합쳐졌다. storage 이벤트로 바로 BEST 표시에 반영한다.
+    localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 10, deaths: 3 }));
+    const { controller, snapshots, fire } = startWithManualFrames();
+    fire(0);
+    expect(snapshots[snapshots.length - 1].best).toEqual({ time: 10, deaths: 3 });
+    localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 20, deaths: 1 })); // 다른 탭: 더 느리지만 덜 죽음
+    window.dispatchEvent(new StorageEvent('storage', { key: 'trap-runner:best:v2:1' }));
+    expect(snapshots[snapshots.length - 1].best).toEqual({ time: 10, deaths: 1 }); // 시간·사망 수를 따로 합친다
+    expect(snapshots[snapshots.length - 1].bests[0]).toEqual({ time: 10, deaths: 1 });
+    expect(snapshots[snapshots.length - 1].newRecord).toBe(false); // 이 탭의 클리어가 아니다
+    controller.dispose();
+  });
+
+  it('ignores storage events for other keys and broken records, and stops listening after dispose', () => {
+    const { controller, snapshots, fire } = startWithManualFrames();
+    fire(0);
+    const count = snapshots.length;
+    localStorage.setItem('trap-runner:muted', '1');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'trap-runner:muted' }));
+    localStorage.setItem('trap-runner:best:v2:2', '{not json');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'trap-runner:best:v2:2' }));
+    expect(snapshots.length).toBe(count);
+    expect(snapshots[snapshots.length - 1].bests[1]).toBeNull();
+    controller.dispose();
+    localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 5, deaths: 0 }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'trap-runner:best:v2:1' }));
+    expect(snapshots.length).toBe(count); // 정리된 뒤에는 듣지 않는다
+  });
+
   it('does not overwrite a better stored record', () => {
     localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 0, deaths: 0 }));
     vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['clear']);

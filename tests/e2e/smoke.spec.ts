@@ -254,6 +254,18 @@ test('shows the stored best record, and ignores a corrupted one', async ({ page 
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
+test('picks up a best record saved in another tab right away', async ({ page, context }) => {
+  // storage 이벤트는 같은 브라우저의 다른 탭에서 저장했을 때만 온다 — 같은 컨텍스트에 탭을 하나 더 열어 저장한다.
+  await page.goto('/');
+  const best = page.locator('.hud span', { hasText: 'BEST' });
+  await expect(best).toHaveText('BEST —');
+  const other = await context.newPage();
+  await other.goto('/');
+  await other.evaluate(() => localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 42.5, deaths: 3 })));
+  await expect(best).toHaveText('BEST 42.5s / 3 FALLS'); // 새로고침 없이
+  await other.close();
+});
+
 test('touch controls are hidden on a desktop (fine pointer) layout', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('button', { name: '오른쪽으로 이동' })).toBeHidden();
