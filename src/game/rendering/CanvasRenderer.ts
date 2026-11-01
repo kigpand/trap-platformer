@@ -6,6 +6,7 @@ import {
 } from './Sprites';
 import { arrowRect, boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
+import { drawBackground } from './background';
 import { drawBlock, drawGround } from './terrain';
 import { drawFlag, drawGoal, drawSign, drawSpikes, GOAL_FILL } from './props';
 export { GOAL_FILL, SPIKE_FILL } from './props';
@@ -33,7 +34,6 @@ export interface RenderMetrics { fps: number; steps: number }
 export const HAZARD_REVEAL_FILL = '#b91c1c';
 const HAZARD_REVEAL_TOP = '#fca5a5';
 export const DEATH_CAUSE_OVERLAY = 'rgba(185,28,28,0.45)';
-const BUILDING_SPACING = 130;
 export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 발판 경고색과 같은 주황)
 export const TAUNT_COLOR = '#fca5a5';
 export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
@@ -104,21 +104,16 @@ export class CanvasRenderer {
     if (this.canvas.width !== width || this.canvas.height !== height) { this.canvas.width = width; this.canvas.height = height; }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-    ctx.fillStyle = '#101729'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
     const level = world.level;
     const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
     const shake = this.shakeOffset();
+    ctx.save(); ctx.translate(shake.x, shake.y); drawBackground(ctx, cam, { width: VIEW_WIDTH, height: VIEW_HEIGHT }); ctx.restore();
     ctx.save(); ctx.translate(-cam + shake.x, shake.y);
     // 화면(카메라 가로 범위)과 겹치는 사각형만 그린다 — 레벨이 길어져도 바닥·함정 타일을 그리는 양이 화면 크기만큼으로 유지된다.
     // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
     const inView = (r: Rect): boolean => r.x < cam + VIEW_WIDTH && r.x + r.width > cam;
     const view = { x: cam, width: VIEW_WIDTH, height: VIEW_HEIGHT }; // 땅·블록 무늬를 그릴 범위(terrain.ts)
     const wave = Math.floor(performance.now() / 400) % 2; // 목표 깃발이 나부끼는 프레임(렌더링 전용 타이밍)
-    // 배경 건물: 130px 간격으로 반복하되 카메라에 보이는 것만 그린다 — 레벨이 길어져도 끝까지 이어지고 그리기 양은 같다.
-    ctx.fillStyle = '#293b4d';
-    const firstBuilding = Math.max(0, Math.floor(cam / BUILDING_SPACING) - 1);
-    const lastBuilding = Math.ceil((cam + VIEW_WIDTH) / BUILDING_SPACING);
-    for (let i = firstBuilding; i <= lastBuilding; i++) ctx.fillRect(i * BUILDING_SPACING, 390 - (i % 4) * 35, 90, 200);
     for (const p of level.solids) {
       if (!inView(p)) continue;
       drawGround(ctx, p, view);
