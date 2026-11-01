@@ -89,6 +89,21 @@ describe('GameController best record', () => {
     expect(snapshots.length).toBe(count); // 정리된 뒤에는 듣지 않는다
   });
 
+  it('plays trap sounds only within hearing of the camera', () => {
+    // 화면 밖 소리 규칙: 스폰(65) 근처의 화살은 들리고, 한참 앞(멀리 떨어진) 천장 착지는 들리지 않는다.
+    const play = vi.spyOn(SoundPlayer.prototype, 'play');
+    vi.spyOn(World.prototype, 'drainTrapEvents').mockReturnValueOnce([
+      { kind: 'arrow', rect: { x: 1200, y: 450, width: 30, height: 6 } },
+      { kind: 'slam', rect: { x: 5000, y: 460, width: 40, height: 40 } },
+    ]);
+    const { controller, fire } = startWithManualFrames();
+    fire(0);
+    fire(1000 / 60);
+    expect(play).toHaveBeenCalledWith('arrow');
+    expect(play).not.toHaveBeenCalledWith('slam');
+    controller.dispose();
+  });
+
   it('does not overwrite a better stored record', () => {
     localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 0, deaths: 0 }));
     vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['clear']);

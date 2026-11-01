@@ -1,14 +1,28 @@
-import type { WorldEvent } from '../world/World';
+import type { TrapEventKind, WorldEvent } from '../world/World';
 
 // 외부 음원 파일 없이 Web Audio 오실레이터로 효과음을 합성한다(독자적인 음향 자료).
 // 음 하나 = [주파수 시작(Hz), 주파수 끝(Hz), 시작 시각(s), 길이(s)].
 type Note = readonly [from: number, to: number, at: number, duration: number];
 interface Sound { wave: OscillatorType; volume: number; notes: readonly Note[] }
-const SOUNDS: Record<WorldEvent, Sound> = {
+// 위치 없는 게임 이벤트와 함정 이벤트(docs/game-design.md "소리"의 함정 효과음 표)를 모두 소리 이름으로 쓴다.
+export type SoundName = WorldEvent | TrapEventKind;
+const SOUNDS: Record<SoundName, Sound> = {
   jump: { wave: 'square', volume: 0.08, notes: [[320, 640, 0, 0.12]] },
   death: { wave: 'sawtooth', volume: 0.1, notes: [[440, 80, 0, 0.45]] },
   checkpoint: { wave: 'triangle', volume: 0.15, notes: [[660, 660, 0, 0.09], [990, 990, 0.1, 0.14]] },
   clear: { wave: 'triangle', volume: 0.15, notes: [[523, 523, 0, 0.12], [659, 659, 0.13, 0.12], [784, 784, 0.26, 0.12], [1047, 1047, 0.39, 0.3]] },
+  // 함정 효과음: 짧고(0.6초 이하) 서로 구분되는 모양으로 합성한다.
+  spring: { wave: 'triangle', volume: 0.12, notes: [[220, 880, 0, 0.18]] }, // 올라가는 "뿅"
+  fling: { wave: 'sawtooth', volume: 0.07, notes: [[900, 180, 0, 0.3]] }, // 내려가는 바람 소리
+  collapse: { wave: 'square', volume: 0.07, notes: [[160, 60, 0, 0.25], [120, 50, 0.05, 0.25]] }, // 낮게 부서지는 소리
+  slam: { wave: 'square', volume: 0.12, notes: [[110, 40, 0, 0.18]] }, // 짧고 낮은 충격음
+  spikes: { wave: 'square', volume: 0.06, notes: [[1400, 2200, 0, 0.08], [1800, 2600, 0.05, 0.08]] }, // 높고 날카로운 소리
+  warning: { wave: 'square', volume: 0.06, notes: [[880, 880, 0, 0.06], [880, 880, 0.1, 0.06]] }, // 짧은 삑삑
+  arrow: { wave: 'triangle', volume: 0.1, notes: [[600, 300, 0, 0.12]] }, // 튕기는 활시위
+  gem: { wave: 'triangle', volume: 0.1, notes: [[1047, 1047, 0, 0.07], [1319, 1319, 0.07, 0.07], [1568, 1568, 0.14, 0.12]] }, // 반짝이는 아르페지오
+  reverse: { wave: 'sine', volume: 0.1, notes: [[500, 300, 0, 0.12], [300, 500, 0.12, 0.12]] }, // 흔들리는 소리
+  shadow: { wave: 'sine', volume: 0.12, notes: [[90, 70, 0, 0.4]] }, // 낮게 웅웅
+  boulder: { wave: 'sawtooth', volume: 0.08, notes: [[70, 50, 0, 0.6]] }, // 낮은 우르릉
 };
 
 // 배경 음악: 독자적으로 만든 4마디 루프(A 단조 펜타토닉, 8분음표 32스텝). null은 쉼표.
@@ -58,7 +72,7 @@ export class SoundPlayer {
     }
     if (this.context.state === 'suspended') void this.context.resume();
   };
-  play(event: WorldEvent): void {
+  play(event: SoundName): void {
     const ctx = this.context;
     const master = this.master;
     if (this.isMuted || !ctx || !master || ctx.state !== 'running') return;

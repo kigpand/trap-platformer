@@ -4,6 +4,7 @@ import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type GameSnapshot } from '../world/World';
 import { LEVELS } from '../world/level';
+import { isWithinHearing } from '../world/viewport';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·레벨·최고 기록 상태.
@@ -100,6 +101,10 @@ export class GameController {
           else this.recordClear();
         }
         this.sound.play(event);
+      }
+      // 함정 효과음: 화면 밖 소리 규칙(렌더러와 같은 카메라 계산)으로 거른다 — 지나온 함정이 멀리서 뒤늦게 일으킨 일은 소리를 내지 않는다.
+      for (const event of this.world.drainTrapEvents()) {
+        if (isWithinHearing(event.rect, this.world.player.x, this.world.level.width)) this.sound.play(event.kind);
       }
       this.sound.updateMusic(!this.paused); // 일시정지(탭 숨김 포함) 중에는 배경 음악도 멈춘다
       this.publishSnapshot();
