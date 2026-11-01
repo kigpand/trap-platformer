@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment happy-dom
+import { describe, expect, it, vi } from 'vitest';
+import { CanvasRenderer } from '../../../src/game/rendering/CanvasRenderer';
+import { World } from '../../../src/game/world/World';
+import { testLevel } from '../world/fixtures';
 import { drawBackground, FAR_CITY, FAR_PARALLAX, NEAR_CITY, NEAR_PARALLAX } from '../../../src/game/rendering/background';
 import { recorder, type Fill } from './recorder';
 
@@ -34,5 +38,31 @@ describe('background', () => {
       expect(near.every((f) => f.x + f.width >= -130 && f.x <= view.width + 130)).toBe(true);
       expect(near.length).toBeLessThan(12);
     }
+  });
+});
+
+describe('background during screen shake', () => {
+  it('still covers every screen edge while the shake offsets the picture (no bare canvas strip)', () => {
+    // Codex 리뷰: 흔들림 오프셋만큼 배경을 옮기면서 배경은 화면 크기만큼만 그려, 반대쪽 가장자리에 빈 캔버스 띠가 보였다.
+    const canvas = document.createElement('canvas');
+    const { ctx, fills } = recorder();
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+    const renderer = new CanvasRenderer(canvas, () => false);
+    const world = new World(testLevel({})); // 지형이 없어 배경 가장자리가 그대로 보인다
+    renderer.shakeScreen();
+    const offsets = new Set<string>();
+    for (let step = 0; step < 18; step++) {
+      const o = renderer.shakeOffset();
+      offsets.add(`${o.x},${o.y}`);
+      fills.length = 0;
+      renderer.render(world, { fps: 60, steps: 1 });
+      const covered = (x: number, y: number) => fills.some((f) => x >= f.x && x < f.x + f.width && y >= f.y && y < f.y + f.height);
+      const edge: [number, number][] = [];
+      for (let x = 0; x < 960; x += 8) edge.push([x, 0], [x, 539]);
+      for (let y = 0; y < 540; y += 8) edge.push([0, y], [959, y]);
+      expect(edge.filter(([x, y]) => !covered(x, y)), `offset ${o.x},${o.y}`).toEqual([]);
+      renderer.stepEffects(1 / 60);
+    }
+    expect([...offsets].some((k) => k !== '0,0')).toBe(true); // 실제로 흔들린 프레임을 확인했다
   });
 });

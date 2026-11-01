@@ -107,7 +107,7 @@ export class CanvasRenderer {
     const level = world.level;
     const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
     const shake = this.shakeOffset();
-    ctx.save(); ctx.translate(shake.x, shake.y); drawBackground(ctx, cam, { width: VIEW_WIDTH, height: VIEW_HEIGHT }); ctx.restore();
+    ctx.save(); ctx.translate(shake.x, shake.y); drawBackground(ctx, cam, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, SHAKE_AMPLITUDE); ctx.restore();
     ctx.save(); ctx.translate(-cam + shake.x, shake.y);
     // 화면(카메라 가로 범위)과 겹치는 사각형만 그린다 — 레벨이 길어져도 바닥·함정 타일을 그리는 양이 화면 크기만큼으로 유지된다.
     // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
