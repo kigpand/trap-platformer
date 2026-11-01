@@ -5,44 +5,9 @@ import { drawBlock, drawGround } from '../../../src/game/rendering/terrain';
 import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { testLevel } from '../world/fixtures';
+import { drawn, pixels, recorder, relative } from './recorder';
 
-// fillRect를 그 시점의 fillStyle과 translate를 더한 실제 좌표로 기록하는 가짜 컨텍스트(happy-dom에는 Canvas 2D가 없다).
-interface Fill { style: string; x: number; y: number; width: number; height: number }
-function recorder(): { ctx: CanvasRenderingContext2D; fills: Fill[] } {
-  const fills: Fill[] = [];
-  let offset = { x: 0, y: 0 };
-  const stack: { x: number; y: number }[] = [];
-  const state: Record<string | symbol, unknown> = { fillStyle: '' };
-  const methods: Record<string, (...args: number[]) => void> = {
-    fillRect: (x, y, width, height) => { fills.push({ style: String(state.fillStyle), x: x + offset.x, y: y + offset.y, width, height }); },
-    translate: (x, y) => { offset = { x: offset.x + x, y: offset.y + y }; },
-    save: () => { stack.push(offset); },
-    restore: () => { offset = stack.pop() ?? { x: 0, y: 0 }; },
-  };
-  const ctx = new Proxy(state, {
-    get(target, key) { return typeof key === 'string' && key in methods ? methods[key] : key in target ? target[key] : () => {}; },
-    set(target, key, value) { target[key] = value; return true; },
-  });
-  // 그리기 API 전체를 구현하지 않는 테스트용 대역이라 타입을 맞춰 넘긴다.
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills };
-}
 const view = { x: 0, width: 960, height: VIEW_HEIGHT };
-
-// 칠한 결과를 1px 격자로 펼친다(나중에 칠한 색이 이김). 그리는 순서·나눠 칠한 방식과 상관없이 보이는 그림만 비교한다.
-function pixels(fills: readonly Fill[], area: Rect): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const f of fills) {
-    for (let y = Math.max(f.y, area.y); y < Math.min(f.y + f.height, area.y + area.height); y++) {
-      for (let x = Math.max(f.x, area.x); x < Math.min(f.x + f.width, area.x + area.width); x++) out.set(`${x},${y}`, f.style);
-    }
-  }
-  return out;
-}
-const drawn = (draw: (ctx: CanvasRenderingContext2D) => void, area: Rect): Map<string, string> => {
-  const { ctx, fills } = recorder();
-  draw(ctx);
-  return pixels(fills, area);
-};
 
 describe('terrain textures', () => {
   it('tiles seamlessly: a ground split into pieces looks exactly like one long ground', () => {
@@ -66,7 +31,7 @@ describe('terrain textures', () => {
   it('draws two blocks of the same size identically wherever they are (a fake wall looks like a real block)', () => {
     const a: Rect = { x: 100, y: 300, width: 40, height: 90 };
     const b: Rect = { x: 517, y: 233, width: 40, height: 90 };
-    const at = (r: Rect) => new Map([...drawn((ctx) => drawBlock(ctx, r, view), r)].map(([k, c]) => { const [x, y] = k.split(',').map(Number); return [`${x - r.x},${y - r.y}`, c]; }));
+    const at = (r: Rect) => relative(drawn((ctx) => drawBlock(ctx, r, view), r), r);
     expect(at(b)).toEqual(at(a));
   });
 

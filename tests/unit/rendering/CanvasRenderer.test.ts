@@ -160,7 +160,7 @@ describe('CanvasRenderer trick traps (#8, #10, #11, #12)', () => {
     world.goal.rect = { x: 700, y: 440, width: 40, height: 60 };
     const fills = renderFills(world);
     expect(fills.some((f) => f.x === 400 && f.y === 480 && f.style === '#627e55')).toBe(true);
-    expect(fills.some((f) => f.x === 700 && f.y === 440 && f.style === '#eab308')).toBe(true);
+    expect(fills.some((f) => f.style === GOAL_FILL && f.x >= 700 && f.x + f.width <= 740 && f.y >= 440 && f.y + f.height <= 500)).toBe(true); // 목표 영역 안의 깃발
   });
 });
 
@@ -231,7 +231,7 @@ describe('CanvasRenderer fake clear and fake signs', () => {
     const world = new World(level);
     const same = (f: { style: string; x: number; y: number; width: number; height: number }, r: typeof flag) =>
       f.x === r.x && f.y === r.y && f.width === r.width && f.height === r.height;
-    expect(renderFills(world).some((f) => f.style === GOAL_FILL && same(f, flag))).toBe(true);
+    expect(renderFills(world).some((f) => f.style === GOAL_FILL && f.x >= flag.x && f.x + f.width <= flag.x + flag.width && f.y >= flag.y)).toBe(true); // 진짜 목표와 같은지는 props.test.ts
     expect(renderFills(world).some((f) => same(f, floor))).toBe(true);
     expect(render(world).texts).not.toContain('LEVEL CLEAR');
     world.player.x = flag.x; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
