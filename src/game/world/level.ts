@@ -442,5 +442,86 @@ export const LEVEL_3: Level = {
   ],
 };
 
+// 레벨 4(지옥): 함정 30종을 셋씩 겹친 구간 G1~G9와 끝 구간(docs/game-design.md "난이도 곡선"). 위치는 해법의 점프마다
+// 6프레임 이상 여유가 남도록 고정 스텝 시뮬레이션으로 맞췄다(tests/unit/world/Level4.test.ts의 시간 여유 측정).
+export const LEVEL_4: Level = {
+  width: 18600,
+  height: 620,
+  spawn: { x: 65, y: 350 },
+  solids: [
+    { x: 0, y: 500, width: 760, height: 120 }, // 시작
+    { x: 1360, y: 500, width: 1480, height: 120 }, // G1 사라지는 땅(760-1360) 뒤 쏟아지는 적, 2840-2920 구덩이
+    { x: 2920, y: 500, width: 580, height: 120 }, // G2 얼음(전체) 위 좌우 반전, 3500-3600 구덩이
+    { x: 3600, y: 500, width: 1400, height: 120 }, // 솟아오르는 가시 → G3 박자 발판 구덩이(5000-5520)
+    { x: 5520, y: 500, width: 3680, height: 120 }, // G4 내려오는 천장 통로·떨어지는 천장 → G5 무거운 신발 구덩이(9200-9260)
+    { x: 9260, y: 500, width: 2340, height: 120 }, // G6 돌덩이·가짜 벽, 11600-12100 세 번째 착지 발판 다리
+    { x: 11640, y: 470, width: 10, height: 30 }, // 세 번째 착지 발판 위 장애물 셋
+    { x: 11810, y: 470, width: 10, height: 30 },
+    { x: 11870, y: 470, width: 10, height: 30 },
+    { x: 12100, y: 500, width: 800, height: 120 }, // G7 숨겨진 블록(12900-12980)
+    { x: 12980, y: 500, width: 120, height: 120 }, // 13100-13300 낙하 발판 구덩이
+    { x: 13300, y: 500, width: 1400, height: 120 }, // 기습 적 → G8 도망가는 발판 구덩이(14700-14960)
+    { x: 14960, y: 500, width: 980, height: 120 }, // 스프링, 15940-16040은 날려버리는 점프가 떨어뜨리는 뒤쪽 구덩이
+    { x: 16040, y: 500, width: 410, height: 120 }, // G9 조건부 함정·날려버리는 점프, 16450-16540 구덩이
+    { x: 16540, y: 500, width: 610, height: 120 }, // 가짜 안전지대, 표지판, 가짜 체크포인트 — 17150-17450은 가짜 클리어 바닥
+    { x: 17450, y: 500, width: 350, height: 120 }, // 도망가는 목표: 17800-17900·18150-18250 구덩이
+    { x: 17900, y: 500, width: 250, height: 120 },
+    { x: 18250, y: 500, width: 350, height: 120 },
+  ],
+  goal: { x: 17700, y: 440, width: 40, height: 60 },
+  hazards: [{ x: 16680, y: 495, width: 80, height: 25 }],
+  fallingPlatforms: [{ x: 13100, y: 480, width: 140, height: 20 }],
+  hiddenBlocks: [{ x: 12900, y: 500, width: 80, height: 120 }],
+  enemies: [],
+  ambushes: [{ trigger: { x: 13420, y: 440, width: 40, height: 80 }, minX: 13600, maxX: 13760, y: 472 }],
+  conditionalTraps: [{ zone: { x: 16380, y: 440, width: 50, height: 80 } }],
+  checkpoints: [
+    { zone: { x: 4600, y: 360, width: 40, height: 140 }, respawnX: 4600, respawnY: 350 },
+    { zone: { x: 8450, y: 360, width: 40, height: 140 }, respawnX: 8450, respawnY: 350 },
+    { zone: { x: 12450, y: 360, width: 40, height: 140 }, respawnX: 12450, respawnY: 350 },
+    { zone: { x: 16200, y: 360, width: 40, height: 140 }, respawnX: 16200, respawnY: 350 },
+  ],
+  vanishingGrounds: [{ x: 760, y: 500, width: 600, height: 120 }],
+  invisibleBlocks: [{ x: 14705, y: 420, width: 80, height: 20 }],
+  fallingCeilings: [{ block: { x: 7600, y: 380, width: 40, height: 40 }, trigger: { x: 7570, y: 380, width: 70, height: 120 } }],
+  dodgingPlatforms: [{ platform: { x: 14730, y: 480, width: 60, height: 20 }, trigger: { x: 14660, y: 380, width: 40, height: 100 }, to: { x: 14780, y: 480 } }],
+  popUpSpikes: [{ spikes: { x: 3720, y: 476, width: 40, height: 24 }, trigger: { x: 3660, y: 400, width: 60, height: 100 } }],
+  fakeCheckpoints: [{ x: 17000, y: 460, width: 40, height: 40 }], // 높이 40px — 넘는 출발 구간이 60px(레벨 3)보다 넓다
+  goalHops: [
+    { trigger: { x: 17620, y: 400, width: 40, height: 100 }, to: { x: 17980, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 17900, y: 400, width: 40, height: 100 }, to: { x: 18320, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 18240, y: 400, width: 40, height: 100 }, to: { x: 18540, y: 440, width: 40, height: 60 } },
+  ],
+  skyDrops: [{ trigger: { x: 1400, y: 400, width: 40, height: 100 }, drops: [
+    { x: 1640, delay: 0, minX: 1600, maxX: 1760 }, { x: 2040, delay: 0.4, minX: 2000, maxX: 2160 },
+  ] }],
+  flingZones: [{ zone: { x: 16430, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
+  reverseZones: [{ x: 3200, y: 300, width: 220, height: 200 }],
+  springFloors: [{ tile: { x: 15020, y: 500, width: 40, height: 20 }, vx: -600, vy: -800 }],
+  fakeGoals: [{ flag: { x: 17280, y: 440, width: 40, height: 60 }, floor: [{ x: 17150, y: 500, width: 300, height: 120 }] }],
+  signs: [{ x: 9150, y: 500, text: '여기서 점프!' }, { x: 16900, y: 500, text: '진짜 끝!' }],
+  boulders: [{ trigger: { x: 10500, y: 300, width: 40, height: 200 }, startX: 10260, endX: 12200, y: 440 }],
+  fakeWalls: [{ x: 11000, y: 380, width: 40, height: 120 }],
+  baitGems: [{ x: 5305, y: 485 }],
+  landingSpikeZones: [{ x: 9160, y: 300, width: 40, height: 200 }],
+  shadows: [{ trigger: { x: 500, y: 300, width: 40, height: 200 }, endX: 2700 }],
+  heavyZones: [{ zone: { x: 9160, y: 300, width: 40, height: 200 }, jumpSpeed: 300 }],
+  iceFloors: [{ x: 2920, y: 500, width: 580, height: 20 }],
+  arrowTraps: [{ trigger: { x: 5070, y: 300, width: 40, height: 200 }, arrows: [
+    { y: 484, delay: 0.75, fromX: 5900, toX: 4900 },
+    { y: 484, delay: 2.4, fromX: 5900, toX: 4900 },
+  ] }],
+  // 따라 뛰는 적은 기본 점프 속도(720) — 600·660으로 낮추면 제자리에서 넘길 수 있는 거리가 좁아진다(720: 30~70px, 600: 45px만).
+  mirrorEnemies: [{ minX: 6800, maxX: 7300, y: 472, jumpSpeed: 720 }],
+  countingPlatforms: [{ rect: { x: 11600, y: 500, width: 500, height: 20 }, landings: 3 }],
+  // 내려오는 천장 65px/s: 머리(468)까지 약 5.9초. 해법(돌아선 적을 맞아 제자리에서 넘기고 빠져나감)은 약 5.4초 걸린다.
+  descendingCeilings: [{ block: { x: 6600, y: 45, width: 800, height: 40 }, trigger: { x: 6560, y: 300, width: 40, height: 200 }, speed: 65, floorY: 500 }],
+  rhythmPlatforms: [
+    { rect: { x: 5070, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: 0 },
+    { rect: { x: 5220, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -0.6 },
+    { rect: { x: 5370, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -1.2 },
+  ],
+};
+
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
-export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2, LEVEL_3];
+export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
