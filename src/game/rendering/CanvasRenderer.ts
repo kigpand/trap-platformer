@@ -6,6 +6,7 @@ import {
 } from './Sprites';
 import { arrowRect, boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
+import { drawBlock, drawGround } from './terrain';
 import { TAUNTS } from './taunts';
 
 export const VIEW_HEIGHT = 540;
@@ -32,8 +33,6 @@ const HAZARD_REVEAL_TOP = '#fca5a5';
 export const DEATH_CAUSE_OVERLAY = 'rgba(185,28,28,0.45)';
 const BUILDING_SPACING = 130;
 export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 발판 경고색과 같은 주황)
-const BLOCK_FILL = '#8a6d4b'; // 공중 블록(투명 블록이 나타난 뒤·떨어지는 천장)
-const BLOCK_TOP = '#b08a5e';
 export const SPIKE_FILL = '#e2e8f0';
 export const TAUNT_COLOR = '#fca5a5';
 export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
@@ -139,6 +138,7 @@ export class CanvasRenderer {
     // 화면(카메라 가로 범위)과 겹치는 사각형만 그린다 — 레벨이 길어져도 바닥·함정 타일을 그리는 양이 화면 크기만큼으로 유지된다.
     // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
     const inView = (r: Rect): boolean => r.x < cam + VIEW_WIDTH && r.x + r.width > cam;
+    const view = { x: cam, width: VIEW_WIDTH, height: VIEW_HEIGHT }; // 땅·블록 무늬를 그릴 범위(terrain.ts)
     // 배경 건물: 130px 간격으로 반복하되 카메라에 보이는 것만 그린다 — 레벨이 길어져도 끝까지 이어지고 그리기 양은 같다.
     ctx.fillStyle = '#293b4d';
     const firstBuilding = Math.max(0, Math.floor(cam / BUILDING_SPACING) - 1);
@@ -146,17 +146,18 @@ export class CanvasRenderer {
     for (let i = firstBuilding; i <= lastBuilding; i++) ctx.fillRect(i * BUILDING_SPACING, 390 - (i % 4) * 35, 90, 200);
     for (const p of level.solids) {
       if (!inView(p)) continue;
-      ctx.fillStyle = '#627e55'; ctx.fillRect(p.x, p.y, p.width, p.height);
-      ctx.fillStyle = '#99c577'; ctx.fillRect(p.x, p.y, p.width, Math.min(8, p.height));
+      drawGround(ctx, p, view);
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     }
     for (const h of level.hazards) {
       if (!inView(h)) continue;
       // 평소엔 일반 바닥과 똑같이 그리고, 이 타일로 사망한 직후에만 경고색으로 원인을 드러낸다(traps-spec #4).
       const revealed = world.deathCause?.rect === h;
-      ctx.fillStyle = revealed ? HAZARD_REVEAL_FILL : '#627e55'; ctx.fillRect(h.x, h.y, h.width, h.height);
-      ctx.fillStyle = revealed ? HAZARD_REVEAL_TOP : '#99c577'; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
-      if (revealed) { ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(h.x, h.y, h.width, h.height); }
+      if (revealed) {
+        ctx.fillStyle = HAZARD_REVEAL_FILL; ctx.fillRect(h.x, h.y, h.width, h.height);
+        ctx.fillStyle = HAZARD_REVEAL_TOP; ctx.fillRect(h.x, h.y, h.width, Math.min(8, h.height));
+        ctx.strokeStyle = HAZARD_REVEAL_TOP; ctx.lineWidth = 3; ctx.strokeRect(h.x, h.y, h.width, h.height);
+      } else drawGround(ctx, h, view);
       if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(h.x, h.y, h.width, h.height); }
     }
     // #6 사라지는 땅: 남은 칸은 일반 바닥처럼, 붕괴가 시작되면 다음에 사라질 칸만 경고색으로.
@@ -165,24 +166,22 @@ export class CanvasRenderer {
         const t = vanishingTile(vg.rect, i);
         if (!inView(t)) continue;
         const warning = vg.elapsed !== null && i === vg.tilesGone;
-        ctx.fillStyle = warning ? VANISH_WARNING_FILL : '#627e55'; ctx.fillRect(t.x, t.y, t.width, t.height);
-        ctx.fillStyle = warning ? VANISH_WARNING_FILL : '#99c577'; ctx.fillRect(t.x, t.y, t.width, Math.min(8, t.height));
+        if (warning) { ctx.fillStyle = VANISH_WARNING_FILL; ctx.fillRect(t.x, t.y, t.width, t.height); }
+        else drawGround(ctx, t, view);
       }
       if (this.debug) { ctx.strokeStyle = '#fb923c'; ctx.lineWidth = 2; ctx.strokeRect(vg.rect.x, vg.rect.y, vg.rect.width, vg.rect.height); }
     }
     // #7 투명 블록: 나타나기 전에는 그리지 않는다(디버그 오버레이에서만 외곽선).
     for (const ib of world.invisibleBlocks) {
       if (ib.visible) {
-        ctx.fillStyle = BLOCK_FILL; ctx.fillRect(ib.rect.x, ib.rect.y, ib.rect.width, ib.rect.height);
-        ctx.fillStyle = BLOCK_TOP; ctx.fillRect(ib.rect.x, ib.rect.y, ib.rect.width, Math.min(4, ib.rect.height));
+        drawBlock(ctx, ib.rect, view);
       } else if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(ib.rect.x, ib.rect.y, ib.rect.width, ib.rect.height); }
     }
     // #9 떨어지는 천장: 현재 위치에 평범한 블록으로 그린다(트리거 영역은 디버그에서만).
     for (const c of world.fallingCeilings) {
       if (c.phase !== 'gone') {
         const r = ceilingRect(c);
-        ctx.fillStyle = BLOCK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
-        ctx.fillStyle = BLOCK_TOP; ctx.fillRect(r.x, r.y, r.width, Math.min(4, r.height));
+        drawBlock(ctx, r, view);
       }
       if (this.debug) { const t = c.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
@@ -194,8 +193,7 @@ export class CanvasRenderer {
     }
     for (const hb of world.hiddenBlocks) {
       if (!hb.solid) continue;
-      ctx.fillStyle = '#627e55'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height);
-      ctx.fillStyle = '#99c577'; ctx.fillRect(hb.rect.x, hb.rect.y, hb.rect.width, Math.min(8, hb.rect.height));
+      drawGround(ctx, hb.rect, view);
       if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(hb.rect.x, hb.rect.y, hb.rect.width, hb.rect.height); }
     }
     for (const ct of world.conditionalTraps) {
@@ -218,8 +216,7 @@ export class CanvasRenderer {
     // #8 도망가는 발판: 현재 위치에 일반 발판처럼 그린다(트리거는 디버그에서만).
     for (const d of world.dodgingPlatforms) {
       const r = dodgingRect(d);
-      ctx.fillStyle = '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
-      ctx.fillStyle = '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
+      drawGround(ctx, r, view, { x: r.x - d.config.platform.x, y: r.y - d.config.platform.y }); // 무늬가 발판과 같이 움직인다
       if (this.debug) { const t = d.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     // #10 솟아오르는 가시: 솟기 전에는 아무것도 없고(바닥과 같음), 솟으면 삼각형 가시를 줄지어 그린다.
@@ -234,8 +231,7 @@ export class CanvasRenderer {
     // #25 내려오는 천장: 현재 위치에 평범한 블록으로 그린다(트리거는 디버그에서만).
     for (const c of world.descendingCeilings) {
       const r = descendingRect(c);
-      ctx.fillStyle = BLOCK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
-      ctx.fillStyle = BLOCK_TOP; ctx.fillRect(r.x, r.y + r.height - 4, r.width, 4); // 아랫면 테두리(내려오는 쪽)
+      drawBlock(ctx, r, view, 'bottom'); // 아랫면 테두리(내려오는 쪽)
       if (this.debug) { const t = c.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     // #27 박자 발판: 나타나 있으면 일반 발판, 사라지기 0.3초 전에는 0.1초마다 깜박이고, 사라진 동안은 흐린 자리만 보인다.
@@ -245,8 +241,8 @@ export class CanvasRenderer {
       const { solid, warning } = rhythmPhase(rp, world.lifeTime);
       if (!solid) { ctx.fillStyle = RHYTHM_GHOST; ctx.fillRect(r.x, r.y, r.width, r.height); continue; }
       const flash = warning && Math.floor(world.lifeTime * 10) % 2 === 0;
-      ctx.fillStyle = flash ? RHYTHM_WARNING_FILL : '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
-      ctx.fillStyle = flash ? RHYTHM_WARNING_FILL : '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
+      if (flash) { ctx.fillStyle = RHYTHM_WARNING_FILL; ctx.fillRect(r.x, r.y, r.width, r.height); }
+      else drawGround(ctx, r, view);
     }
     // #28 얼음 바닥: 바닥 윗면을 얼음색으로 덮고 반짝이 줄을 긋는다(보이는 함정).
     for (const t of level.iceFloors) {
@@ -282,8 +278,7 @@ export class CanvasRenderer {
       const r = w.rect;
       if (w.revealed) { ctx.fillStyle = FAKE_WALL_REVEALED; ctx.fillRect(r.x, r.y, r.width, r.height); }
       else {
-        ctx.fillStyle = BLOCK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
-        ctx.fillStyle = BLOCK_TOP; ctx.fillRect(r.x, r.y, r.width, Math.min(4, r.height));
+        drawBlock(ctx, r, view);
       }
       if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height); }
     }
@@ -302,8 +297,7 @@ export class CanvasRenderer {
     for (const fg of world.fakeGoals) {
       if (!fg.collapsed) {
         for (const f of fg.config.floor) {
-          ctx.fillStyle = '#627e55'; ctx.fillRect(f.x, f.y, f.width, f.height);
-          ctx.fillStyle = '#99c577'; ctx.fillRect(f.x, f.y, f.width, Math.min(8, f.height));
+          drawGround(ctx, f, view);
           if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(f.x, f.y, f.width, f.height); }
         }
       }
@@ -329,8 +323,7 @@ export class CanvasRenderer {
     for (const c of world.countingPlatforms) {
       if (!c.solid || !inView(c.config.rect)) continue;
       const r = c.config.rect;
-      ctx.fillStyle = '#627e55'; ctx.fillRect(r.x, r.y, r.width, r.height);
-      ctx.fillStyle = '#99c577'; ctx.fillRect(r.x, r.y, r.width, Math.min(8, r.height));
+      drawGround(ctx, r, view);
       ctx.fillStyle = CRACK_FILL;
       for (let i = 0; i < c.count; i++) ctx.fillRect(r.x + ((i + 1) * r.width) / (c.config.landings + 1) - 1, r.y, 2, r.height);
     }
