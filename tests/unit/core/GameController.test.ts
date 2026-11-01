@@ -269,6 +269,22 @@ describe('GameController level progression', () => {
     controller.dispose();
   });
 
+  it('plays level 4 after level 3, and only level 4 ends the run with the completion screen', () => {
+    // 레벨 4 추가(docs/roadmap.md "레벨 4"): 레벨 3 클리어는 더 이상 완료 화면이 아니고, 레벨 4 기록은 v2:4 키에 저장한다.
+    const { controller, clearCurrentLevel, last } = setup();
+    expect(last().levelCount).toBe(4);
+    for (let i = 1; i < 3; i++) { clearCurrentLevel(); controller.nextLevel(); }
+    clearCurrentLevel();
+    expect(last().level).toBe(3);
+    expect(last().level === last().levelCount).toBe(false); // 레벨 3 클리어는 완료 화면 조건이 아니다
+    controller.nextLevel();
+    expect(last().level).toBe(4);
+    clearCurrentLevel();
+    expect(last().level === last().levelCount && last().cleared).toBe(true);
+    expect(localStorage.getItem('trap-runner:best:v2:4')).not.toBeNull();
+    controller.dispose();
+  });
+
   it('goes back to level 1 after the last level is cleared', () => {
     const { controller, clearCurrentLevel, last } = setup();
     for (let i = 0; i < last().levelCount; i++) { clearCurrentLevel(); controller.nextLevel(); }

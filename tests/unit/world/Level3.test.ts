@@ -58,9 +58,10 @@ function respawnAt(index: number): World {
 }
 
 describe('LEVEL_3 (hard)', () => {
-  it('is the last level, the longest, and uses all eight new trap kinds at the spec sizes', () => {
-    expect(LEVELS[LEVELS.length - 1]).toBe(LEVEL_3);
-    expect(LEVEL_3.width).toBeGreaterThan(Math.max(...LEVELS.slice(0, -1).map((l) => l.width))); // 맵 3배 확장을 마쳐 다시 가장 길다
+  it('comes after levels 1-2, is longer than them, and uses all eight new trap kinds at the spec sizes', () => {
+    // 마지막·가장 긴 레벨 확인은 레벨 4로 옮겼다(Level4.test.ts).
+    expect(LEVELS.indexOf(LEVEL_3)).toBe(2);
+    expect(LEVEL_3.width).toBeGreaterThan(Math.max(...LEVELS.slice(0, 2).map((l) => l.width)));
     const kinds = [LEVEL_3.vanishingGrounds, LEVEL_3.invisibleBlocks, LEVEL_3.fallingCeilings, LEVEL_3.dodgingPlatforms,
       LEVEL_3.popUpSpikes, LEVEL_3.fakeCheckpoints, LEVEL_3.goalHops, LEVEL_3.skyDrops];
     expect(kinds.every((list) => list.length > 0)).toBe(true);
