@@ -7,6 +7,8 @@ import {
 import { arrowRect, boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBlock, drawGround } from './terrain';
+import { drawFlag, drawGoal, drawSign, drawSpikes, GOAL_FILL } from './props';
+export { GOAL_FILL, SPIKE_FILL } from './props';
 import { TAUNTS } from './taunts';
 
 export const VIEW_HEIGHT = 540;
@@ -33,7 +35,6 @@ const HAZARD_REVEAL_TOP = '#fca5a5';
 export const DEATH_CAUSE_OVERLAY = 'rgba(185,28,28,0.45)';
 const BUILDING_SPACING = 130;
 export const VANISH_WARNING_FILL = '#c2622f'; // 다음에 무너질 칸(낙하 발판 경고색과 같은 주황)
-export const SPIKE_FILL = '#e2e8f0';
 export const TAUNT_COLOR = '#fca5a5';
 export const SKY_WARNING_FILL = '#facc15'; // 하늘에서 쏟아지는 적의 낙하 경고(갑자기 출현하는 적 경고와 같은 노랑)
 const CHECKPOINT_IDLE = '#64748b';
@@ -47,7 +48,6 @@ export const RHYTHM_GHOST = 'rgba(153,197,119,0.18)'; // #27 사라진 박자 �
 export const RHYTHM_WARNING_FILL = '#d9f99d'; // #27 사라지기 0.3초 전 깜박임
 export const ICE_FILL = '#bae6fd'; // #28 얼음 바닥
 const ICE_SHINE = '#f0f9ff';
-export const GOAL_FILL = '#eab308'; // 목표 깃발. 가짜 클리어(#14)의 깃발도 같은 색·모양이다
 export const FAKE_WALL_REVEALED = 'rgba(138,109,75,0.35)'; // #20 한 번 겹친 가짜 벽(반투명)
 export const GEM_FILL = '#22d3ee'; // #21 미끼 보물
 export const GEM_SHINE = '#ecfeff';
@@ -55,33 +55,7 @@ export const SHADOW_FILL = 'rgba(91,33,182,0.7)'; // #22 따라오는(충돌하�
 export const SHADOW_OUTLINE_RGB = '167,139,250'; // #22 충돌 없는 흐린 윤곽(점점 진해짐)
 export const BOULDER_FILL = '#78716c'; // #19 따라오는 돌덩이
 const BOULDER_SHADE = '#57534e';
-const SIGN_WIDTH = 150; // #18 표지판 판자(12자 문구가 들어가는 너비)
-const SIGN_POST = '#8a6d4b';
-const SIGN_BOARD = '#e7d7b5'; // 좌우 반전이 걸린 동안 플레이어 위에 띄우는 표시(#16)
 
-// 체크포인트 깃발. 가짜 체크포인트(#11)도 일부러 같은 모양으로 그린다(처음엔 구분되지 않아야 한다).
-// 깃대는 판정 영역 높이와 상관없이 영역 바닥에서 FLAG_HEIGHT만큼 그린다 — 진짜는 건너뛸 수 없게 영역이 높고
-// 가짜는 넘을 수 있게 낮아서, 영역 높이로 그리면 한눈에 구분됐다(Codex 리뷰).
-const FLAG_HEIGHT = 80;
-function drawFlag(ctx: CanvasRenderingContext2D, zone: Rect, color: string): void {
-  const top = zone.y + zone.height - FLAG_HEIGHT;
-  ctx.fillStyle = color;
-  ctx.fillRect(zone.x + zone.width / 2 - 2, top, 4, FLAG_HEIGHT);
-  ctx.beginPath();
-  ctx.moveTo(zone.x + zone.width / 2 + 2, top);
-  ctx.lineTo(zone.x + zone.width / 2 + 22, top + 10);
-  ctx.lineTo(zone.x + zone.width / 2 + 2, top + 20);
-  ctx.closePath();
-  ctx.fill();
-}
-// 솟은 가시(#10·#23): 받침과 8px 간격의 삼각형.
-function drawSpikes(ctx: CanvasRenderingContext2D, r: Rect): void {
-  ctx.fillStyle = SPIKE_FILL;
-  ctx.fillRect(r.x, r.y + r.height - 4, r.width, 4); // 받침
-  for (let x = r.x; x + 8 <= r.x + r.width + 0.5; x += 8) {
-    ctx.beginPath(); ctx.moveTo(x, r.y + r.height); ctx.lineTo(x + 4, r.y); ctx.lineTo(x + 8, r.y + r.height); ctx.closePath(); ctx.fill();
-  }
-}
 // 연출(docs/game-design.md "연출"): 화면 흔들림과 파편은 렌더러만 가진 그림 상태다 — World를 바꾸지 않으므로 같은 입력은
 // 연출과 상관없이 같은 결과를 낸다. GameController가 고정 스텝마다 stepEffects로 흘려, 일시정지 중에는 멈춘다.
 const SHAKE_DURATION = 0.3; // 초
@@ -139,6 +113,7 @@ export class CanvasRenderer {
     // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
     const inView = (r: Rect): boolean => r.x < cam + VIEW_WIDTH && r.x + r.width > cam;
     const view = { x: cam, width: VIEW_WIDTH, height: VIEW_HEIGHT }; // 땅·블록 무늬를 그릴 범위(terrain.ts)
+    const wave = Math.floor(performance.now() / 400) % 2; // 목표 깃발이 나부끼는 프레임(렌더링 전용 타이밍)
     // 배경 건물: 130px 간격으로 반복하되 카메라에 보이는 것만 그린다 — 레벨이 길어져도 끝까지 이어지고 그리기 양은 같다.
     ctx.fillStyle = '#293b4d';
     const firstBuilding = Math.max(0, Math.floor(cam / BUILDING_SPACING) - 1);
@@ -302,13 +277,12 @@ export class CanvasRenderer {
         }
       }
       const flag = fg.config.flag;
-      ctx.fillStyle = GOAL_FILL; ctx.fillRect(flag.x, flag.y, flag.width, flag.height);
+      drawGoal(ctx, flag, wave); // 진짜 목표와 같은 그림·같은 물결 프레임
     }
     // #18 가짜 안내 표지판: 기둥과 판자에 문구. 동작은 없다(짝이 되는 근처 함정이 동작한다).
     ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center';
     for (const sign of level.signs) {
-      ctx.fillStyle = SIGN_POST; ctx.fillRect(sign.x - 3, sign.y - 56, 6, 56);
-      ctx.fillStyle = SIGN_BOARD; ctx.fillRect(sign.x - SIGN_WIDTH / 2, sign.y - 88, SIGN_WIDTH, 32);
+      drawSign(ctx, sign.x, sign.y);
       ctx.fillStyle = '#3b2f22'; ctx.fillText(sign.text, sign.x, sign.y - 67);
     }
     ctx.textAlign = 'left';
@@ -318,7 +292,7 @@ export class CanvasRenderer {
       if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; ctx.strokeRect(ls.zone.x, ls.zone.y, ls.zone.width, ls.zone.height); }
     }
     const goal = world.goal.rect; // #12 도망가는 목표: 현재(이동 중이면 이동 중인) 위치
-    ctx.fillStyle = GOAL_FILL; ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+    drawGoal(ctx, goal, wave);
     // #30 세 번째 착지에 무너지는 발판: 일반 발판에 착지 횟수만큼 금(세로 줄)을 긋는다. 무너지면 그리지 않는다.
     for (const c of world.countingPlatforms) {
       if (!c.solid || !inView(c.config.rect)) continue;
