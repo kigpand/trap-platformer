@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameController, type HudSnapshot } from '../../../src/game/core/GameController';
 import { SoundPlayer } from '../../../src/game/audio/SoundPlayer';
+import { CanvasRenderer } from '../../../src/game/rendering/CanvasRenderer';
 
 // #14 가짜 클리어가 컨트롤러 화면 상태까지 진짜 클리어를 흉내 내는지 확인한다. 실제 레벨에는 아직 배치하지 않았으므로
 // (약올리는 함정 릴리스 5번) 레벨 목록을 가짜 깃발 하나만 둔 시험용 레벨로 바꾼다. 스폰이 깃발과 겹쳐 첫 스텝에 닿는다.
@@ -58,6 +59,15 @@ describe('GameController fake clear', () => {
     expect(last().deathKind).toBe('fakeClear');
     expect(last().level).toBe(1);
     expect(localStorage.getItem('trap-runner:best:v2:1')).toBeNull();
+    controller.dispose();
+  });
+
+  it('shakes the screen when the fake floor drops', () => {
+    const shake = vi.spyOn(CanvasRenderer.prototype, 'shakeScreen');
+    const { controller, step } = start();
+    step();
+    controller.nextLevel();
+    expect(shake).toHaveBeenCalledTimes(1);
     controller.dispose();
   });
 

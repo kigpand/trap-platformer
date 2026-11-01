@@ -2,9 +2,9 @@ import { GameLoop } from './GameLoop';
 import { InputManager, type TouchAction } from './InputManager';
 import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
-import { World, type GameSnapshot } from '../world/World';
+import { World, type DeathCauseKind, type GameSnapshot } from '../world/World';
 import { LEVELS } from '../world/level';
-import { isWithinHearing } from '../world/viewport';
+import { isInView, isWithinHearing } from '../world/viewport';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·레벨·최고 기록 상태.
@@ -14,6 +14,8 @@ export interface HudSnapshot extends GameSnapshot {
   paused: boolean; muted: boolean; volume: number;
   level: number; levelCount: number; best: BestRecord | null; bests: (BestRecord | null)[]; newRecord: boolean;
 }
+// 화면을 흔드는 깔림 사망 종류.
+const CRUSH_DEATHS: ReadonlySet<DeathCauseKind | null> = new Set(['fallingCeiling', 'descendingCeiling', 'boulder']);
 const MUTED_STORAGE_KEY = 'trap-runner:muted';
 const VOLUME_STORAGE_KEY = 'trap-runner:volume';
 const DEFAULT_VOLUME = 0.8;
@@ -101,11 +103,16 @@ export class GameController {
           else this.recordClear();
         }
         this.sound.play(event);
+        // 천장·돌덩이에 깔려 죽으면 화면을 흔든다(연출, docs/game-design.md "연출").
+        if (event === 'death' && CRUSH_DEATHS.has(this.world.snapshot().deathKind)) this.renderer.shakeScreen();
       }
       // 함정 효과음: 화면 밖 소리 규칙(렌더러와 같은 카메라 계산)으로 거른다 — 지나온 함정이 멀리서 뒤늦게 일으킨 일은 소리를 내지 않는다.
       for (const event of this.world.drainTrapEvents()) {
         if (isWithinHearing(event.rect, this.world.player.x, this.world.level.width)) this.sound.play(event.kind);
+        if (event.kind === 'collapse') this.renderer.addDebris(event.rect);
+        if (event.kind === 'slam' && isInView(event.rect, this.world.player.x, this.world.level.width)) this.renderer.shakeScreen();
       }
+      if (!this.paused) this.renderer.stepEffects(dt);
       this.sound.updateMusic(!this.paused); // 일시정지(탭 숨김 포함) 중에는 배경 음악도 멈춘다
       this.publishSnapshot();
     }, (metrics) => this.renderer.render(this.world, metrics, this.paused), onError);
@@ -172,7 +179,7 @@ export class GameController {
   // 명시적인 행동이므로, 클리어 후 정지해 둔 상태를 새 레벨로 물려주지 않고 재개한다.
   // 가짜 클리어(#14) 중이면 넘어가는 대신 깃발 아래 바닥이 꺼진다 — 진짜처럼 정지도 풀어 그대로 떨어지게 한다.
   private advanceLevel(): void {
-    if (this.world.collapseFakeFloor()) { this.paused = false; return; }
+    if (this.world.collapseFakeFloor()) { this.paused = false; this.renderer.shakeScreen(); return; }
     if (!this.world.cleared) return;
     this.levelIndex = (this.levelIndex + 1) % LEVELS.length;
     this.world = new World(LEVELS[this.levelIndex]);

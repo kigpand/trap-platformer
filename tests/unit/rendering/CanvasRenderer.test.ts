@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEBRIS_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -393,5 +393,46 @@ describe('CanvasRenderer off-screen culling', () => {
     world.player.x = 3050; // 카메라를 먼 쪽으로
     expect(drawn(far)).toBe(true);
     expect(drawn(near)).toBe(false);
+  });
+});
+
+describe('CanvasRenderer effects (shake and debris)', () => {
+  const step = 1 / 60;
+  const renderWith = (renderer: CanvasRenderer, canvas: HTMLCanvasElement, world: World): FillCall[] => {
+    const { ctx, fills } = recordingContext();
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+    renderer.render(world, { fps: 60, steps: 1 });
+    return fills;
+  };
+
+  it('shakes for 0.3s at most 6px, fading out', () => {
+    const renderer = new CanvasRenderer(document.createElement('canvas'), () => false);
+    expect(renderer.shakeOffset()).toEqual({ x: 0, y: 0 });
+    renderer.shakeScreen();
+    const offsets: number[] = [];
+    for (let i = 0; i < 18; i++) { const o = renderer.shakeOffset(); offsets.push(Math.max(Math.abs(o.x), Math.abs(o.y))); renderer.stepEffects(step); }
+    expect(Math.max(...offsets)).toBeGreaterThan(0);
+    expect(Math.max(...offsets)).toBeLessThanOrEqual(SHAKE_AMPLITUDE);
+    expect(renderer.shakeOffset()).toEqual({ x: 0, y: 0 }); // 18스텝 = 0.3초 뒤 끝
+  });
+
+  it('does not shake when the user prefers reduced motion', () => {
+    const renderer = new CanvasRenderer(document.createElement('canvas'), () => true);
+    renderer.shakeScreen();
+    expect(renderer.shakeOffset()).toEqual({ x: 0, y: 0 });
+  });
+
+  it('drops debris from a vanished rect for a moment, capped in count', () => {
+    const canvas = document.createElement('canvas');
+    const renderer = new CanvasRenderer(canvas, () => false);
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }] }));
+    renderer.addDebris({ x: 200, y: 480, width: 120, height: 20 });
+    const fills = renderWith(renderer, canvas, world).filter((f) => f.style === DEBRIS_FILL);
+    expect(fills.length).toBe(6);
+    expect(fills.every((f) => f.x >= 190 && f.x <= 320 && f.y === 480)).toBe(true);
+    for (let i = 0; i < 36; i++) renderer.stepEffects(step); // 0.6초
+    expect(renderWith(renderer, canvas, world).some((f) => f.style === DEBRIS_FILL)).toBe(false);
+    for (let i = 0; i < 20; i++) renderer.addDebris({ x: 200, y: 480, width: 120, height: 20 });
+    expect(renderWith(renderer, canvas, world).filter((f) => f.style === DEBRIS_FILL).length).toBe(60);
   });
 });
