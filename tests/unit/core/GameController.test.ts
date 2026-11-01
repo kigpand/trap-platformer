@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameController, mergeBest, type HudSnapshot } from '../../../src/game/core/GameController';
 import { World } from '../../../src/game/world/World';
 import { SoundPlayer } from '../../../src/game/audio/SoundPlayer';
+import { CanvasRenderer } from '../../../src/game/rendering/CanvasRenderer';
 
 describe('mergeBest', () => {
   it('takes the first clear as the best record', () => {
@@ -101,6 +102,31 @@ describe('GameController best record', () => {
     fire(1000 / 60);
     expect(play).toHaveBeenCalledWith('arrow');
     expect(play).not.toHaveBeenCalledWith('slam');
+    controller.dispose();
+  });
+
+  it('shakes on crush deaths and on-screen slams, and drops debris where something collapsed', () => {
+    const shake = vi.spyOn(CanvasRenderer.prototype, 'shakeScreen');
+    const debris = vi.spyOn(CanvasRenderer.prototype, 'addDebris');
+    const collapsed = { x: 300, y: 500, width: 80, height: 120 };
+    vi.spyOn(World.prototype, 'drainTrapEvents').mockReturnValueOnce([
+      { kind: 'collapse', rect: collapsed },
+      { kind: 'slam', rect: { x: 5000, y: 460, width: 40, height: 40 } }, // 화면 밖 착지는 흔들지 않는다
+    ]);
+    const { controller, fire } = startWithManualFrames();
+    fire(0);
+    fire(1000 / 60);
+    expect(debris).toHaveBeenCalledWith(collapsed);
+    expect(shake).not.toHaveBeenCalled();
+    vi.spyOn(World.prototype, 'drainTrapEvents').mockReturnValueOnce([{ kind: 'slam', rect: { x: 200, y: 460, width: 40, height: 40 } }]);
+    fire(2000 / 60);
+    expect(shake).toHaveBeenCalledTimes(1);
+    vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['death']);
+    vi.spyOn(World.prototype, 'snapshot').mockReturnValue({
+      x: 0, y: 0, grounded: true, deaths: 1, cleared: false, checkpoint: false, time: 0, runDeaths: 1, deathKind: 'boulder',
+    });
+    fire(3100 / 60); // 경계에 딱 맞춘 프레임은 누적 오차로 스텝을 건너뛸 수 있어 조금 더 넘긴다
+    expect(shake).toHaveBeenCalledTimes(2);
     controller.dispose();
   });
 

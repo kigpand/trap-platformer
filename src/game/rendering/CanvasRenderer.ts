@@ -83,9 +83,46 @@ function drawSpikes(ctx: CanvasRenderingContext2D, r: Rect): void {
     ctx.beginPath(); ctx.moveTo(x, r.y + r.height); ctx.lineTo(x + 4, r.y); ctx.lineTo(x + 8, r.y + r.height); ctx.closePath(); ctx.fill();
   }
 }
+// 연출(docs/game-design.md "연출"): 화면 흔들림과 파편은 렌더러만 가진 그림 상태다 — World를 바꾸지 않으므로 같은 입력은
+// 연출과 상관없이 같은 결과를 낸다. GameController가 고정 스텝마다 stepEffects로 흘려, 일시정지 중에는 멈춘다.
+const SHAKE_DURATION = 0.3; // 초
+export const SHAKE_AMPLITUDE = 6; // px
+const DEBRIS_PER_RECT = 6;
+const DEBRIS_LIFE = 0.6; // 초
+const MAX_DEBRIS = 60; // 한꺼번에 많이 무너져도 그리기 양이 늘지 않게
+const DEBRIS_SIZE = 6;
+export const DEBRIS_FILL = '#4d6343';
+interface Debris { x: number; y: number; vx: number; vy: number; life: number }
+// 운영체제의 "동작 줄이기"를 켠 사용자에게는 화면을 흔들지 않는다.
+const prefersReducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
 export class CanvasRenderer {
   debug = false;
-  constructor(private readonly canvas: HTMLCanvasElement) {}
+  private shake = 0; // 남은 흔들림 시간(초)
+  private debris: Debris[] = [];
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly reducedMotion: () => boolean = prefersReducedMotion) {}
+  // 깔림 사망·천장 착지·가짜 클리어 바닥 꺼짐에 0.3초 동안 최대 6px 흔든다(점점 잦아듦).
+  shakeScreen(): void {
+    if (!this.reducedMotion()) this.shake = SHAKE_DURATION;
+  }
+  // 사라진 발판·블록·바닥의 윗면에서 작은 조각을 몇 개 떨어뜨린다(그림일 뿐 부딪히지 않는다).
+  addDebris(rect: Rect): void {
+    for (let i = 0; i < DEBRIS_PER_RECT; i++) {
+      this.debris.push({ x: rect.x + ((i + 0.5) * rect.width) / DEBRIS_PER_RECT, y: rect.y, vx: (i - (DEBRIS_PER_RECT - 1) / 2) * 30, vy: -150 - (i % 3) * 40, life: DEBRIS_LIFE });
+    }
+    if (this.debris.length > MAX_DEBRIS) this.debris.splice(0, this.debris.length - MAX_DEBRIS);
+  }
+  stepEffects(dt: number): void {
+    this.shake = Math.max(0, this.shake - dt);
+    for (const d of this.debris) { d.vy += 1350 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.life -= dt; }
+    this.debris = this.debris.filter((d) => d.life > 0);
+  }
+  // 이번 그림의 흔들림 오프셋. 무작위 대신 남은 시간으로 정해 테스트에서 재현된다.
+  shakeOffset(): { x: number; y: number } {
+    if (this.shake <= 0) return { x: 0, y: 0 };
+    const k = this.shake / SHAKE_DURATION;
+    return { x: Math.round(SHAKE_AMPLITUDE * k * Math.sin(this.shake * 120)), y: Math.round(SHAKE_AMPLITUDE * k * Math.cos(this.shake * 97)) };
+  }
   render(world: World, metrics: RenderMetrics, paused = false): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
@@ -97,7 +134,8 @@ export class CanvasRenderer {
     ctx.fillStyle = '#101729'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
     const level = world.level;
     const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
-    ctx.save(); ctx.translate(-cam, 0);
+    const shake = this.shakeOffset();
+    ctx.save(); ctx.translate(-cam + shake.x, shake.y);
     // 화면(카메라 가로 범위)과 겹치는 사각형만 그린다 — 레벨이 길어져도 바닥·함정 타일을 그리는 양이 화면 크기만큼으로 유지된다.
     // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
     const inView = (r: Rect): boolean => r.x < cam + VIEW_WIDTH && r.x + r.width > cam;
@@ -384,6 +422,8 @@ export class CanvasRenderer {
       }
       if (this.debug) { const tr = t.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(tr.x, tr.y, tr.width, tr.height); }
     }
+    ctx.fillStyle = DEBRIS_FILL;
+    for (const d of this.debris) ctx.fillRect(d.x - DEBRIS_SIZE / 2, d.y, DEBRIS_SIZE, DEBRIS_SIZE);
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
