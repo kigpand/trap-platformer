@@ -395,3 +395,28 @@ test('a trap death announces the taunting message to screen readers', async ({ p
   await page.keyboard.up('ArrowRight');
   await expect(page.getByRole('status')).toContainText('거기 바닥 있는 줄 알았지?');
 });
+
+test('a connected gamepad moves the player and Start pauses', async ({ page }) => {
+  // 실제 패드 없이 navigator.getGamepads를 바꿔 끼워, 브라우저에서 InputManager가 패드를 읽는 경로를 확인한다.
+  await page.addInitScript(() => {
+    const state = { right: false, start: false };
+    Object.assign(window, { padState: state });
+    const buttons = (): { pressed: boolean }[] => Array.from({ length: 17 }, (_, i) => ({ pressed: (i === 15 && state.right) || (i === 9 && state.start) }));
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [{ index: 0, axes: [0, 0], buttons: buttons() }] });
+  });
+  await page.goto('/');
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  const status = page.locator('.hud span', { hasText: 'STATUS' });
+  await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
+  const setPad = (key: 'right' | 'start', pressed: boolean) => page.evaluate(([k, p]) => {
+    (window as unknown as { padState: Record<string, boolean> }).padState[k as string] = p as boolean;
+  }, [key, pressed] as const);
+
+  await setPad('right', true);
+  await expect(position).not.toHaveText(/^POSITION 65, /);
+  await setPad('right', false);
+
+  await setPad('start', true);
+  await expect(status).toHaveText('STATUS PAUSED');
+  await setPad('start', false);
+});

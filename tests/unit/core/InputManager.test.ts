@@ -1,6 +1,15 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { InputManager } from '../../../src/game/core/InputManager';
+import { InputManager, type PadState } from '../../../src/game/core/InputManager';
+
+// 표준 배치 게임패드 하나를 흉내 낸다. pressed는 누른 버튼 번호, stick은 왼쪽 스틱 가로축 값.
+function pad(pressed: readonly number[] = [], stick = 0, index = 0): PadState {
+  return { index, axes: [stick, 0], buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: pressed.includes(i) })) };
+}
+function padInput(): { input: InputManager; set: (...pads: (PadState | null)[]) => void } {
+  let pads: (PadState | null)[] = [];
+  return { input: new InputManager(window, () => pads), set: (...next) => { pads = next; } };
+}
 
 describe('InputManager', () => {
   it('treats a plain R press as a restart request', () => {
@@ -145,5 +154,75 @@ describe('InputManager', () => {
     expect(input.consume().input.horizontal).toBe(0);
     input.dispose();
   });
-});
 
+  it('moves with the gamepad d-pad or the left stick past the dead zone', () => {
+    const { input, set } = padInput();
+    set(pad([15]));
+    expect(input.consume().input.horizontal).toBe(1);
+    set(pad([], -0.8));
+    expect(input.consume().input.horizontal).toBe(-1);
+    set(pad([], 0.3)); // 스틱이 살짝 기운 정도(쏠림)는 이동으로 치지 않는다
+    expect(input.consume().input.horizontal).toBe(0);
+    input.dispose();
+  });
+
+  it('jumps once per gamepad A press, not every step the button is held', () => {
+    const { input, set } = padInput();
+    set(pad([0]));
+    expect(input.consume().input.jumpPressed).toBe(true);
+    expect(input.consume().input.jumpPressed).toBe(false); // 누르고 있는 동안
+    set(pad());
+    input.consume();
+    set(pad([0]));
+    expect(input.consume().input.jumpPressed).toBe(true);
+    input.dispose();
+  });
+
+  it('maps Start to pause, Select to restart and Y to next level, edge-triggered', () => {
+    const { input, set } = padInput();
+    set(pad([9, 8, 3]));
+    const first = input.consume();
+    expect([first.togglePause, first.input.restartPressed, first.nextLevel]).toEqual([true, true, true]);
+    const held = input.consume();
+    expect([held.togglePause, held.input.restartPressed, held.nextLevel]).toEqual([false, false, false]);
+    input.dispose();
+  });
+
+  it('drops gamepad input when the pad disconnects, and a reconnected pad starts fresh', () => {
+    const { input, set } = padInput();
+    set(pad([15, 0]));
+    input.consume();
+    set(null); // 연결이 끊긴 자리는 null로 남는다
+    expect(input.consume().input.horizontal).toBe(0);
+    set(pad([0])); // 다시 연결되어 A를 누른 채 나타나면 새로 누른 것으로 친다
+    expect(input.consume().input.jumpPressed).toBe(true);
+    input.dispose();
+  });
+
+  it('does not re-fire a gamepad button still held after blur clears the input', () => {
+    // 탭 전환(blur) 뒤 돌아왔을 때 계속 쥐고 있던 A가 다시 점프로 잡히면 안 된다.
+    const { input, set } = padInput();
+    set(pad([0]));
+    input.consume();
+    window.dispatchEvent(new Event('blur'));
+    expect(input.consume().input.jumpPressed).toBe(false);
+    input.dispose();
+  });
+
+  it('combines a gamepad direction with the opposite keyboard direction as no movement, like two keys', () => {
+    const { input, set } = padInput();
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
+    set(pad([15]));
+    expect(input.consume().input.horizontal).toBe(0);
+    input.dispose();
+  });
+
+  it('reads two pads independently', () => {
+    const { input, set } = padInput();
+    set(pad([0], 0, 0), pad([], 0, 1));
+    input.consume();
+    set(pad([0], 0, 0), pad([0], 0, 1)); // 두 번째 패드의 A는 새로 누른 것
+    expect(input.consume().input.jumpPressed).toBe(true);
+    input.dispose();
+  });
+});

@@ -113,6 +113,7 @@ export default function App() {
       </section>
       {/* 입력 방식에 맞는 안내만 보인다(style.css의 pointer: coarse 미디어 쿼리) */}
       <p className="help help-keys">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거 · N 다음 레벨(클리어 후)</p>
+      <p className="help help-keys">게임패드: 방향 패드 / 왼쪽 스틱 이동 · A / ↑ 점프 · Start 일시정지 · Select(Back) 재시작 · Y 다음 레벨(클리어 후)</p>
       <p className="help help-touch">◀ ▶ 버튼을 누르고 있는 동안 이동 · ▲ 점프 · 일시정지·재시작·음소거·다음 레벨은 화면의 버튼으로</p>
       <section className="about">
         <h2>게임 소개</h2>
