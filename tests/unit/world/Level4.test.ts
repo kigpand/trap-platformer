@@ -117,19 +117,23 @@ describe('LEVEL_4 (hell)', () => {
   });
 
   it('leaves at least 6 frames of human slack on every solution jump', () => {
-    // docs/game-design.md "사람 손 여유 하한": 점프마다 몇 프레임 일찍·늦게 눌러도 뒤의 세 명령까지 사망 없이 가는지 잰다.
-    // 체크포인트마다 따로 재 시간을 줄인다(재시작 직후 사망 수 1을 0으로 돌려 놓고 잰다).
+    // docs/game-design.md "사람 손 여유 하한": 점프마다 몇 프레임 일찍·늦게 눌러도 레벨 끝까지 사망 없이 가는지 잰다.
+    // 체크포인트마다 그 구간의 점프만 재고(재시작 직후 사망 수 1을 0으로 돌려 놓고 잰다), 바꾼 뒤에는 뒤 구간까지 끝까지 확인한다.
+    // 한쪽 12프레임까지만 재 실행 시간을 묶는다(하한 6프레임 확인에는 충분하다).
     const fresh = (index: number) => () => { const w = respawnAt(index); w.deaths = 0; return w; };
-    const segments: [string, () => World, Step[]][] = [
-      ['spawn', () => new World(LEVEL_4), FROM_SPAWN], ['checkpoint 1', fresh(0), FROM_CP1], ['checkpoint 2', fresh(1), FROM_CP2],
-      ['checkpoint 3', fresh(2), FROM_CP3], ['checkpoint 4', fresh(3), FROM_CP4],
+    const segments: [string, () => World, Step[], Step[]][] = [
+      ['spawn', () => new World(LEVEL_4), FROM_SPAWN, FULL.slice(FROM_SPAWN.length)],
+      ['checkpoint 1', fresh(0), FROM_CP1, [...FROM_CP2, ...FROM_CP3, ...FROM_CP4]],
+      ['checkpoint 2', fresh(1), FROM_CP2, [...FROM_CP3, ...FROM_CP4]],
+      ['checkpoint 3', fresh(2), FROM_CP3, FROM_CP4],
+      ['checkpoint 4', fresh(3), FROM_CP4, []],
     ];
-    for (const [name, make, steps] of segments) {
-      const slack = jumpSlack(make, steps);
+    for (const [name, make, steps, rest] of segments) {
+      const slack = jumpSlack(make, [...steps, ...rest], steps.length, 12);
       expect(slack.length, name).toBe(steps.filter((s) => 'jump' in s || 'hop' in s).length);
       for (const s of slack) expect(s.total, `${name} step ${s.index}: ${s.early} early + ${s.late} late`).toBeGreaterThanOrEqual(6);
     }
-  });
+  }, 60_000); // 변형마다 레벨 끝까지 다시 돌린다 — 기본 5초 제한은 느린 기기에서 넘었다(Codex 리뷰)
 
   it('catches the naive play in each stacked section', () => {
     // 1. 그대로 달리면 쏟아지는 적, 멈추면 그림자
