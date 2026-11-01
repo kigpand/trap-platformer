@@ -62,9 +62,9 @@ export default function App() {
   return (
     <main className="app">
       <header>
-        <span className="eyebrow">CANVAS 2D / PROTOTYPE 0.1</span>
+        <span className="eyebrow">BROWSER TRAP PLATFORMER</span>
         <h1>TRAP RUNNER</h1>
-        <p>오리지널 함정 플랫포머 — 엔진 기반 테스트 레벨</p>
+        <p>보이는 대로 믿으면 떨어지는 2D 함정 플랫포머 — 함정 30종, 레벨 4개</p>
       </header>
       <div className="game-shell">
         <GameCanvas ref={game} onSnapshot={onSnapshot} />
@@ -114,6 +114,14 @@ export default function App() {
       {/* 입력 방식에 맞는 안내만 보인다(style.css의 pointer: coarse 미디어 쿼리) */}
       <p className="help help-keys">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거 · N 다음 레벨(클리어 후)</p>
       <p className="help help-touch">◀ ▶ 버튼을 누르고 있는 동안 이동 · ▲ 점프 · 일시정지·재시작·음소거·다음 레벨은 화면의 버튼으로</p>
+      <section className="about">
+        <h2>게임 소개</h2>
+        <p>
+          Trap Runner는 설치 없이 브라우저에서 바로 하는 횡스크롤 함정 플랫포머입니다. 사라지는 땅, 투명 블록, 가짜 클리어 깃발,
+          뒤를 따라오는 그림자처럼 처음 보면 당할 수밖에 없는 함정 30종이 레벨 4개에 숨어 있습니다. 죽으면 무엇에 당했는지 화면에
+          표시되니, 다음 시도에서 피해 보세요. 체크포인트에서 다시 시작하고, 레벨마다 최고 기록(시간·떨어진 횟수)이 브라우저에 저장됩니다.
+        </p>
+      </section>
       <p className="visually-hidden" role="status" aria-live="polite">{announcement}</p>
     </main>
   );

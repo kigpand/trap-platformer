@@ -1,2 +1,49 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Trap Runner — Trap Platformer Prototype</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trap Runner — 브라우저에서 바로 하는 함정 플랫포머 게임</title>
+    <meta name="description" content="설치 없이 브라우저에서 바로 하는 2D 횡스크롤 함정 플랫포머. 사라지는 땅, 가짜 클리어, 따라 하는 그림자 같은 함정 30종과 레벨 4개를 키보드나 터치로 플레이합니다." />
+    <link rel="canonical" href="https://kigpand.github.io/trap-platformer/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#090e19" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Trap Runner" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="Trap Runner — 함정 플랫포머 게임" />
+    <meta property="og:description" content="보이는 대로 믿으면 떨어지는 2D 함정 플랫포머. 함정 30종, 레벨 4개, 브라우저에서 바로 플레이." />
+    <meta property="og:url" content="https://kigpand.github.io/trap-platformer/" />
+    <meta property="og:image" content="https://kigpand.github.io/trap-platformer/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Trap Runner",
+        "url": "https://kigpand.github.io/trap-platformer/",
+        "image": "https://kigpand.github.io/trap-platformer/og-image.png",
+        "description": "설치 없이 브라우저에서 바로 하는 2D 횡스크롤 함정 플랫포머. 함정 30종과 레벨 4개.",
+        "genre": ["Platformer", "Action"],
+        "gamePlatform": "Web browser",
+        "applicationCategory": "Game",
+        "operatingSystem": "Any",
+        "inLanguage": "ko",
+        "isAccessibleForFree": true
+      }
+    </script>
+  </head>
+  <body>
+    <!-- 자바스크립트를 실행하지 않는 검색 수집기(네이버 등)도 읽을 수 있는 소개. React가 마운트하면 앱으로 바뀐다. -->
+    <div id="root">
+      <main>
+        <h1>TRAP RUNNER</h1>
+        <p>보이는 대로 믿으면 떨어지는 2D 함정 플랫포머 — 함정 30종, 레벨 4개.</p>
+        <p>설치 없이 브라우저에서 바로 플레이합니다. 키보드(← → 이동, Space 점프)나 화면의 터치 버튼으로 조작합니다.</p>
+      </main>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
