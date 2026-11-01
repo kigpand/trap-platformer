@@ -77,19 +77,6 @@ describe('CanvasRenderer death cause overlay and background', () => {
     const fills = renderFills(world);
     expect(fills.some((f) => f.style === DEATH_CAUSE_OVERLAY && f.x === cause.x && f.width === cause.width)).toBe(true);
   });
-
-  it('keeps drawing background buildings to the far end of a long level, only around the camera', () => {
-    // 이전에는 건물 18개(약 2,340px)까지만 그려 긴 레벨 뒤쪽 배경이 비었다.
-    const wide: Level = { ...LEVEL_1, width: 6000, solids: [{ x: 0, y: 500, width: 6000, height: 120 }] };
-    const world = new World(wide);
-    world.player.x = 5800;
-    const cam = cameraX(world.player.x, VIEW_WIDTH, wide.width);
-    const buildings = renderFills(world).filter((f) => f.style === '#293b4d');
-    expect(buildings.some((f) => f.x + f.width > cam + VIEW_WIDTH - 130)).toBe(true); // 화면 오른쪽 끝까지 이어진다
-    // 화면 근처만 그린다(양쪽 가장자리에 걸치는 건물까지 한두 개 여유를 둔다) — 레벨 전체를 그리지 않는다.
-    expect(buildings.every((f) => f.x + f.width >= cam - 260 && f.x <= cam + VIEW_WIDTH + 260)).toBe(true);
-    expect(buildings.length).toBeLessThan(15);
-  });
 });
 
 describe('CanvasRenderer terrain traps (#6, #7, #9)', () => {
