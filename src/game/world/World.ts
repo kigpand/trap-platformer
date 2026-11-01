@@ -38,6 +38,10 @@ export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; rest
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
 // GameController가 drainEvents()로 꺼내 SoundPlayer에 넘긴다.
 export type WorldEvent = 'jump' | 'death' | 'checkpoint' | 'clear';
+// 함정 발동 이벤트(docs/game-design.md "소리"의 함정 효과음 표). 위치가 없는 WorldEvent와 달리 일어난 영역을 함께 넘겨,
+// GameController가 화면 밖 소리 규칙으로 거르고(뒤늦게 화면 밖에서 일어난 일은 소리를 내지 않음) 연출에도 쓴다.
+export type TrapEventKind = 'spring' | 'fling' | 'collapse' | 'slam' | 'spikes' | 'warning' | 'arrow' | 'gem' | 'reverse' | 'shadow' | 'boulder';
+export interface TrapEvent { readonly kind: TrapEventKind; readonly rect: Rect }
 // time은 이번 런의 경과 시간(초, 0.1초 단위 내림). runDeaths는 이번 런의 사망 수 — deaths(FALLS)는 수동 재시작에도 누적된다.
 // deathKind는 가장 최근 사망의 원인 종류(원인 없는 낙사·수동 재시작 뒤에는 null) — 스크린 리더 사망 알림에 놀리는 문구를 붙인다.
 export interface GameSnapshot {
@@ -341,6 +345,7 @@ export class World {
   runDeaths = 0;
   private runComplete = false;
   private events: WorldEvent[] = [];
+  private trapEvents: TrapEvent[] = [];
   // 레벨 의존 상태는 필드 초기화식이 아니라 생성자에서 만든다 — 초기화식은 매개변수 속성(this.level)이
   // 할당되기 전에 실행되기 때문이다.
   constructor(readonly level: Level) {
@@ -390,6 +395,12 @@ export class World {
     this.events = [];
     return drained;
   }
+  drainTrapEvents(): TrapEvent[] {
+    const drained = this.trapEvents;
+    this.trapEvents = [];
+    return drained;
+  }
+  private trapEvent(kind: TrapEventKind, rect: Rect): void { this.trapEvents.push({ kind, rect }); }
   // cause: 이 사망의 원인(영역과 종류, 없으면 표시하지 않음). 수동 재시작(R)은 원인 없이 부른다.
   reset(countDeath = false, cause: DeathCause | null = null): void {
     if (countDeath) {
@@ -463,16 +474,23 @@ export class World {
     // 다시 확인해 발판이 사라진 바로 그 프레임부터 정확한 값을 쓰도록 한다
     // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
     for (const fp of this.fallingPlatforms) {
-      if (updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt)) this.lastFallTrap = { cause: { rect: fp.rect, kind: 'fallingPlatform' }, at: this.clock };
+      if (updateCollapsing(fp, isStandingOn(p, fp.rect), FALL_TRIGGER_DELAY, dt)) {
+        this.lastFallTrap = { cause: { rect: fp.rect, kind: 'fallingPlatform' }, at: this.clock };
+        this.trapEvent('collapse', fp.rect);
+      }
     }
     for (const hb of this.hiddenBlocks) {
       const triggered = isStandingOn(p, hb.rect) || isTouchingSide(p, hb.rect);
-      if (updateCollapsing(hb, triggered, HIDDEN_BLOCK_DELAY, dt)) this.lastFallTrap = { cause: { rect: hb.rect, kind: 'hiddenBlock' }, at: this.clock };
+      if (updateCollapsing(hb, triggered, HIDDEN_BLOCK_DELAY, dt)) {
+        this.lastFallTrap = { cause: { rect: hb.rect, kind: 'hiddenBlock' }, at: this.clock };
+        this.trapEvent('collapse', hb.rect);
+      }
     }
     for (const vg of this.vanishingGrounds) {
       if (vg.elapsed === null) {
         if (!isStandingOn(p, vg.rect)) continue;
         vg.elapsed = 0;
+        this.trapEvent('collapse', vg.rect); // 무너지기 시작할 때 한 번
       }
       vg.elapsed += dt;
       const gone = Math.min(vanishingTileCount(vg.rect), Math.floor((vg.elapsed * VANISH_SPEED) / VANISH_TILE + 1e-6));
@@ -506,6 +524,7 @@ export class World {
       const fling = this.level.flingZones.find((f) => overlaps(p, f.zone));
       if (fling) {
         this.launch(fling.vx, fling.vy);
+        this.trapEvent('fling', fling.zone);
         this.lastFallTrap = { cause: { rect: fling.zone, kind: 'flingJump' }, at: this.clock };
       } else {
         // #24 무거운 신발: 구역 안에서 뛰면 낮고 짧은 점프. 떨어지면 3초 규칙으로 구역 탓.
@@ -514,7 +533,10 @@ export class World {
         p.vy = -(heavy ? heavy.jumpSpeed : JUMP_SPEED); p.grounded = false;
         // #23 착지 예측 가시: 이 점프가 지금 입력을 유지한 채 떨어질 자리에 즉시 가시를 솟게 한다.
         const ls = this.landingSpikes.find((s) => !s.fired && overlaps(p, s.zone));
-        if (ls) { ls.fired = true; ls.spikes = this.predictLandingSpikes(dt); }
+        if (ls) {
+          ls.fired = true; ls.spikes = this.predictLandingSpikes(dt);
+          if (ls.spikes) this.trapEvent('spikes', ls.spikes);
+        }
       }
       this.events.push('jump');
       // #29 따라 뛰는 적: 점프 입력으로 바닥을 떠난 스텝(보통·무거운 신발·날려버리는 점프)에 400px 안의 바닥에 있는 적이 같이 뛴다.
@@ -554,6 +576,7 @@ export class World {
       const landedOn = this.countingPlatforms.find((c) => c.solid && isStandingOn(p, c.config.rect));
       if (landedOn && ++landedOn.count >= landedOn.config.landings) {
         landedOn.solid = false;
+        this.trapEvent('collapse', landedOn.config.rect);
         this.lastFallTrap = { cause: { rect: landedOn.config.rect, kind: 'countingPlatform' }, at: this.clock };
         if (![...this.level.solids, ...this.dynamicSolids()].some((s) => isStandingOn(p, s))) p.grounded = false;
       }
@@ -569,6 +592,7 @@ export class World {
       const spring = this.springFloors.find((sf) => isStandingOn(p, sf.config.tile));
       if (spring) {
         spring.bounced = true;
+        this.trapEvent('spring', spring.config.tile);
         this.launch(spring.config.vx, spring.config.vy);
         this.taunt = { kind: 'springFloor', remaining: TAUNT_DURATION };
       }
@@ -588,12 +612,17 @@ export class World {
       if (sh.phase !== 'active') continue;
       sh.trail.push({ x: p.x, y: p.y });
       sh.steps++;
-      if (sh.trail.length > SHADOW_DELAY_STEPS) sh.body = sh.trail.shift() ?? null;
+      if (sh.trail.length > SHADOW_DELAY_STEPS) {
+        const appearing = sh.body === null;
+        sh.body = sh.trail.shift() ?? null;
+        if (appearing && sh.body) this.trapEvent('shadow', shadowRect(sh.body)); // 실체가 되는 순간 한 번
+      }
       if (sh.body && sh.body.x > sh.config.endX) { sh.phase = 'gone'; sh.body = null; sh.trail.length = 0; }
     }
     for (const g of this.baitGems) {
       if (g.taken || !overlaps(p, gemRect(g.config))) continue;
       g.taken = true;
+      this.trapEvent('gem', gemRect(g.config));
       this.taunt = { kind: 'baitGemPickup', remaining: TAUNT_DURATION };
       this.lastFallTrap = { cause: { rect: gemRect(g.config), kind: 'baitGem' }, at: this.clock };
     }
@@ -623,7 +652,7 @@ export class World {
       d.y = d.config.platform.y + (d.config.to.y - d.config.platform.y) * k;
     }
     // #10 솟아오르는 가시: 트리거에 들어오면 즉시 솟는다.
-    for (const sp of this.popUpSpikes) if (!sp.raised && overlaps(p, sp.config.trigger)) sp.raised = true;
+    for (const sp of this.popUpSpikes) if (!sp.raised && overlaps(p, sp.config.trigger)) { sp.raised = true; this.trapEvent('spikes', sp.config.spikes); }
     // #12 도망가는 목표: 다음 트리거에 들어오면 0.25초 동안 다음 위치로 이동한다(이동 중에는 클리어 판정 없음).
     // 트리거한 스텝부터 이동을 시작해 15스텝째에 도착한다(Codex 리뷰: 트리거 스텝을 건너뛰어 16스텝이 걸렸다).
     const g = this.goal;
@@ -653,7 +682,7 @@ export class World {
       }
       g.elapsed += dt;
       for (const se of g.enemies) {
-        if (se.phase === 'idle' && g.elapsed >= se.drop.delay - 1e-6) se.phase = 'warning';
+        if (se.phase === 'idle' && g.elapsed >= se.drop.delay - 1e-6) { se.phase = 'warning'; this.trapEvent('warning', { x: se.drop.x, y: 0, width: ENEMY_WIDTH, height: ENEMY_HEIGHT }); }
         if (se.phase === 'warning' && g.elapsed >= se.drop.delay + SKY_DROP_WARNING - 1e-6) {
           se.enemy = { ...createEnemy(se.drop.minX, se.drop.maxX, -ENEMY_HEIGHT), x: se.drop.x };
           se.phase = 'falling';
@@ -676,7 +705,9 @@ export class World {
     // 지형을 따라 오르내리지 않고 솔리드도 아니다.
     for (const b of this.boulders) {
       if (b.phase === 'idle') {
-        if (overlaps(p, b.config.trigger)) b.phase = 'rolling';
+        if (!overlaps(p, b.config.trigger)) continue;
+        b.phase = 'rolling';
+        this.trapEvent('boulder', boulderRect(b));
         continue;
       }
       if (b.phase !== 'rolling') continue;
@@ -692,8 +723,8 @@ export class World {
       }
       t.elapsed += dt;
       for (const a of t.arrows) {
-        if (a.phase === 'idle' && t.elapsed >= a.arrow.delay - 1e-6) a.phase = 'warning';
-        if (a.phase === 'warning' && t.elapsed >= a.arrow.delay + ARROW_WARNING - 1e-6) { a.phase = 'flying'; a.x = a.arrow.fromX; continue; }
+        if (a.phase === 'idle' && t.elapsed >= a.arrow.delay - 1e-6) { a.phase = 'warning'; this.trapEvent('warning', arrowRect(a)); }
+        if (a.phase === 'warning' && t.elapsed >= a.arrow.delay + ARROW_WARNING - 1e-6) { a.phase = 'flying'; a.x = a.arrow.fromX; this.trapEvent('arrow', arrowRect(a)); continue; }
         if (a.phase !== 'flying') continue;
         const dir = Math.sign(a.arrow.toX - a.arrow.fromX);
         a.x += dir * ARROW_SPEED * dt;
@@ -711,7 +742,7 @@ export class World {
       if (c.phase !== 'descending') continue;
       const stopY = c.config.floorY - c.config.block.height;
       c.y = Math.min(stopY, c.y + c.config.speed * dt);
-      if (c.y >= stopY - 1e-6) { c.y = stopY; c.phase = 'stopped'; }
+      if (c.y >= stopY - 1e-6) { c.y = stopY; c.phase = 'stopped'; this.trapEvent('slam', descendingRect(c)); }
       if (overlaps(p, descendingRect(c))) squashedBy = c;
     }
 
@@ -728,13 +759,16 @@ export class World {
       c.y += c.vy * dt;
       if (overlaps(p, ceilingRect(c))) crushedBy = c;
       const ground = [...this.level.solids, ...this.dynamicSolids(c)].find((s) => overlaps(ceilingRect(c), s));
-      if (ground) { c.y = ground.y - c.config.block.height; c.vy = 0; c.phase = 'landed'; }
+      if (ground) { c.y = ground.y - c.config.block.height; c.vy = 0; c.phase = 'landed'; this.trapEvent('slam', ceilingRect(c)); }
       else if (c.y > this.level.height + 100) c.phase = 'gone';
     }
 
     for (const amb of this.ambushes) {
       if (amb.enemy) { updateEnemy(amb.enemy, dt); continue; }
-      if (amb.warningTimer === null && overlaps(p, amb.config.trigger)) amb.warningTimer = AMBUSH_WARNING_DELAY;
+      if (amb.warningTimer === null && overlaps(p, amb.config.trigger)) {
+        amb.warningTimer = AMBUSH_WARNING_DELAY;
+        this.trapEvent('warning', { x: amb.config.minX, y: amb.config.y, width: ENEMY_WIDTH, height: ENEMY_HEIGHT });
+      }
       if (amb.warningTimer !== null) {
         amb.warningTimer -= dt;
         if (amb.warningTimer <= 0) {
@@ -813,6 +847,7 @@ export class World {
     if (!this.fakeClear) return false;
     const { goal } = this.fakeClear;
     goal.collapsed = true;
+    for (const f of goal.config.floor) this.trapEvent('collapse', f);
     this.fakeClear = null;
     this.lastFallTrap = { cause: { rect: goal.config.flag, kind: 'fakeClear' }, at: this.clock };
     return true;
@@ -838,6 +873,7 @@ export class World {
       const zone = this.level.reverseZones.find((z) => z !== this.reverseRearm?.zone && overlaps(p, z));
       if (!zone) return;
       this.reverse = { zone, enteredFrom: p.x + p.width / 2 < zone.x + zone.width / 2 ? 'left' : 'right' };
+      this.trapEvent('reverse', zone);
     }
     this.lastFallTrap = { cause: { rect: this.reverse.zone, kind: 'reverseZone' }, at: this.clock };
   }

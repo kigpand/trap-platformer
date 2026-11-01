@@ -58,6 +58,22 @@ describe('SoundPlayer', () => {
     player.dispose();
   });
 
+  it('plays an audible, short synthesized sound for every trap event kind, and none while muted', () => {
+    const kinds = ['spring', 'fling', 'collapse', 'slam', 'spikes', 'warning', 'arrow', 'gem', 'reverse', 'shadow', 'boulder'] as const;
+    const { player, ctx } = unlockedPlayer();
+    for (const kind of kinds) {
+      const before = ctx.oscillators.length;
+      player.play(kind);
+      expect(ctx.oscillators.length, kind).toBeGreaterThan(before);
+    }
+    expect(ctx.oscillators.every((osc) => isAudible(osc, ctx.destination))).toBe(true);
+    player.muted = true;
+    const count = ctx.oscillators.length;
+    for (const kind of kinds) player.play(kind);
+    expect(ctx.oscillators).toHaveLength(count);
+    player.dispose();
+  });
+
   it('silences notes that are already playing or scheduled when muted mid-sound', () => {
     // 코덱스 리뷰: muted가 새 play()만 막아서, 클리어 음 도중 M을 누르면 HUD는 SOUND OFF인데
     // 이미 예약된 남은 음이 계속 재생됐다.
