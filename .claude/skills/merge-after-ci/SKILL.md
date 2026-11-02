@@ -1,9 +1,11 @@
 ---
 name: merge-after-ci
 description: 프로젝트 오너가 "Merge after CI"처럼 병합을 요청한 열린 PR을 CI 확인 → 병합 → 배포 확인 → 로컬 동기화 → 개발 일지 갱신까지 처리합니다.
+argument-hint: "<PR 번호> [PR 번호…]"
+disable-model-invocation: true
 ---
 # CI 확인 후 병합
-프로젝트 오너가 이번 대화에서 이 PR의 병합을 명시적으로 요청했을 때만 사용합니다. 다른 PR이나 이후 PR로 승인을 넓히지 않습니다.
+병합·배포·Notion 쓰기를 하므로 모델이 스스로 불러오지 않고, 프로젝트 오너가 `/merge-after-ci <PR 번호>`로 직접 실행합니다. 오너가 대화에서 "Merge after CI"처럼 요청하면 같은 절차를 AGENTS.md "작업 흐름"대로 따릅니다. 어느 쪽이든 이번 대화에서 이 PR의 병합을 명시적으로 요청했을 때만 진행합니다. 다른 PR이나 이후 PR로 승인을 넓히지 않습니다.
 
 1. CI 확인: `gh pr checks <번호> --watch`로 기다린 뒤, 통과한 실행이 PR의 **최신 커밋**(`gh pr view <번호> --json headRefOid`) 기준인지 확인합니다. 실패하면 병합하지 않고 실패 내용을 보고합니다.
 2. 병합: `gh pr merge <번호> --merge`. 병합 커밋을 기록합니다.
