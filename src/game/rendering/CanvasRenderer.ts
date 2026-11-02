@@ -354,7 +354,7 @@ export class CanvasRenderer {
       }
       if (this.debug) { const t = b.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
-    // #22 따라 하는 그림자: 120번째 스텝 전에는 트리거한 자리에 충돌 없는 윤곽이 점점 진해지고, 그 뒤에는 반투명한 그림자.
+    // #22 따라 하는 그림자: SHADOW_DELAY_STEPS번째 스텝 전에는 트리거한 자리에 충돌 없는 윤곽이 점점 진해지고, 그 뒤에는 반투명한 그림자.
     for (const sh of world.shadows) {
       if (sh.body) {
         const r = shadowRect(sh.body);

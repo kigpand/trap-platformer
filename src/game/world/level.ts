@@ -11,7 +11,7 @@ export interface DodgingPlatform { platform: Rect; trigger: Rect; to: { x: numbe
 export interface PopUpSpike { spikes: Rect; trigger: Rect }
 // 도망가는 목표(#12): 순서대로, trigger에 들어오면 목표가 to로 뛰어 달아난다.
 export interface GoalHop { trigger: Rect; to: Rect }
-// 하늘에서 쏟아지는 적(#13): trigger에 들어오면 drops마다 delay 뒤 0.4초 경고, 그 뒤 x 위치의 화면 위에서 떨어져
+// 하늘에서 쏟아지는 적(#13): trigger에 들어오면 drops마다 delay 뒤 경고(World.ts의 SKY_DROP_WARNING), 그 뒤 x 위치의 화면 위에서 떨어져
 // 착지하면 minX~maxX를 왕복한다.
 export interface SkyDrop { x: number; delay: number; minX: number; maxX: number }
 export interface SkyDropGroup { trigger: Rect; drops: readonly SkyDrop[] }
@@ -28,7 +28,7 @@ export interface Sign { x: number; y: number; text: string }
 export interface Boulder { trigger: Rect; startX: number; endX: number; y: number }
 // 미끼 보물(#21): 20×20 보석의 왼쪽 위 좌표. 점수 없는 장식이다.
 export interface BaitGem { x: number; y: number }
-// 따라 하는 그림자(#22): trigger에 처음 들어오면 2초 늦게 플레이어의 위치를 그대로 따라오고, 그림자의 x가 endX를 넘으면 사라진다.
+// 따라 하는 그림자(#22): trigger에 처음 들어오면 SHADOW_DELAY_STEPS(0.7초) 늦게 플레이어의 위치를 그대로 따라오고, 그림자의 x가 endX를 넘으면 사라진다.
 export interface Shadow { trigger: Rect; endX: number }
 // 무거운 신발 구간(#24): zone 안에서 바닥에 선 채 뛰면 점프 초기 속도가 −jumpSpeed가 된다(기본 300).
 export interface HeavyZone { zone: Rect; jumpSpeed: number }
@@ -204,7 +204,7 @@ export const LEVEL_1: Level = {
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
 // 레벨 1은 낙하 발판 아래 틈을 그냥 뛰어넘을 수도 있었지만, 여기서는 구덩이(400-640, 240px)가 평지 점프
-// 거리(약 147px)보다 넓어 가운데 낙하 발판을 반드시 밟고 0.4초 안에 다시 뛰어야 한다.
+// 거리(약 147px)보다 넓어 가운데 낙하 발판을 반드시 밟고 유예 시간(World.ts의 FALL_TRIGGER_DELAY) 안에 다시 뛰어야 한다.
 // 배치 제약(docs/physics-spec.md "레벨 배치 제약")과 도달 가능성은 tests/unit/world/Level2.test.ts가 검증한다.
 export const LEVEL_2: Level = {
   width: 15300,

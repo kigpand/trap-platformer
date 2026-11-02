@@ -102,7 +102,7 @@ function updateCollapsing(state: CollapsingSolidState, triggered: boolean, delay
 }
 
 // #6 사라지는 땅: 밟는 순간(elapsed = 0) 구간 시작점에서 전선이 출발하고, i번째 칸은
-// elapsed ≥ (i + 1) × 40 / 150초에 통째로 사라진다. tilesGone은 앞에서부터 사라진 칸 수.
+// elapsed ≥ (i + 1) × VANISH_TILE / VANISH_SPEED초에 통째로 사라진다. tilesGone은 앞에서부터 사라진 칸 수.
 export interface VanishingGroundState { readonly rect: Rect; elapsed: number | null; tilesGone: number }
 // #7 투명 블록: 위로 이동 중에 아랫면에 닿으면 visible이 되고, 그때부터 일반 솔리드다.
 export interface InvisibleBlockState { readonly rect: Rect; visible: boolean }
@@ -120,7 +120,7 @@ export interface PopUpSpikeState { readonly config: PopUpSpike; raised: boolean 
 export interface GoalState { rect: Rect; hopIndex: number; move: { from: Rect; to: Rect; elapsed: number } | null }
 
 // #13 하늘에서 쏟아지는 적. 그룹은 트리거 진입 뒤 경과 시간(elapsed)을 세고, 적마다
-// idle → warning(delay부터 0.4초) → falling(중력) → patrolling(착지 후 일반 적처럼 왕복) 또는 gone(구덩이 아래).
+// idle → warning(delay부터 SKY_DROP_WARNING초) → falling(중력) → patrolling(착지 후 일반 적처럼 왕복) 또는 gone(구덩이 아래).
 // 중력은 이 적의 등장 단계에만 있다 — 일반 왕복 적·갑자기 출현하는 적에는 없다(traps-spec "적 충돌 규칙").
 export interface SkyDropEnemyState { readonly drop: SkyDrop; phase: 'idle' | 'warning' | 'falling' | 'patrolling' | 'gone'; enemy: Enemy | null; vy: number }
 export interface SkyDropGroupState { readonly config: SkyDropGroup; elapsed: number | null; readonly enemies: SkyDropEnemyState[] }
@@ -174,8 +174,8 @@ export function gemRect(g: BaitGem): Rect { return { x: g.x, y: g.y, width: GEM_
 // 바로 위험하게 하면 공중에서 비킬 틈도 없이 발동 스텝에 죽는다.
 export interface LandingSpikeState { readonly zone: Rect; fired: boolean; spikes: Rect | null; armed: boolean }
 // #22 따라 하는 그림자: idle → active(트리거한 스텝부터 위치 기록) → gone(끝 x를 넘음). steps는 트리거 뒤 기록한 스텝 수,
-// origin은 트리거한 순간의 위치(0~119번째 스텝에 충돌 없는 흐린 윤곽을 그릴 자리), body는 120번째 스텝부터 충돌하는
-// 그림자의 위치(120스텝 전 기록). trail은 아직 재생하지 않은 기록만 담아 최대 120개를 넘지 않는다.
+// origin은 트리거한 순간의 위치(SHADOW_DELAY_STEPS번째 스텝 전까지 충돌 없는 흐린 윤곽을 그릴 자리), body는 SHADOW_DELAY_STEPS번째
+// 스텝부터 충돌하는 그림자의 위치(SHADOW_DELAY_STEPS스텝 전 기록). trail은 아직 재생하지 않은 기록만 담아 최대 SHADOW_DELAY_STEPS개를 넘지 않는다.
 export interface ShadowState {
   readonly config: Shadow; phase: 'idle' | 'active' | 'gone'; steps: number;
   origin: { x: number; y: number } | null; body: { x: number; y: number } | null; readonly trail: { x: number; y: number }[];
@@ -602,7 +602,7 @@ export class World {
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
     for (const w of this.fakeWalls) if (!w.revealed && overlaps(p, w.rect)) w.revealed = true;
     for (const ls of this.landingSpikes) if (ls.spikes && !ls.armed && !overlaps(p, ls.spikes)) ls.armed = true;
-    // #22 따라 하는 그림자: 트리거한 스텝(0번째)부터 이동을 마친 위치를 기록하고, 120번째 스텝부터 120스텝 전 기록을 재생한다.
+    // #22 따라 하는 그림자: 트리거한 스텝(0번째)부터 이동을 마친 위치를 기록하고, SHADOW_DELAY_STEPS번째 스텝부터 그만큼 전 기록을 재생한다.
     for (const sh of this.shadows) {
       if (sh.phase === 'idle') {
         if (!overlaps(p, sh.config.trigger)) continue;
@@ -674,7 +674,7 @@ export class World {
     }
 
     // #13 하늘에서 쏟아지는 적: 트리거 스텝부터 시간을 세고(다른 함정과 같이 그 스텝도 포함), 적마다 delay가 지나면
-    // 경고, 경고 0.4초 뒤 화면 맨 위 바깥(y = -적 높이)에서 생성해 떨어뜨린다. 착지 판정은 플레이어와 같은 솔리드 목록을 쓴다.
+    // 경고, 경고 SKY_DROP_WARNING초 뒤 화면 맨 위 바깥(y = -적 높이)에서 생성해 떨어뜨린다. 착지 판정은 플레이어와 같은 솔리드 목록을 쓴다.
     for (const g of this.skyDrops) {
       if (g.elapsed === null) {
         if (!overlaps(p, g.config.trigger)) continue;
