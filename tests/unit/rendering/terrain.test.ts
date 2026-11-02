@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, VIEW_HEIGHT } from '../../../src/game/rendering/CanvasRenderer';
-import { drawBlock, drawGround } from '../../../src/game/rendering/terrain';
+import { drawBlock, drawGround, GROUND_FILL } from '../../../src/game/rendering/terrain';
 import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { testLevel } from '../world/fixtures';
@@ -67,5 +67,28 @@ describe('disguised traps look exactly like the ground around them', () => {
   ];
   for (const [name, parts] of cases) {
     it(name, () => { expect(shot(new World(testLevel(parts)))).toEqual(plain); });
+  }
+});
+
+describe('ground edges land on whole device pixels', () => {
+  // 카메라 위치가 소수(플레이어 x가 소수)이거나 기기 픽셀 비율이 정수가 아니면, 따로 그린 두 바닥이 맞닿는 경계가 픽셀 중간에 걸려
+  // 양쪽이 안티앨리어싱되고 그 사이로 배경이 비쳐 이음매가 보였다 — 가짜 클리어 바닥(3800·4100)처럼 위장 바닥의 위치가 드러났다.
+  for (const dpr of [1, 1.5, 2]) {
+    it(`at device pixel ratio ${dpr} with a fractional camera`, () => {
+      vi.stubGlobal('devicePixelRatio', dpr);
+      const canvas = document.createElement('canvas');
+      const { ctx, fills } = recorder();
+      vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+      const pieces = [0, 400, 440, 480, 900].map((x, i, xs) => ({ x, y: 500, width: (xs[i + 1] ?? 2000) - x, height: 120 }));
+      const world = new World(testLevel({ solids: pieces }));
+      world.player.x = 700.37; world.player.y = 300;
+      new CanvasRenderer(canvas, () => false).render(world, { fps: 60, steps: 1 });
+      const scale = canvas.width / 960;
+      expect(Number.isInteger(scale)).toBe(true); // 정수 배율로 그리고, 화면 크기는 CSS가 맞춘다
+      const edges = fills.filter((f) => f.style === GROUND_FILL).flatMap((f) => [f.x * scale, (f.x + f.width) * scale]);
+      expect(edges.length).toBeGreaterThan(4);
+      expect(edges.filter((e) => Math.abs(e - Math.round(e)) > 1e-9)).toEqual([]);
+      vi.unstubAllGlobals();
+    });
   }
 });

@@ -99,13 +99,15 @@ export class CanvasRenderer {
   render(world: World, metrics: RenderMetrics, paused = false): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
-    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    // 정수 배율(1 또는 2)로 그리고 화면 크기는 CSS가 맞춘다. 정수가 아닌 배율(1.25·1.5)이나 소수 카메라 위치에서는 맞닿은 두 사각형의
+    // 경계가 기기 픽셀 중간에 걸려 양쪽이 안티앨리어싱되고 배경이 비쳐 이음매가 보였다 — 위장 바닥의 위치가 드러났다.
+    const scale = Math.min(Math.ceil(window.devicePixelRatio || 1), 2);
     const width = Math.round(VIEW_WIDTH * scale), height = Math.round(VIEW_HEIGHT * scale);
     if (this.canvas.width !== width || this.canvas.height !== height) { this.canvas.width = width; this.canvas.height = height; }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.clearRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
     const level = world.level;
-    const cam = cameraX(world.player.x, VIEW_WIDTH, level.width);
+    const cam = Math.round(cameraX(world.player.x, VIEW_WIDTH, level.width) * scale) / scale; // 기기 픽셀 단위로 맞춘다(위 이음매)
     const shake = this.shakeOffset();
     ctx.save(); ctx.translate(shake.x, shake.y); drawBackground(ctx, cam, { width: VIEW_WIDTH, height: VIEW_HEIGHT }, SHAKE_AMPLITUDE); ctx.restore();
     ctx.save(); ctx.translate(-cam + shake.x, shake.y);
