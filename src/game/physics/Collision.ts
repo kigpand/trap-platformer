@@ -1,7 +1,7 @@
 import { overlaps, type Rect } from './AABB';
 import type { Player } from '../entities/Player';
 
-const MAX_SUBSTEP = 6;
+export const MAX_SUBSTEP = 6;
 
 /** Axis separated collision resolution, with bounded movement substeps. */
 export function moveWithCollisions(player: Player, solids: readonly Rect[], dx: number, dy: number): void {

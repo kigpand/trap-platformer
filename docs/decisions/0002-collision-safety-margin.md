@@ -32,3 +32,6 @@
 결론: 서브스텝으로 충분하다는 결정을 유지한다. 한 스텝 이동량은 `MAX_SUBSTEP`(6px) 단위로 나뉘어(수평 10px → 5px씩 두 번) 가장 얇은 벽(10px)·바닥(20px)보다 작다. 실제 레벨에서 10px 장애물과 스프링·날려버리는 점프는 서로 만나는 배치가 아니지만, 가장 빠른 수평 속도로 가장 얇은 벽을 미는 경우를 `tests/unit/physics/Collision.test.ts`의 "stops at the thinnest wall (10px) at the fastest horizontal speed" 테스트로 고정했다. 다만 재검토 중 확인한 바, 이 테스트와 기존 바닥 테스트("does not tunnel through the floor …")는 `MAX_SUBSTEP`을 12px·40px로 키워도 통과한다 — 충돌 해소가 이동 방향 기준이고 플레이어(26×32)가 솔리드보다 커서, 한 번에 크게 움직여도 겹침이 잡히기 때문이다. 즉 위 "결정" 1번의 "서브스텝 이동량 < 최소 솔리드 두께" 불변식을 테스트가 직접 고정하지는 않고, 실제 속도·지형 조합의 결과를 고정한다. 화살(#26, 360px/s)은 지형과 충돌하지 않는 함정 투사체라 이 조건과 무관하다(`docs/traps-spec.md` 26번의 겹침 확인 계산).
 
 다음 재검토 조건: 서브스텝 크기는 속도와 상관없이 `MAX_SUBSTEP` 이하이므로, 너비·두께가 `MAX_SUBSTEP`(6px) 이하인 솔리드를 도입하거나 `MAX_SUBSTEP`을 키우는 경우.
+
+### 불변식 고정 (2026-11-02)
+위 재검토에서 확인한 빈틈을 메웠다. `tests/unit/world/LevelRules.test.ts`의 "keeps every solid thicker than the collision substep" 테스트가 모든 레벨의 솔리드(지형과 함정이 만드는 솔리드 — 사라지는 땅은 칸마다)의 너비·높이가 `MAX_SUBSTEP`보다 큰지 레벨 데이터로 직접 확인한다. `MAX_SUBSTEP`을 12px로 키우면 레벨 2~4의 10px 장애물에서 실패한다. 이로써 "결정" 1번의 불변식을 테스트가 고정한다.
