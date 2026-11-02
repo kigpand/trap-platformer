@@ -72,6 +72,7 @@ test('a fake clear looks real, and "next level" drops the floor instead of advan
   await expect(hud('STATUS')).toHaveText(/^STATUS (NEW RECORD!|CLEAR!)$/);
   await expect(page.getByRole('button', { name: '다음 레벨 (N)' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText('레벨 1 클리어!');
+  await expect(page.getByRole('region', { name: '이번 런에서 당한 함정' })).toContainText('한 번도 안 당했어요!'); // 당한 함정 통계도 진짜처럼
 
   // N을 누르면 다음 레벨 대신 바닥이 꺼져 떨어진다. 레벨은 그대로이고 기록도 저장하지 않는다.
   await page.keyboard.press('KeyN');
@@ -79,5 +80,6 @@ test('a fake clear looks real, and "next level" drops the floor instead of advan
   await expect(hud('FALLS')).toHaveText('FALLS 1');
   await expect(hud('LEVEL')).toHaveText(/^LEVEL 1 \//);
   await expect(page.getByRole('status')).toContainText('벌써 끝난 줄 알았지?');
+  await expect(page.getByRole('region', { name: '이번 런에서 당한 함정' })).toHaveCount(0); // 클리어 표시가 풀리면 통계도 사라진다
   expect(await page.evaluate(() => localStorage.getItem('trap-runner:best:v2:1'))).toBeNull();
 });

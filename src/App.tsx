@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas, type GameHandle } from './components/GameCanvas';
 import { TouchControls } from './components/TouchControls';
 import type { HudSnapshot } from './game/core/GameController';
-import { TAUNTS } from './game/rendering/taunts';
+import { rankDeaths, TAUNTS } from './game/rendering/taunts';
 import './style.css';
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
-    x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null,
+    x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
     paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false,
   });
   const [announcement, setAnnouncement] = useState('');
@@ -17,6 +17,7 @@ export default function App() {
   const prevLevel = useRef(snapshot.level);
   const prevCleared = useRef(snapshot.cleared);
   const allCleared = snapshot.cleared && snapshot.level === snapshot.levelCount;
+  const deathRanking = rankDeaths(snapshot.runDeathsByKind);
   const onSnapshot = useCallback((next: HudSnapshot) => setSnapshot(next), []);
 
   // 스크린 리더 사용자에게도 사망/클리어 같은 중요한 전환을 알린다 — HUD는 시각적으로만
@@ -34,7 +35,9 @@ export default function App() {
       prevCleared.current = true;
       const record = snapshot.newRecord ? ' — 최고 기록 갱신!' : '';
       const next = snapshot.level === snapshot.levelCount ? ' 모든 레벨을 클리어했습니다.' : ' 다음 레벨 버튼이나 N 키로 계속합니다.';
-      setAnnouncement(`레벨 ${snapshot.level} 클리어! 기록 ${snapshot.time.toFixed(1)}초, 사망 ${snapshot.runDeaths}회${record}${next}`);
+      const top = rankDeaths(snapshot.runDeathsByKind)[0];
+      const killer = top ? ` 가장 많이 당한 함정: ${top.name} ${top.count}회.` : '';
+      setAnnouncement(`레벨 ${snapshot.level} 클리어! 기록 ${snapshot.time.toFixed(1)}초, 사망 ${snapshot.runDeaths}회${record}${killer}${next}`);
       return;
     }
     if (snapshot.deaths !== prevDeaths.current) {
@@ -50,7 +53,7 @@ export default function App() {
       prevCleared.current = false;
       setAnnouncement('다시 진행 중');
     }
-  }, [snapshot.level, snapshot.levelCount, snapshot.cleared, snapshot.deaths, snapshot.checkpoint, snapshot.time, snapshot.runDeaths, snapshot.newRecord, snapshot.deathKind]);
+  }, [snapshot.level, snapshot.levelCount, snapshot.cleared, snapshot.deaths, snapshot.checkpoint, snapshot.time, snapshot.runDeaths, snapshot.newRecord, snapshot.deathKind, snapshot.runDeathsByKind]);
 
   // 탭 전환으로 자동 정지될 때도 캔버스 오버레이만으로는 스크린 리더가 알 수 없다.
   useEffect(() => {
@@ -69,6 +72,19 @@ export default function App() {
       <div className="game-shell">
         <GameCanvas ref={game} onSnapshot={onSnapshot} />
       </div>
+      {/* 당한 함정 통계: 진짜·가짜 클리어(#14) 모두 같은 스냅샷으로 그린다 — 가짜 클리어가 구분되면 안 된다. */}
+      {snapshot.cleared && (
+        <section className="death-stats" aria-label="이번 런에서 당한 함정">
+          <h2>이번 런에서 당한 함정</h2>
+          {deathRanking.length === 0 ? (
+            <p>한 번도 안 당했어요!</p>
+          ) : (
+            <ol>
+              {deathRanking.map((d) => <li key={d.kind}>{d.name} <b>×{d.count}</b></li>)}
+            </ol>
+          )}
+        </section>
+      )}
       {allCleared && (
         <section className="complete" aria-label="모든 레벨 클리어">
           <h2>모든 레벨 클리어!</h2>

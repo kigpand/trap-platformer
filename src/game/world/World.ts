@@ -44,9 +44,10 @@ export type TrapEventKind = 'spring' | 'fling' | 'collapse' | 'slam' | 'spikes' 
 export interface TrapEvent { readonly kind: TrapEventKind; readonly rect: Rect }
 // time은 이번 런의 경과 시간(초, 0.1초 단위 내림). runDeaths는 이번 런의 사망 수 — deaths(FALLS)는 수동 재시작에도 누적된다.
 // deathKind는 가장 최근 사망의 원인 종류(원인 없는 낙사·수동 재시작 뒤에는 null) — 스크린 리더 사망 알림에 놀리는 문구를 붙인다.
+// runDeathsByKind는 이번 런의 사망을 원인별로 센 것(원인 없는 낙사는 'fall') — 합계가 runDeaths와 같다(클리어 화면의 당한 함정 통계).
 export interface GameSnapshot {
   x: number; y: number; grounded: boolean; deaths: number; cleared: boolean; checkpoint: boolean; time: number; runDeaths: number;
-  deathKind: DeathCauseKind | null;
+  deathKind: DeathCauseKind | null; runDeathsByKind: Partial<Record<DeathStatKind, number>>;
 }
 // 낙하 발판/숨겨진 블록처럼 접촉 후 유예 시간이 지나면 솔리드 속성을 잃는 함정의 공통 상태.
 export interface CollapsingSolidState { readonly rect: Rect; solid: boolean; timer: number | null }
@@ -254,6 +255,8 @@ export type DeathCauseKind =
   | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform' | 'arrow' | 'mirrorEnemy' | 'countingPlatform';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
+// 당한 함정 통계의 종류: 사망 원인 + 원인 없는 낙사.
+export type DeathStatKind = DeathCauseKind | 'fall';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
 export interface DeathCauseState { readonly rect: Rect; readonly kind: DeathCauseKind; remaining: number }
 
@@ -343,6 +346,7 @@ export class World {
   // 시간은 update(고정 스텝)에서만 쌓이므로 일시정지 중에는 흐르지 않는다. 클리어하면 런이 끝나 더 쌓이지 않는다.
   runTime = 0;
   runDeaths = 0;
+  private runDeathsByKind: Partial<Record<DeathStatKind, number>> = {};
   private runComplete = false;
   private events: WorldEvent[] = [];
   private trapEvents: TrapEvent[] = [];
@@ -405,10 +409,14 @@ export class World {
   reset(countDeath = false, cause: DeathCause | null = null): void {
     if (countDeath) {
       this.deaths++; this.events.push('death');
-      if (!this.runComplete) this.runDeaths++;
+      if (!this.runComplete) {
+        this.runDeaths++;
+        const kind = cause?.kind ?? 'fall';
+        this.runDeathsByKind[kind] = (this.runDeathsByKind[kind] ?? 0) + 1;
+      }
     } else {
       this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
-      this.runTime = 0; this.runDeaths = 0; this.runComplete = false;
+      this.runTime = 0; this.runDeaths = 0; this.runDeathsByKind = {}; this.runComplete = false;
     }
     this.deathCause = cause ? { rect: cause.rect, kind: cause.kind, remaining: DEATH_CAUSE_DURATION } : null; // 이전 표시는 항상 새 사망(또는 R)으로 대체된다
     this.taunt = cause ? { kind: cause.kind, remaining: TAUNT_DURATION } : null;
@@ -886,6 +894,7 @@ export class World {
       time: this.fakeClear ? this.fakeClear.time : this.displayTime(),
       runDeaths: this.runDeaths,
       deathKind: this.lastDeathKind,
+      runDeathsByKind: { ...this.runDeathsByKind },
     };
   }
 }
