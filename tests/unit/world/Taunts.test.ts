@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World, type DeathCauseKind } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
-import { TAUNTS } from '../../../src/game/rendering/taunts';
+import { DEATH_NAMES, rankDeaths, TAUNTS } from '../../../src/game/rendering/taunts';
 import { standAt, testLevel } from './fixtures';
 
 // 놀리는 사망 메시지(docs/game-design.md): 원인 종류가 사망마다 정확히 붙고, 2초 동안만 띄운다.
@@ -87,5 +87,18 @@ describe('death cause kinds and taunts', () => {
     world.update(dt, { ...idle, restartPressed: true });
     expect(world.snapshot().deathKind).toBeNull();
     expect(world.taunt).toBeNull();
+  });
+});
+
+describe('death stats names and ranking', () => {
+  it('gives every cause a distinct name', () => {
+    const names = Object.values(DEATH_NAMES);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('ranks causes by count, ties by name, and drops zero counts', () => {
+    expect(rankDeaths({ fall: 1, hazard: 3, shadow: 1, ice: 0 }).map((d) => `${d.name}×${d.count}`))
+      .toEqual(['가짜 안전지대×3', '그냥 떨어짐×1', '따라 하는 그림자×1']);
+    expect(rankDeaths({})).toEqual([]);
   });
 });

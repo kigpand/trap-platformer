@@ -497,6 +497,53 @@ describe('World run time and run deaths (best record inputs)', () => {
     expect(world.snapshot().time).toBe(atClear.time);
     expect(world.snapshot().runDeaths).toBe(atClear.runDeaths);
   });
+
+  describe('deaths by cause (clear-screen stats)', () => {
+    const dieOnHazard = (world: World): void => {
+      const hazard = HAZARDS[0];
+      world.player.x = hazard.x + 1;
+      world.player.y = hazard.y - world.player.height + 1;
+      world.update(dt, noInput);
+    };
+
+    it('counts this run\'s deaths by cause, a fall with no cause as fall, summing to runDeaths', () => {
+      const world = new World(LEVEL_1);
+      dieOnHazard(world);
+      dieOnHazard(world);
+      world.reset(true); // 원인 없는 낙사와 같은 사망
+      const snap = world.snapshot();
+      expect(snap.runDeathsByKind).toEqual({ hazard: 2, fall: 1 });
+      expect(Object.values(snap.runDeathsByKind).reduce((a, b) => a + b, 0)).toBe(snap.runDeaths);
+    });
+
+    it('starts over on a manual restart, like the run', () => {
+      const world = new World(LEVEL_1);
+      dieOnHazard(world);
+      world.update(dt, { ...noInput, restartPressed: true });
+      expect(world.snapshot().runDeathsByKind).toEqual({});
+    });
+
+    it('stops counting once the run is cleared', () => {
+      const world = new World(LEVEL_1);
+      dieOnHazard(world);
+      world.player.x = GOAL.x; world.player.y = GOAL.y;
+      world.update(dt, noInput);
+      dieOnHazard(world);
+      expect(world.snapshot().runDeathsByKind).toEqual({ hazard: 1 });
+    });
+
+    it('shows the same stats during a fake clear (#14), so it looks like a real clear', () => {
+      const world = new World(LEVEL_1);
+      dieOnHazard(world);
+      const flag = LEVEL_1.fakeGoals[0].flag;
+      world.player.x = flag.x; world.player.y = flag.y + flag.height - world.player.height; world.player.vy = 0;
+      world.update(dt, noInput);
+      const snap = world.snapshot();
+      expect(snap.cleared).toBe(true);
+      expect(world.fakeClear).not.toBeNull();
+      expect(snap.runDeathsByKind).toEqual({ hazard: 1 });
+    });
+  });
 });
 
 describe('fake safe zone reveal after death (docs/traps-spec.md #4)', () => {
