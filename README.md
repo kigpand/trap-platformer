@@ -21,7 +21,7 @@ React + TypeScript + Canvas 2D로 만든 **독자적인 2D 함정 플랫포머**
 ## AI 협업
 
 1. `AGENTS.md` — 양쪽 에이전트 공통 규칙. Claude에서는 `CLAUDE.md`가 `@AGENTS.md`로 가져옵니다.
-2. `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` — 구현 에이전트 규칙.
+2. `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` — 구현 에이전트 규칙. `.claude/settings.json`은 공유 권한 설정(PR 병합은 매번 확인, 강제 푸시 금지).
 3. `.codex/review.md` — Codex가 **명시적으로 읽어야 하는** 리뷰 지침. 자동 로딩 파일이 아닙니다.
 4. `docs/` — 단일 명세 원천. 개발과 리뷰에서 같은 기준을 참조합니다.
 
