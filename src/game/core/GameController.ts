@@ -2,7 +2,7 @@ import { GameLoop } from './GameLoop';
 import { InputManager, type TouchAction } from './InputManager';
 import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
-import { World, type DeathCauseKind, type GameSnapshot } from '../world/World';
+import { World, type DeathCauseKind, type DeathStatKind, type GameSnapshot } from '../world/World';
 import { LEVELS } from '../world/level';
 import { isInView, isWithinHearing } from '../world/viewport';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
@@ -10,9 +10,11 @@ export interface BestRecord { time: number; deaths: number }
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·레벨·최고 기록 상태.
 // level은 1부터 센다. best는 현재 레벨의 최고 기록, bests는 레벨 순서대로 모든 레벨의 기록(완료 화면용).
 // newRecord는 마지막 클리어가 기록을 하나라도 갱신했는지(수동 재시작·레벨 전환 시 해제).
+// levelDeaths는 이번 판(레벨 1부터 이어서 한 판)에서 레벨마다 원인별 사망 수 — 클리어한 레벨만 있고 나머지는 null(완료 화면용).
 export interface HudSnapshot extends GameSnapshot {
   paused: boolean; muted: boolean; volume: number;
   level: number; levelCount: number; best: BestRecord | null; bests: (BestRecord | null)[]; newRecord: boolean;
+  levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
 }
 // 화면을 흔드는 깔림 사망 종류.
 const CRUSH_DEATHS: ReadonlySet<DeathCauseKind | null> = new Set(['fallingCeiling', 'descendingCeiling', 'boulder']);
@@ -71,6 +73,8 @@ export class GameController {
   private lastSnapshot = '';
   private paused = false;
   private bests: (BestRecord | null)[] = LEVELS.map((_, i) => loadBest(i));
+  // 이번 판에서 떠나온(클리어한) 레벨의 원인별 사망 수. 지금 레벨은 World 스냅샷에서 바로 읽는다(publishSnapshot).
+  private levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[] = LEVELS.map(() => null);
   private newRecord = false;
   // #14 가짜 클리어 중 보여 줄 "진짜였다면"의 기록 화면(저장하지 않는다). world.fakeClear가 있을 때만 쓴다.
   private fakePreview: { best: BestRecord; improved: boolean } | null = null;
@@ -123,9 +127,13 @@ export class GameController {
     // 가짜 클리어 중에는 진짜 클리어였다면 보였을 기록(최고 기록·NEW RECORD!)을 그대로 보여 준다.
     const preview = this.world.fakeClear ? this.fakePreview : null;
     const bests = preview ? this.bests.map((b, j) => (j === this.levelIndex ? preview.best : b)) : this.bests;
+    const world = this.world.snapshot();
+    // 지금 레벨은 클리어 화면(진짜·가짜 클리어 모두)일 때만 채운다 — 가짜 클리어의 완료 화면도 진짜처럼 보여야 한다.
+    const levelDeaths = this.levelDeaths.map((d, j) => (j === this.levelIndex ? (world.cleared ? world.runDeathsByKind : null) : d));
     const snapshot: HudSnapshot = {
-      ...this.world.snapshot(), paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
+      ...world, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
       level: this.levelIndex + 1, levelCount: LEVELS.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
+      levelDeaths,
     };
     const serialized = JSON.stringify(snapshot);
     if (serialized !== this.lastSnapshot) { this.lastSnapshot = serialized; this.onSnapshot(snapshot); }
@@ -181,7 +189,9 @@ export class GameController {
   private advanceLevel(): void {
     if (this.world.collapseFakeFloor()) { this.paused = false; this.renderer.shakeScreen(); return; }
     if (!this.world.cleared) return;
+    this.levelDeaths[this.levelIndex] = this.world.snapshot().runDeathsByKind;
     this.levelIndex = (this.levelIndex + 1) % LEVELS.length;
+    if (this.levelIndex === 0) this.levelDeaths = LEVELS.map(() => null); // 완료 화면에서 레벨 1로 돌아가면 새 판
     this.world = new World(LEVELS[this.levelIndex]);
     this.newRecord = false;
     this.paused = false;

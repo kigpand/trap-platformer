@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameController, mergeBest, type HudSnapshot } from '../../../src/game/core/GameController';
-import { World } from '../../../src/game/world/World';
+import { World, type DeathCauseKind } from '../../../src/game/world/World';
 import { SoundPlayer } from '../../../src/game/audio/SoundPlayer';
 import { CanvasRenderer } from '../../../src/game/rendering/CanvasRenderer';
 
@@ -282,6 +282,47 @@ describe('GameController level progression', () => {
     clearCurrentLevel();
     expect(last().level === last().levelCount && last().cleared).toBe(true);
     expect(localStorage.getItem('trap-runner:best:v2:4')).not.toBeNull();
+    controller.dispose();
+  });
+
+  it('keeps each cleared level\'s deaths by cause for the completion screen, and starts a new play-through from level 1', () => {
+    const { controller, step, last } = setup();
+    // 클리어 직전 그 레벨에서 kinds대로 죽은 것처럼 만든다('fall'은 원인 없는 낙사).
+    const clearAfter = (kinds: readonly (DeathCauseKind | 'fall')[]): void => {
+      const update = vi.spyOn(World.prototype, 'update').mockImplementationOnce(function (this: World) {
+        for (const kind of kinds) this.reset(true, kind === 'fall' ? null : { rect: { x: 0, y: 0, width: 1, height: 1 }, kind });
+        this.cleared = true;
+      });
+      vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['clear']);
+      step();
+      update.mockRestore();
+    };
+    expect(last().levelDeaths).toEqual([null, null, null, null]); // 클리어 전에는 지금 레벨도 비어 있다
+    clearAfter(['hazard', 'hazard']);
+    expect(last().levelDeaths[0]).toEqual({ hazard: 2 }); // 클리어 화면에서는 지금 레벨이 바로 보인다
+    controller.nextLevel();
+    clearAfter([]);
+    controller.nextLevel();
+    clearAfter(['shadow']);
+    controller.nextLevel();
+    expect(last().levelDeaths).toEqual([{ hazard: 2 }, {}, { shadow: 1 }, null]);
+    clearAfter(['fall']);
+    expect(last().levelDeaths).toEqual([{ hazard: 2 }, {}, { shadow: 1 }, { fall: 1 }]);
+    controller.nextLevel(); // 완료 화면에서 레벨 1로 — 새 판
+    expect(last().level).toBe(1);
+    expect(last().levelDeaths).toEqual([null, null, null, null]);
+    controller.dispose();
+  });
+
+  it('shows the current level\'s deaths during a fake clear too (#14), like a real clear', () => {
+    const { step, last, controller } = setup();
+    // 가짜 클리어: World.cleared는 거짓이지만 스냅샷은 클리어로 보인다.
+    const original = World.prototype.snapshot;
+    vi.spyOn(World.prototype, 'snapshot').mockImplementation(function (this: World) {
+      return { ...original.call(this), cleared: true, runDeathsByKind: { shadow: 3 } };
+    });
+    step();
+    expect(last().levelDeaths[0]).toEqual({ shadow: 3 });
     controller.dispose();
   });
 
