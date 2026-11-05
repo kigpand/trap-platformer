@@ -14,7 +14,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "perf": "pnpm build && node scripts/perf.js"
+    "verify": "pnpm check && pnpm test:e2e",
+    "perf": "pnpm build && node scripts/perf.js",
+    "slack": "node scripts/slack.js"
   },
   "dependencies": {
     "react": "^19.1.0",
