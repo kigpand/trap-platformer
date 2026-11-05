@@ -16,7 +16,7 @@ const { default: App } = await import('../../src/App');
 
 const base: HudSnapshot = {
   x: 0, y: 0, grounded: true, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
-  paused: false, muted: false, volume: 0.8, level: 1, levelCount: 3, best: null, bests: [null, null, null], newRecord: false,
+  paused: false, muted: false, volume: 0.8, level: 1, levelCount: 3, best: null, bests: [null, null, null], newRecord: false, levelDeaths: [null, null, null],
 };
 
 describe('App announcements', () => {
@@ -68,6 +68,22 @@ describe('App death stats on the clear screen', () => {
     await act(async () => { push({ ...base, cleared: true }); });
     expect(container.querySelector('[aria-label="이번 런에서 당한 함정"]')?.textContent).toContain('한 번도 안 당했어요!');
     expect(container.querySelector('[role="status"]')?.textContent).not.toContain('가장 많이 당한 함정');
+    await act(async () => { root.unmount(); });
+  });
+
+  it('shows each level\'s top trap of this play-through on the completion screen', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    await act(async () => {
+      push({ ...base, level: 3, cleared: true, levelDeaths: [{ hazard: 2, fall: 1 }, {}, { shadow: 1 }] });
+    });
+    const items = [...container.querySelectorAll('[aria-label="모든 레벨 클리어"] li')].map((li) => li.textContent);
+    expect(items[0]).toContain('가장 많이 당한 함정 가짜 안전지대 ×2');
+    expect(items[1]).toContain('당한 함정 없음');
+    expect(items[2]).toContain('가장 많이 당한 함정 따라 하는 그림자 ×1');
     await act(async () => { root.unmount(); });
   });
 });

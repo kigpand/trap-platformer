@@ -5,10 +5,16 @@ import type { HudSnapshot } from './game/core/GameController';
 import { rankDeaths, TAUNTS } from './game/rendering/taunts';
 import './style.css';
 
+// 완료 화면: 이번 판에서 그 레벨에 가장 많이 당한 함정.
+function topKiller(byKind: Parameters<typeof rankDeaths>[0]): string {
+  const top = rankDeaths(byKind)[0];
+  return top ? `가장 많이 당한 함정 ${top.name} ×${top.count}` : '당한 함정 없음';
+}
+
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
     x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
-    paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false,
+    paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false, levelDeaths: [],
   });
   const [announcement, setAnnouncement] = useState('');
   const game = useRef<GameHandle>(null);
@@ -90,7 +96,10 @@ export default function App() {
           <h2>모든 레벨 클리어!</h2>
           <ul>
             {snapshot.bests.map((best, i) => (
-              <li key={i}>레벨 {i + 1} 최고 기록 <b>{best ? `${best.time.toFixed(1)}s / ${best.deaths} FALLS` : '—'}</b></li>
+              <li key={i}>
+                레벨 {i + 1} 최고 기록 <b>{best ? `${best.time.toFixed(1)}s / ${best.deaths} FALLS` : '—'}</b>
+                {snapshot.levelDeaths[i] && <span className="level-killer">{topKiller(snapshot.levelDeaths[i])}</span>}
+              </li>
             ))}
           </ul>
           <button type="button" onClick={() => game.current?.nextLevel()}>레벨 1부터 다시 (N)</button>
