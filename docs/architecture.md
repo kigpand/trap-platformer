@@ -29,7 +29,7 @@
 
 ## 테스트 구조
 - `tests/unit/`: Vitest. 물리·충돌(`physics/`), 함정·적·레벨(`world/`), 그리기(`rendering/`), 입력·루프·생명주기(`core/`), 플레이어·적(`entities/`), 소리(`audio/`), HUD·화면(`App.test.ts`), 검색용 메타데이터(`seo.test.ts`).
-- 도우미: `tests/unit/world/fixtures.ts`의 `testLevel`(함정 하나만 둔 작은 레벨)·`standAt`, `solution.ts`의 `playSolution`(스폰·체크포인트에서 실제 입력으로 완주하는 해법 실행), `tolerance.ts`의 `jumpSlack`(해법 점프마다 일찍·늦게 허용 프레임), `tests/unit/rendering/recorder.ts`(fillRect를 1px 격자로 펼쳐 그린 결과 비교).
+- 도우미: `tests/unit/world/fixtures.ts`의 `testLevel`(함정 하나만 둔 작은 레벨)·`standAt`, `solution.ts`의 `playSolution`(스폰·체크포인트에서 실제 입력으로 완주하는 해법 실행), `level1Solution.ts`~`level4Solution.ts`(레벨별 해법 입력 — 레벨 테스트와 `pnpm slack`이 함께 씀), `tolerance.ts`의 `jumpSlack`(해법 점프마다 일찍·늦게 허용 프레임), `tests/unit/rendering/recorder.ts`(fillRect를 1px 격자로 펼쳐 그린 결과 비교).
 - `tests/e2e/`: Playwright. 실제 브라우저에서 입력·일시정지·재시작·게임패드(흉내)와 가짜 클리어를 확인한다.
 
 ## 의존성 방향

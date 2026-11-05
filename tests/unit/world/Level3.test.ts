@@ -1,53 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_3, LEVELS } from '../../../src/game/world/level';
-import { jumpSkyDropHeadOn, playSolution, type Step } from './solution';
+import { playSolution, type Step } from './solution';
+import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
 
 // 레벨 3(어려움, 16,800px): 새 함정 8종을 명세 기본 크기로 쉴 틈 없이 이어 붙인다(함정 확장 릴리스 6번).
 // 원래 구간이 없어 처음부터 끝까지 해법 입력으로 간다. 맵 3배 확장: 예전 마지막 구간(도망가는 목표)을 끝으로 옮기고,
 // 그 사이에 약올리는 함정·함정 추가 17종(14~30번)을 둘씩 섞어 둔다.
 const dt = 1 / 60;
-const VANISH_SPIKES: Step[] = [{ run: 935 }, { jump: true }]; // 사라지는 땅을 달리다 그대로 가시(트리거 앞 10px 구간)
-const INVISIBLE_BLOCK: Step[] = [{ run: 1262 }, { jump: true }]; // 가장자리 46~24px 앞(23px)에서 일찍 뛴다
-const SKY_DROPS_1: Step[] = [
-  { run: 1454 }, { left: 10 }, // 트리거만 밟고 조금 물러선다(뒤는 투명 블록 구덩이)
-  { waitUntil: (w) => w.skyDrops[0].enemies.every((se) => se.phase === 'patrolling') },
-  { run: 1540 }, ...jumpSkyDropHeadOn(0, 0), { run: 1780 }, ...jumpSkyDropHeadOn(0, 1),
-];
-const FAKE_CEILING_SPIKES: Step[] = [
-  { run: 2258 }, { jump: true }, // 높이 60px 가짜 체크포인트(출발 구간 12px)
-  { run: 2465 }, { right: 4 }, { left: 20 }, { wait: 1 }, { run: 2475 }, { jump: true }, // 천장을 떨어뜨리고 넘는다(트리거 2470)
-  { run: 2634 }, { jump: true }, // 착지하자마자 두 번째 가시
-];
-const DODGE: Step[] = [{ run: 2898 }, { hop: true }, { wait: 0.3 }, { jump: true }, { run: 3070 }, { jump: true }];
-const VANISH_HAZARD: Step[] = [{ run: 3815 }, { jump: true }]; // 두 번째 사라지는 땅 끝(3800) 바로 뒤에서 가짜 안전지대(3840)를 넘는다
-const SKY_DROPS_2: Step[] = [
-  { run: 4204 }, { left: 10 }, { waitUntil: (w) => w.skyDrops[1].enemies.every((se) => se.phase === 'patrolling') },
-  { run: 4340 }, ...jumpSkyDropHeadOn(1, 0), { run: 4580 }, ...jumpSkyDropHeadOn(1, 1),
-];
-const mirror = (w: World) => w.mirrorEnemies[0];
-const arrowNear = (i: number) => (w: World) => { const a = w.arrowTraps[0].arrows[i]; return a.phase === 'flying' && a.x <= w.player.x + w.player.width + 40; };
-const BOULDER_WALL: Step[] = [{ run: 4985 }, { jump: true }, { run: 6295 }, { jump: true }]; // 돌덩이를 달고 가짜 벽을 그대로 지나 구덩이
-const ICE_FLING: Step[] = [{ run: 6865 }, { jump: true }, { run: 7375 }, { jump: true }]; // 뒤쪽 구덩이, 얼음 끝 날려버리는 점프 구역 앞에서 뛴다
-const SHADOW_REVERSE: Step[] = [{ runUntil: (w) => w.reverse !== null }, { leftUntil: (w) => w.reverse === null }, { run: 8295 }, { jump: true }];
-const ARROWS_HEAVY: Step[] = [
-  { run: 9330 }, { waitUntil: arrowNear(0) }, { hop: true }, // 낮은 화살
-  { waitUntil: (w) => w.arrowTraps[0].arrows[1].phase === 'gone' }, // 높은 화살은 서서
-  { waitUntil: arrowNear(2) }, { hop: true }, { waitUntil: (w) => w.arrowTraps[0].arrows[2].phase === 'gone' }, // 다시 낮은 화살
-  { run: 9975 }, { jump: true }, // 무거운 신발 구역 앞에서
-];
-const MIRROR_SPIKES: Step[] = [
-  { run: 10380 }, { waitUntil: (w) => mirror(w).enemy.vx > 0 && mirror(w).enemy.x >= 10750 }, { run: 10620 },
-  { waitUntil: (w) => mirror(w).enemy.vx < 0 && mirror(w).enemy.x - (w.player.x + w.player.width) <= 40 }, { hop: true },
-  { waitUntil: (w) => !mirror(w).airborne && mirror(w).enemy.x + mirror(w).enemy.width < w.player.x - 10 },
-  { run: 11215 }, { jump: true }, // "여기서 점프!" 표지판 말과 달리 구역 앞에서 뛰어 턱 위로
-];
-const COUNTING: Step[] = [{ run: 11615 }, { jump: true }, { run: 11900 }, { jump: true }]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지
-const RHYTHM: Step[] = [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 < 1 / 60 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }];
-const CEILING_FAKE_SPRING: Step[] = [{ run: 15835 }, { jump: true }]; // 천장 통로·두 번째 가짜 클리어를 멈추지 않고 지나 스프링을 넘는다
-const FINALE: Step[] = [{ run: 16185 }, { jump: true }, { run: 16534 }, { jump: true }, { run: 16760 }]; // 도망가는 목표·구덩이·가시
-const TAUNTING: Step[] = [...BOULDER_WALL, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE];
-const FULL: Step[] = [...VANISH_SPIKES, ...INVISIBLE_BLOCK, ...SKY_DROPS_1, ...FAKE_CEILING_SPIKES, ...DODGE, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING];
 
 function respawnAt(index: number): World {
   const cp = LEVEL_3.checkpoints[index];
