@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../../../src/game/world/level';
-import { BOULDER_SIZE, simulateJump, World } from '../../../src/game/world/World';
+import { BOULDER_SIZE, simulateJump, vanishingTile, vanishingTileCount, World } from '../../../src/game/world/World';
+import { MAX_SUBSTEP } from '../../../src/game/physics/Collision';
 import { createPlayer, JUMP_SPEED, SPEED } from '../../../src/game/entities/Player';
 import type { Level } from '../../../src/game/world/level';
 import { testLevel } from './fixtures';
@@ -9,6 +10,23 @@ import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 
 // 모든 레벨 데이터에 대한 배치 규칙(docs/physics-spec.md "레벨 배치 제약").
 describe('level placement rules (every level)', () => {
+  it('keeps every solid thicker than the collision substep (ADR-0002 invariant)', () => {
+    // 이동은 MAX_SUBSTEP 이하로 나뉘어 매번 겹침을 확인한다. 솔리드의 너비·높이가 그보다 크면 한 서브스텝에 건너뛸 수 없다.
+    // 충돌 테스트는 플레이어가 솔리드보다 커서 이 불변식이 깨져도 통과하므로(ADR-0002 재검토 기록), 레벨 데이터로 직접 확인한다.
+    for (const level of LEVELS) {
+      const solids: Rect[] = [
+        ...level.solids, ...level.hazards, ...level.fallingPlatforms, ...level.hiddenBlocks, ...level.invisibleBlocks,
+        ...level.vanishingGrounds.flatMap((v) => Array.from({ length: vanishingTileCount(v) }, (_, i) => vanishingTile(v, i))),
+        ...level.fallingCeilings.map((c) => c.block), ...level.dodgingPlatforms.map((d) => d.platform),
+        ...level.fakeGoals.flatMap((g) => g.floor), ...level.descendingCeilings.map((c) => c.block),
+        ...level.rhythmPlatforms.map((r) => r.rect), ...level.countingPlatforms.map((c) => c.rect),
+      ];
+      expect(solids.length).toBeGreaterThan(10);
+      const thin = solids.filter((r) => Math.min(r.width, r.height) <= MAX_SUBSTEP);
+      expect(thin, `level ${LEVELS.indexOf(level) + 1}`).toEqual([]);
+    }
+  });
+
   it('shows each fake safe zone on screen right after respawning at the checkpoint before it', () => {
     // 코덱스 리뷰: 레벨 3 체크포인트 3(3200)에서 재시작하면 가짜 안전지대(3920)가 화면 밖이라, 사망 원인 표시를
     // 재시작 화면에서 바로 볼 수 없었다. 이 규칙은 가짜 안전지대 앞에 건너뛸 수 없는 체크포인트를 두는 이유다.
