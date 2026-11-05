@@ -25,7 +25,7 @@ React + TypeScript + Canvas 2D로 만든 **독자적인 2D 함정 플랫포머**
 
 1. `AGENTS.md` — 양쪽 에이전트 공통 규칙. Claude에서는 `CLAUDE.md`가 `@AGENTS.md`로 가져옵니다.
 2. `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` — 구현 에이전트 규칙. `.claude/settings.json`은 공유 권한 설정(PR 병합은 매번 확인, 강제 푸시 금지).
-3. `.codex/review.md` — Codex가 **명시적으로 읽어야 하는** 리뷰 지침. 자동 로딩 파일이 아닙니다.
+3. `.codex/review.md` — Codex가 **명시적으로 읽어야 하는** 리뷰 지침. 자동 로딩 파일이 아닙니다. 변경마다의 리뷰 요청은 Claude의 `/codex-review-request` 스킬이 `.codex/requests/`(커밋하지 않음)에 만듭니다.
 4. `docs/` — 단일 명세 원천. 개발과 리뷰에서 같은 기준을 참조합니다.
 
 예: Claude에게 `docs/physics-spec.md` 기준 구현을 요청하고, Codex에게 `AGENTS.md`, `.codex/review.md`를 읽고 `git diff master...HEAD`를 리뷰하도록 요청합니다.
