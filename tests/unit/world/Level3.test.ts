@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_3, LEVELS } from '../../../src/game/world/level';
 import { playSolution, type Step } from './solution';
-import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
+import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, HILL_PIPE_ENEMY, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
 
 // 레벨 3(어려움, 16,800px): 새 함정 8종을 명세 기본 크기로 쉴 틈 없이 이어 붙인다(함정 확장 릴리스 6번).
 // 원래 구간이 없어 처음부터 끝까지 해법 입력으로 간다. 맵 3배 확장: 예전 마지막 구간(도망가는 목표)을 끝으로 옮기고,
@@ -50,12 +50,12 @@ describe('LEVEL_3 (hard)', () => {
     ['checkpoint 2 (before the fake checkpoint)', 1, [{ wait: 0.6 }, ...FAKE_CEILING_SPIKES, ...DODGE, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING]],
     ['checkpoint 3 (before the second vanishing ground)', 2, [{ wait: 0.6 }, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING]],
     ['checkpoint 4 (before the second sky drops)', 3, [{ wait: 0.6 }, ...SKY_DROPS_2, ...TAUNTING]],
-    ['checkpoint 5 (boulder and fake wall)', 4, [{ run: 6295 }, { jump: true }, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 6 (ice and fling jump)', 5, [...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 7 (shadow and reverse zone)', 6, [...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 8 (arrows and heavy shoes)', 7, [...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 9 (mirror enemy and landing spikes)', 8, [...MIRROR_SPIKES, ...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 10 (third-landing platform)', 9, [...COUNTING, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 5 (boulder and fake wall)', 4, [{ run: 6295 }, { jump: true }, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 6 (ice and fling jump)', 5, [...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 7 (shadow and reverse zone)', 6, [...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 8 (arrows and heavy shoes)', 7, [...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 9 (mirror enemy and landing spikes)', 8, [...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 10 (third-landing platform)', 9, [...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
     ['checkpoint 11 (rhythm platforms)', 10, [...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
     ['checkpoint 12 (ceiling, second fake clear, spring)', 11, [...CEILING_FAKE_SPRING, ...FINALE]],
     ['checkpoint 13 (spring)', 12, [...CEILING_FAKE_SPRING, ...FINALE]],
@@ -101,7 +101,7 @@ describe('LEVEL_3 (hard)', () => {
     dies(wall, 'boulder');
     // 얼음 끝 날려버리는 점프: 미끄러지는 얼음 끝(구역 안)에서 뛰면 뒤쪽 구덩이로 날아간다
     const fling = respawnAt(5);
-    playSolution(fling, [{ run: 6865 }, { jump: true }, { run: 7392 }]);
+    playSolution(fling, [{ run: 6630 }, { jump: true }, { run: 6865 }, { jump: true }, { run: 7392 }]); // 앞의 파이프(6650)는 넘는다
     step(fling, 1, true); until(fling, 1, () => fling.deaths > 1);
     dies(fling, 'flingJump');
     // 그림자 안 반전: 반전에 당황해 멈추면 그림자에 잡힌다
@@ -125,6 +125,11 @@ describe('LEVEL_3 (hard)', () => {
     playSolution(rhythm, [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 > 0.15 && w.lifeTime % 1.8 < 0.2 }, { jump: true }]);
     until(rhythm, 0, () => rhythm.deaths > 1);
     dies(rhythm, 'rhythmPlatform');
+    // 적이 나오는 파이프: 언덕을 내려와 멈추지 않고 파이프로 달려가면 내려오는 적에 닿는다
+    const pipe = respawnAt(9);
+    playSolution(pipe, [...COUNTING, ...HILL_PIPE_ENEMY.slice(0, 3)]);
+    until(pipe, 1, () => pipe.deaths > 1);
+    dies(pipe, 'pipeEnemy');
     // 두 번째 가짜 클리어: "진짜 끝!" 깃발에서 다음 레벨을 누르면 떨어진다
     const fake = respawnAt(11);
     playSolution(fake, [{ run: LEVEL_3.fakeGoals[0].flag.x + 10 }]);
