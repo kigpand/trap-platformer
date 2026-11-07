@@ -11,8 +11,8 @@
 - `game/entities/Player.ts`: 플레이어 상태와 갱신 함수
 - `game/entities/Enemy.ts`: 적 패트롤 상태와 갱신 함수(중력 없는 단순 왕복)
 - `game/world/`: 레벨 데이터와 시뮬레이션. 함정 하나하나의 동작은 `docs/traps-spec.md`, 레벨 구성은 `docs/game-design.md`가 기준이다.
-  - `level.ts`: `Level` 타입과 `LEVEL_1`~`LEVEL_4`, 진행 순서 `LEVELS`. 레벨 하나의 크기·스폰·지형·목표·체크포인트·함정 30종·적 배치를 한 객체로 묶는다(레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만든다).
-  - `World.ts`: `new World(level)`로 레벨을 받아 고정 스텝마다 `update`한다. 렌더러는 `world.level`과 `World`의 상태를 읽기만 한다.
+  - `level.ts`: `Level` 타입과 `LEVEL_1`~`LEVEL_4`, 진행 순서 `LEVELS`. 레벨 하나의 크기·스폰·지형·목표·체크포인트·함정 30종·적 배치를 한 객체로 묶는다(레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만든다). 지형지물(`pipes` 파이프, `hills` 계단식 언덕)도 여기 두며, `staticSolids(level)`가 바닥·블록·파이프·언덕 기둥(`hillColumns`)을 움직이지 않는 지형 하나로 합친다.
+  - `World.ts`: `new World(level)`로 레벨을 받아 고정 스텝마다 `update`한다. 렌더러는 `world.level`과 `World`의 상태를 읽기만 한다. 충돌·지지 확인은 `world.terrain`(= `staticSolids(level)`)과 `dynamicSolids()`를 함께 쓴다.
     - 상태: 플레이어, 적, 함정마다의 상태 목록(`World.vanishingGrounds`, `World.shadows` 등), 현재 목표 위치(`World.goal`), 목숨마다 새로 세는 시간(`World.lifeTime`), 체크포인트 재시작 위치.
     - 함정이 만들고 없애는 솔리드는 `dynamicSolids()` 한 목록으로 충돌·지지 확인·천장 착지에 함께 쓴다. 이동 규칙을 바꾸는 함정(얼음·무거운 신발·강제 비행 `World.flight`·좌우 반전 `World.reverse`)은 `World.update`에서 그 구역 안에서만 적용한다 — 입력 소스와 상관없이 같은 규칙이 걸린다.
     - 사망 원인 표시(`deathCause`): 함정·적에 당하면 원인 영역을, 낙사는 3초 안에 무너진 함정을 기억해 렌더러가 경고색으로 그린다.
@@ -21,7 +21,7 @@
     - 소리를 모르고 일어난 일만 기록한다(아래 `game/audio/`).
 - `game/rendering/`: 그리기 전용. `World`를 바꾸지 않는다(영역 지침 `.claude/rules/rendering.md`).
   - `CanvasRenderer.ts`: 한 프레임을 그리는 순서와 카메라 변환. 길이 방향으로 늘어나는 것은 화면과 겹치는 것만 그린다(`tests/unit/rendering/budget.test.ts`가 프레임당 그리기 양을 묶음). 화면 흔들림·파편은 렌더러만 가진 그림 상태로, `GameController`가 고정 스텝마다 `stepEffects`로 흘린다(일시정지 중 멈춤, `prefers-reduced-motion`이면 흔들지 않음).
-  - `terrain.ts`(땅·블록 질감), `props.ts`(깃발·목표·가시·표지판), `background.ts`(시차 밤 도시 배경), `Sprites.ts`(플레이어·적 픽셀 스프라이트): 위장 함정과 가짜는 진짜와 같은 함수·같은 프레임으로 그려 같은 자리에서 픽셀 단위로 같다(`terrain.test.ts`·`props.test.ts`).
+  - `terrain.ts`(땅·블록 질감, 파이프 — 언덕은 기둥마다 땅으로 그림), `props.ts`(깃발·목표·가시·표지판), `background.ts`(시차 밤 도시 배경), `Sprites.ts`(플레이어·적 픽셀 스프라이트): 위장 함정과 가짜는 진짜와 같은 함수·같은 프레임으로 그려 같은 자리에서 픽셀 단위로 같다(`terrain.test.ts`·`props.test.ts`).
   - `taunts.ts`: 사망 원인 종류별 놀리는 문구(`TauntKind`). 캔버스와 App의 스크린 리더 알림이 함께 쓰며, 게임 로직은 문구를 모르고 원인 종류만 내보낸다.
 - `game/world/viewport.ts`: 화면 폭과 카메라 위치 계산. 렌더러(그릴 영역)와 `World`(플레이어가 지금 볼 수 있는 영역 판단)가 같은 계산을 써야 해서, 월드가 렌더링에 의존하지 않도록 월드 쪽에 둔다
 - `game/audio/SoundPlayer.ts`: Web Audio 오실레이터로 합성한 효과음과 배경 음악 루프(외부 음원 없음), 음소거·음량 상태. 배경 음악은 `GameController`가 매 스텝 `updateMusic(!paused)`로 짧게 앞서 예약하며, 멈출 때는 음악 버스를 페이드아웃해 예약된 음까지 끊는다. `World`는 소리를 모르고 update 중 일어난 일(`WorldEvent`: 점프·사망·체크포인트·클리어)과 위치가 있는 함정 이벤트(`TrapEvent`: `{ kind, rect }`)만 기록하며, `GameController`가 `drainEvents()`·`drainTrapEvents()`로 꺼내 재생한다. 함정 이벤트는 화면 밖 소리 규칙(`world/viewport.ts`의 `isWithinHearing`, 렌더러와 같은 카메라 계산)으로 거른다

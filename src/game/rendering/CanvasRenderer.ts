@@ -1,13 +1,14 @@
 import { ENEMY_HEIGHT, ENEMY_WIDTH, type Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 import { cameraX, VIEW_WIDTH } from '../world/viewport';
+import { hillColumns } from '../world/level';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
 import { arrowRect, boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
-import { drawBlock, drawGround } from './terrain';
+import { drawBlock, drawGround, drawPipe } from './terrain';
 import { drawFlag, drawGoal, drawSign, drawSpikes, GOAL_FILL } from './props';
 export { GOAL_FILL, SPIKE_FILL } from './props';
 import { TAUNTS } from './taunts';
@@ -119,6 +120,17 @@ export class CanvasRenderer {
     for (const p of level.solids) {
       if (!inView(p)) continue;
       drawGround(ctx, p, view);
+      if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
+    }
+    // 지형지물: 언덕은 기둥마다 바닥처럼 그려 드러난 단마다 풀이 나고, 파이프는 금속 관으로 그린다.
+    for (const c of level.hills.flatMap(hillColumns)) {
+      if (!inView(c)) continue;
+      drawGround(ctx, c, view);
+      if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(c.x, c.y, c.width, c.height); }
+    }
+    for (const p of level.pipes) {
+      if (!inView(p)) continue;
+      drawPipe(ctx, p);
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     }
     for (const h of level.hazards) {

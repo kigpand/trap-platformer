@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS } from '../../../src/game/world/level';
+import { LEVELS, staticSolids } from '../../../src/game/world/level';
 import { BOULDER_SIZE, simulateJump, vanishingTile, vanishingTileCount, World } from '../../../src/game/world/World';
 import { MAX_SUBSTEP } from '../../../src/game/physics/Collision';
-import { createPlayer, JUMP_SPEED, SPEED } from '../../../src/game/entities/Player';
+import { createPlayer, JUMP_SPEED, PLAYER_WIDTH, SPEED } from '../../../src/game/entities/Player';
 import type { Level } from '../../../src/game/world/level';
 import { testLevel } from './fixtures';
 import type { Rect } from '../../../src/game/physics/AABB';
@@ -15,7 +15,7 @@ describe('level placement rules (every level)', () => {
     // 충돌 테스트는 플레이어가 솔리드보다 커서 이 불변식이 깨져도 통과하므로(ADR-0002 재검토 기록), 레벨 데이터로 직접 확인한다.
     for (const level of LEVELS) {
       const solids: Rect[] = [
-        ...level.solids, ...level.hazards, ...level.fallingPlatforms, ...level.hiddenBlocks, ...level.invisibleBlocks,
+        ...staticSolids(level), ...level.hazards, ...level.fallingPlatforms, ...level.hiddenBlocks, ...level.invisibleBlocks,
         ...level.vanishingGrounds.flatMap((v) => Array.from({ length: vanishingTileCount(v) }, (_, i) => vanishingTile(v, i))),
         ...level.fallingCeilings.map((c) => c.block), ...level.dodgingPlatforms.map((d) => d.platform),
         ...level.fakeGoals.flatMap((g) => g.floor), ...level.descendingCeilings.map((c) => c.block),
@@ -64,10 +64,52 @@ describe('level placement rules (every level)', () => {
     }
   });
 
+  it('keeps every pipe and hill standing on ground and climbable with one jump per step', () => {
+    for (const [i, level] of LEVELS.entries()) expect(terrainFeatureViolations(level), `level ${i + 1}`).toEqual([]);
+  });
+
   it('keeps changing solids off every predicted landing-spike trajectory', () => {
     for (const [i, level] of LEVELS.entries()) {
       expect(landingPredictionViolations(level), `level ${i + 1}`).toEqual([]);
     }
+  });
+});
+
+// 지형지물 배치 제약(docs/physics-spec.md "레벨 배치 제약"): 파이프·언덕은 받치는 바닥(level.solids) 위에 서고, 파이프 높이와
+// 언덕 한 단의 높이는 최대 점프 높이(81.375px)보다 낮으며, 언덕의 단·꼭대기는 플레이어가 설 수 있을 만큼 넓다.
+const MAX_JUMP_HEIGHT = 81.375;
+function terrainFeatureViolations(level: Level): string[] {
+  const out: string[] = [];
+  const standsOnGround = (x: number, width: number, bottom: number): boolean =>
+    level.solids.some((s) => s.y === bottom && s.x <= x && s.x + s.width >= x + width);
+  for (const p of level.pipes) {
+    if (!standsOnGround(p.x, p.width, p.y + p.height)) out.push(`pipe at ${p.x} does not stand on ground`);
+    if (p.height >= MAX_JUMP_HEIGHT) out.push(`pipe at ${p.x} is too tall to jump onto`);
+  }
+  for (const h of level.hills) {
+    const width = h.topWidth + 2 * (h.steps - 1) * h.stepWidth;
+    if (!standsOnGround(h.x, width, h.y)) out.push(`hill at ${h.x} does not stand on ground`);
+    if (h.stepHeight >= MAX_JUMP_HEIGHT) out.push(`hill at ${h.x} has steps too tall to jump`);
+    if (Math.min(h.stepWidth, h.topWidth) < PLAYER_WIDTH) out.push(`hill at ${h.x} has steps too narrow to stand on`);
+  }
+  return out;
+}
+
+describe('terrain feature placement rule', () => {
+  const ground = { x: 0, y: 500, width: 1000, height: 120 };
+  const hill = { x: 400, y: 500, steps: 3, stepWidth: 40, stepHeight: 40, topWidth: 80 };
+  it('accepts pipes and hills on the ground within jump height', () => {
+    expect(terrainFeatureViolations(testLevel({ solids: [ground], pipes: [{ x: 200, y: 440, width: 60, height: 60 }], hills: [hill] }))).toEqual([]);
+  });
+  it('rejects floating, too tall or too narrow features', () => {
+    expect(terrainFeatureViolations(testLevel({
+      solids: [ground],
+      pipes: [{ x: 200, y: 400, width: 60, height: 60 }, { x: 300, y: 410, width: 60, height: 90 }, { x: 980, y: 440, width: 60, height: 60 }],
+      hills: [{ ...hill, stepHeight: 82 }, { ...hill, stepWidth: PLAYER_WIDTH - 1 }, { ...hill, y: 480 }],
+    }))).toEqual([
+      'pipe at 200 does not stand on ground', 'pipe at 300 is too tall to jump onto', 'pipe at 980 does not stand on ground',
+      'hill at 400 has steps too tall to jump', 'hill at 400 has steps too narrow to stand on', 'hill at 400 does not stand on ground',
+    ]);
   });
 });
 
@@ -76,7 +118,8 @@ describe('level placement rules (every level)', () => {
 // 세 가지(←·없음·→)로 World와 같은 계산(simulateJump)을 돌려 얻는다 — 고정 거리(±200px)로는 낮은 착지면으로 멀리
 // 떨어지는 궤적을 덮지 못했다(Codex 리뷰).
 function landingPredictionViolations(level: Level): Rect[] {
-  const solids = [...level.solids, ...new World(level).dynamicSolids()];
+  const world = new World(level);
+  const solids = [...world.terrain, ...world.dynamicSolids()];
   const changing: Rect[] = [
     ...level.hiddenBlocks, ...level.fallingPlatforms, ...level.vanishingGrounds, ...level.invisibleBlocks,
     ...level.dodgingPlatforms.flatMap((d) => [d.platform, { ...d.platform, ...d.to }]),

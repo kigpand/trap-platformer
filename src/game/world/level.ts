@@ -45,6 +45,11 @@ export interface ArrowTrap { trigger: Rect; arrows: readonly Arrow[] }
 export interface MirrorEnemy { minX: number; maxX: number; y: number; jumpSpeed: number }
 // 세 번째 착지에 무너지는 발판(#30): 공중에서 이 발판에 착지한 횟수가 landings(기본 3)가 되는 스텝에 사라진다.
 export interface CountingPlatform { rect: Rect; landings: number }
+// 파이프(지형지물): 바닥 위에 선 단단한 기둥. rect의 아랫면이 받치는 바닥의 윗면에 닿는다. 충돌은 솔리드와 같다.
+export type Pipe = Rect;
+// 계단식 언덕(지형지물): y(받치는 바닥의 윗면) 위에 steps단으로 쌓은 언덕. 단마다 stepWidth만큼 안으로 들어가고 stepHeight만큼
+// 높아지며, 꼭대기 단의 너비는 topWidth다. 경사가 아니라 사각형 단이라 단마다 점프해 오른다(단차 보조 없음 — docs/physics-spec.md).
+export interface Hill { x: number; y: number; steps: number; stepWidth: number; stepHeight: number; topWidth: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -52,6 +57,8 @@ export interface Level {
   height: number;
   spawn: { x: number; y: number };
   solids: readonly Rect[];
+  pipes: readonly Pipe[]; // 지형지물: 파이프
+  hills: readonly Hill[]; // 지형지물: 계단식 언덕
   goal: Rect;
   hazards: readonly Rect[];
   fallingPlatforms: readonly Rect[];
@@ -112,6 +119,8 @@ export const LEVEL_1: Level = {
     { x: 8400, y: 500, width: 300, height: 120 },
     { x: 8800, y: 500, width: 3200, height: 120 },
   ],
+  pipes: [],
+  hills: [],
   goal: { x: 11900, y: 440, width: 40, height: 60 },
   // 가짜 안전지대: 실제 바닥(ground2) 위에 겹쳐진 위장 타일. 걸어서 그대로 도달 가능하며
   // 시각적으로는 일반 바닥과 동일하게 그려짐 (docs/traps-spec.md #4)
@@ -230,6 +239,8 @@ export const LEVEL_2: Level = {
     { x: 12380, y: 500, width: 2420, height: 120 }, // 도망가는 목표(예전 groundF 자리를 옮김), 14800-14900 구덩이
     { x: 14900, y: 500, width: 400, height: 120 },
   ],
+  pipes: [],
+  hills: [],
   goal: { x: 14680, y: 440, width: 40, height: 60 }, // 다가가면 도망간다(goalHops)
   // 가짜 안전지대: groundB 위 위장 타일. 앞(1100)에 건너뛸 수 없는 체크포인트가 있어, 이 함정으로
   // 죽으면 체크포인트에서 재시작하고 강조 표시가 화면 안에 보인다(docs/traps-spec.md #4). 체크포인트와
@@ -347,6 +358,8 @@ export const LEVEL_3: Level = {
     { x: 15000, y: 500, width: 1200, height: 120 }, // 스프링(15700), 끝에 도망가는 목표
     { x: 16300, y: 500, width: 500, height: 120 }, // groundF(옮김): 마지막 구덩이 너머 — 가시와 도망가는 목표
   ],
+  pipes: [],
+  hills: [],
   goal: { x: 16150, y: 440, width: 40, height: 60 }, // 다가가면 두 번 달아난다(goalHops)
   // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다. 체크포인트 3(3350)에서
   // 재시작한 화면(오른쪽 끝 3926) 안에 들어오도록 둔다 — 사망 원인 표시를 재시작 직후 바로 본다(physics-spec 배치 제약).
@@ -468,6 +481,8 @@ export const LEVEL_4: Level = {
     { x: 17900, y: 500, width: 250, height: 120 },
     { x: 18250, y: 500, width: 350, height: 120 },
   ],
+  pipes: [],
+  hills: [],
   goal: { x: 17700, y: 440, width: 40, height: 60 },
   hazards: [{ x: 16680, y: 495, width: 80, height: 25 }],
   fallingPlatforms: [{ x: 13100, y: 480, width: 140, height: 20 }],
@@ -525,3 +540,19 @@ export const LEVEL_4: Level = {
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
 export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
+
+// 언덕을 겹치지 않는 세로 기둥으로 나눈다(왼쪽 단 → 꼭대기 → 오른쪽 단). 기둥마다 윗면에서 받치는 바닥까지 이어져,
+// 바닥처럼 그리면 드러난 단의 윗면마다 풀이 난다(단을 가로로 쌓으면 아래 단의 풀이 위 단 밑으로 비친다).
+export function hillColumns(h: Hill): Rect[] {
+  const side = (i: number): number => (i + 1) * h.stepHeight;
+  const left = Array.from({ length: h.steps - 1 }, (_, i) => ({ x: h.x + i * h.stepWidth, y: h.y - side(i), width: h.stepWidth, height: side(i) }));
+  const topX = h.x + (h.steps - 1) * h.stepWidth;
+  const top = { x: topX, y: h.y - h.steps * h.stepHeight, width: h.topWidth, height: h.steps * h.stepHeight };
+  const right = left.map((c, i) => ({ ...c, x: topX + h.topWidth + (h.steps - 2 - i) * h.stepWidth })).reverse();
+  return [...left, top, ...right];
+}
+
+// 움직이지 않는 지형 전체(바닥·블록, 파이프, 언덕 기둥). World가 충돌·지지 확인에 함께 쓴다.
+export function staticSolids(level: Level): Rect[] {
+  return [...level.solids, ...level.pipes, ...level.hills.flatMap(hillColumns)];
+}
