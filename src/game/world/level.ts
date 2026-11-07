@@ -413,8 +413,16 @@ export const LEVEL_3: Level = {
     { x: 15000, y: 500, width: 1200, height: 120 }, // 스프링(15700), 끝에 도망가는 목표
     { x: 16300, y: 500, width: 500, height: 120 }, // groundF(옮김): 마지막 구덩이 너머 — 가시와 도망가는 목표
   ],
-  pipes: [],
-  hills: [],
+  // 맵 곳곳의 함정 없는 평지에 흩어 둔 파이프·언덕(프로젝트 오너 요청, 2026-11-07). 돌덩이 길(5000-6300)·화살 길(9000-10330)·
+  // 그림자 구간·내려오는 천장 통로와, 스프링이 튕겨 보내는 자리(약 15100) 근처는 비운다. 12900은 적이 나오는 파이프(#31).
+  pipes: [
+    { x: 10, y: 460, width: 40, height: 40 }, // 스폰 뒤 왼쪽 끝(첫 화면)
+    { x: 250, y: 460, width: 40, height: 40 }, // 첫 사라지는 땅 앞
+    { x: 6650, y: 460, width: 40, height: 40 }, // 얼음 앞 구덩이 전
+    { x: 12900, y: 440, width: 60, height: 60 },
+    { x: 15500, y: 450, width: 60, height: 50 }, // 스프링 앞
+  ],
+  hills: [{ x: 12300, y: 500, steps: 3, stepWidth: 50, stepHeight: 30, topWidth: 150 }], // 세 번째 착지 발판 너머
   goal: { x: 16150, y: 440, width: 40, height: 60 }, // 다가가면 두 번 달아난다(goalHops)
   // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다. 체크포인트 3(3350)에서
   // 재시작한 화면(오른쪽 끝 3926) 안에 들어오도록 둔다 — 사망 원인 표시를 재시작 직후 바로 본다(physics-spec 배치 제약).
@@ -489,7 +497,9 @@ export const LEVEL_3: Level = {
   shadows: [{ trigger: { x: 7550, y: 300, width: 40, height: 200 }, endX: 8800 }],
   // 무거운 신발: 화살 구간 끝, 구덩이(10000) 앞 20px.
   heavyZones: [{ zone: { x: 9980, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
-  pipeEnemies: [],
+  // 적이 나오는 파이프: 언덕을 내려와 트리거(12680)를 지나면 파이프(12900)에서 적이 나와 언덕 아래(12650)부터 파이프까지 왕복한다. 박자 발판 앞
+  // 체크포인트(13300)보다 앞이다.
+  pipeEnemies: [{ pipe: { x: 12900, y: 440, width: 60, height: 60 }, trigger: { x: 12680, y: 300, width: 40, height: 200 }, minX: 12650, maxX: 12900 }],
   sinkingPipes: [],
   rollingStones: [],
   iceFloors: [{ x: 7000, y: 500, width: 380, height: 20 }],
