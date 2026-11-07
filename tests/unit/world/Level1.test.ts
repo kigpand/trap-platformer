@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1 } from '../../../src/game/world/level';
 import { playSolution, recordInputs } from './solution';
-import { ceiling, dodge, DODGE, FAKE_CLEAR_AND_GEM, fakeFlag, FULL, ICE, RHYTHM, SHADOW, SPIKES, SPRING_AND_GOAL, TAUNTING, TO_FAKE_FLAG, VANISHING_AND_CEILING } from './level1Solution';
+import { ceiling, dodge, DODGE, FAKE_CLEAR_AND_GEM, fakeFlag, FULL, ICE, pipeEnemy, RHYTHM, SHADOW, SPIKES, SPRING_AND_GOAL, TAUNTING, TERRAIN, TO_FAKE_FLAG, VANISHING_AND_CEILING } from './level1Solution';
 
 const IDLE = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 
@@ -10,6 +10,7 @@ const IDLE = { horizontal: 0 as const, jumpPressed: false, restartPressed: false
 // 새 함정 4종을 하나씩 소개한다 — 사라지는 땅 → 떨어지는 천장 → 솟아오르는 가시(좁은 16px) → 도망가는 발판.
 // 맵 3배 확장(약올리는 함정 5번): 예전 목표 자리가 가짜 클리어가 되고, 그 뒤로 보석 → 천장 통로·가짜 벽 → 얼음 →
 // 박자 발판 → 그림자 → 스프링 순서로 약올리는 함정을 하나씩 소개한다(표지판은 가짜 클리어·얼음·스프링 앞).
+// 지형지물(2026-11-07): 그림자 뒤 체크포인트 7과 스프링 사이에 파이프 → 적이 나오는 파이프 → 가라앉는 파이프 → 언덕과 굴러 내려오는 돌.
 // 완료 기준: 해법 입력으로 스폰과 모든 체크포인트에서 사망 없이 목표까지.
 const [cp1, cp2, cp3, cp4, cp5, cp6, cp7] = LEVEL_1.checkpoints;
 function respawnAt(cp: typeof cp1): World {
@@ -42,9 +43,9 @@ describe('LEVEL_1 (easy, extended)', () => {
     ['checkpoint 2 (before the vanishing ground)', cp2, [{ run: 1950 }, ...VANISHING_AND_CEILING, ...SPIKES, ...DODGE, ...TAUNTING]],
     ['checkpoint 3 (before the dodging platform)', cp3, [...DODGE, ...TAUNTING]],
     ['checkpoint 4 (after the fake clear)', cp4, TAUNTING],
-    ['checkpoint 5 (before the ice)', cp5, [...ICE, ...RHYTHM, ...SHADOW, ...SPRING_AND_GOAL]],
-    ['checkpoint 6 (before the rhythm platforms)', cp6, [...RHYTHM, ...SHADOW, ...SPRING_AND_GOAL]],
-    ['checkpoint 7 (after the shadow)', cp7, SPRING_AND_GOAL],
+    ['checkpoint 5 (before the ice)', cp5, [...ICE, ...RHYTHM, ...SHADOW, ...TERRAIN, ...SPRING_AND_GOAL]],
+    ['checkpoint 6 (before the rhythm platforms)', cp6, [...RHYTHM, ...SHADOW, ...TERRAIN, ...SPRING_AND_GOAL]],
+    ['checkpoint 7 (after the shadow, before the pipes and the hill)', cp7, [...TERRAIN, ...SPRING_AND_GOAL]],
   ] as const)('can be finished from %s with no further deaths', (_, cp, steps) => {
     const world = respawnAt(cp);
     expect(playSolution(world, steps)).toBe(steps.length);
@@ -98,13 +99,32 @@ describe('LEVEL_1 (easy, extended)', () => {
     playSolution(shadow, [...RHYTHM, { run: 8100 }]);
     until(shadow, 0, () => shadow.deaths > 1);
     expect(shadow.snapshot().deathKind).toBe('shadow');
-    // 스프링: 그냥 달려가면 튕겨 한참 뒤로 날아간다(죽지는 않는다)
+    // 스프링: 그냥 달려가면 튕겨 한참 뒤로 날아간다(죽지는 않는다). 떨어지는 자리는 언덕(끝 10740)보다 뒤의 평지다.
     const spring = respawnAt(cp7);
+    playSolution(spring, TERRAIN);
     until(spring, 1, () => spring.flight !== null);
     expect(spring.taunt?.kind).toBe('springFloor');
     until(spring, 1, () => spring.flight === null);
     expect(spring.player.x).toBeLessThan(11300);
+    expect(spring.player.x).toBeGreaterThan(LEVEL_1.hills[0].x + 280);
+    expect(spring.player.y + spring.player.height).toBe(500);
     expect(spring.deaths).toBe(1);
+  });
+
+  it('catches the naive play at each terrain trap (#31-#33)', () => {
+    // 적이 나오는 파이프: 멈추지 않고 달려가 파이프에 올라서면 올라오는 적에 닿는다
+    const pipe = respawnAt(cp7);
+    playSolution(pipe, [{ run: 9860 }, { jump: true }, { run: pipeEnemy.pipe.x - 20 }, { jump: true }, { run: 10300 }]);
+    expect(pipe.snapshot().deathKind).toBe('pipeEnemy');
+    // 가라앉는 파이프: 표지판 말대로 파이프 위에서 쉬면 가라앉아 떨어진다
+    const sink = respawnAt(cp7);
+    const sinking = LEVEL_1.sinkingPipes[0].pipe;
+    playSolution(sink, [...TERRAIN.slice(0, 8), { jump: true }, { leftUntil: (w) => w.player.x + w.player.width <= sinking.x + sinking.width - 10 }, { wait: 3 }]);
+    expect(sink.snapshot().deathKind).toBe('sinkingPipe');
+    // 굴러 내려오는 돌: 꼭대기에 올라 그대로 달리면 돌에 부딪힌다
+    const stone = respawnAt(cp7);
+    playSolution(stone, [...TERRAIN.slice(0, 10), { run: 10800 }]);
+    expect(stone.snapshot().deathKind).toBe('rollingStone');
   });
 
   it('kills a player who goes for the bait gem in the pit', () => {

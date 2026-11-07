@@ -28,8 +28,22 @@ export const RHYTHM: Step[] = [
   { jump: true }, { jump: true }, { jump: true }, // 첫 발판 → 두 번째 발판(0.5초 늦게 나타남) → 건너편
 ];
 export const SHADOW: Step[] = [{ run: 8295 }, { jump: true }, { run: 8695 }, { jump: true }]; // 멈추지 않고 달리며 구덩이만 넘는다
+// 지형지물 구간: 파이프를 넘고, 적이 나오는 파이프 앞에서 기다렸다 내려온 적을 넘고 파이프를 넘는다. 가라앉는 파이프는 올라서자마자
+// 다시 뛰어 언덕 꼭대기에 내려서고, 굴러오는 돌을 제자리에서 넘는다.
+export const pipeEnemy = LEVEL_1.pipeEnemies[0];
+export const stone = LEVEL_1.rollingStones[0];
+export const TERRAIN: Step[] = [
+  { run: 9860 }, { jump: true }, // 소개용 파이프(9880)
+  { run: pipeEnemy.trigger.x + 30 },
+  { waitUntil: (w) => { const e = w.pipeEnemies[0].enemy; return w.pipeEnemies[0].phase === 'patrolling' && !!e && e.vx < 0 && e.x - (w.player.x + w.player.width) < 40; } },
+  { jump: true }, // 다가오는 적을 넘는다
+  { run: pipeEnemy.pipe.x - 20 }, { jump: true }, // 적이 왼쪽 끝에서 돌아오기 전에 파이프를 넘는다
+  { run: 10325 }, { jump: true }, { jump: true }, // 가라앉는 파이프에 올라서자마자 다시 뛰어 언덕 꼭대기로(돌이 나타난다)
+  { waitUntil: (w) => w.rollingStones[0].phase === 'rolling' && w.rollingStones[0].x - (w.player.x + w.player.width) < 40 },
+  { hop: true }, // 굴러오는 돌을 넘는다
+];
 export const SPRING_AND_GOAL: Step[] = [{ run: 11585 }, { jump: true }, { run: LEVEL_1.goal.x + 20 }]; // 스프링 타일을 넘는다
-export const TAUNTING = [...FAKE_CLEAR_AND_GEM, ...CORRIDOR, ...ICE, ...RHYTHM, ...SHADOW, ...SPRING_AND_GOAL];
+export const TAUNTING = [...FAKE_CLEAR_AND_GEM, ...CORRIDOR, ...ICE, ...RHYTHM, ...SHADOW, ...TERRAIN, ...SPRING_AND_GOAL];
 // 스폰에서 가짜 깃발까지.
 export const TO_FAKE_FLAG: Step[] = [...ORIGINAL, ...VANISHING_AND_CEILING, ...SPIKES, ...DODGE, { run: fakeFlag().x + 10 }];
 export const FULL = [...ORIGINAL, ...VANISHING_AND_CEILING, ...SPIKES, ...DODGE, ...TAUNTING];
