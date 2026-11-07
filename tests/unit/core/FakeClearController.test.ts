@@ -6,7 +6,9 @@ import { CanvasRenderer } from '../../../src/game/rendering/CanvasRenderer';
 
 // #14 가짜 클리어가 컨트롤러 화면 상태까지 진짜 클리어를 흉내 내는지 확인한다. 실제 레벨에는 아직 배치하지 않았으므로
 // (약올리는 함정 릴리스 5번) 레벨 목록을 가짜 깃발 하나만 둔 시험용 레벨로 바꾼다. 스폰이 깃발과 겹쳐 첫 스텝에 닿는다.
-vi.mock('../../../src/game/world/level', async () => {
+// 레벨 목록만 바꾸고 지형 도우미(staticSolids 등)는 실제 모듈 것을 쓴다.
+vi.mock('../../../src/game/world/level', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/game/world/level')>();
   const { testLevel } = await import('../world/fixtures');
   const level = testLevel({
     spawn: { x: 940, y: 468 },
@@ -14,7 +16,7 @@ vi.mock('../../../src/game/world/level', async () => {
     goal: { x: 1900, y: 440, width: 40, height: 60 },
     fakeGoals: [{ flag: { x: 940, y: 440, width: 40, height: 60 }, floor: [{ x: 800, y: 500, width: 300, height: 120 }] }],
   });
-  return { LEVEL_1: level, LEVELS: [level, testLevel({})] };
+  return { ...actual, LEVEL_1: level, LEVELS: [level, testLevel({})] };
 });
 
 describe('GameController fake clear', () => {

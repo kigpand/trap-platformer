@@ -3,6 +3,7 @@ import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, PLAYER_HEIGHT, PLAYE
 import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
 import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, CountingPlatform, MirrorEnemy, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import { staticSolids } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
 const FALL_TRIGGER_DELAY = 0.2; // docs/traps-spec.md #2 유예 시간
@@ -350,10 +351,13 @@ export class World {
   private runComplete = false;
   private events: WorldEvent[] = [];
   private trapEvents: TrapEvent[] = [];
+  // 움직이지 않는 지형(바닥·블록·파이프·언덕 기둥). 레벨마다 한 번 만든다.
+  readonly terrain: readonly Rect[];
   // 레벨 의존 상태는 필드 초기화식이 아니라 생성자에서 만든다 — 초기화식은 매개변수 속성(this.level)이
   // 할당되기 전에 실행되기 때문이다.
   constructor(readonly level: Level) {
     this.player = createPlayer(level.spawn.x, level.spawn.y);
+    this.terrain = staticSolids(level);
     this.fallingPlatforms = createCollapsingSolids(level.fallingPlatforms);
     this.hiddenBlocks = createCollapsingSolids(level.hiddenBlocks);
     this.enemies = createEnemies(level);
@@ -507,7 +511,7 @@ export class World {
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
     if (p.grounded) {
-      const stillSupported = [...this.level.solids, ...this.dynamicSolids()].some((s) => isStandingOn(p, s));
+      const stillSupported = [...this.terrain, ...this.dynamicSolids()].some((s) => isStandingOn(p, s));
       if (!stillSupported) p.grounded = false;
     }
 
@@ -573,7 +577,7 @@ export class World {
         }
       }
     }
-    const solids = [...this.level.solids, ...this.dynamicSolids()];
+    const solids = [...this.terrain, ...this.dynamicSolids()];
     const wasAirborne = !p.grounded; // 이동 전 공중 여부 — 이번 스텝에 착지해도 "공중에서 들어온 것"으로 본다(#8)
     moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
     p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
@@ -586,7 +590,7 @@ export class World {
         landedOn.solid = false;
         this.trapEvent('collapse', landedOn.config.rect);
         this.lastFallTrap = { cause: { rect: landedOn.config.rect, kind: 'countingPlatform' }, at: this.clock };
-        if (![...this.level.solids, ...this.dynamicSolids()].some((s) => isStandingOn(p, s))) p.grounded = false;
+        if (![...this.terrain, ...this.dynamicSolids()].some((s) => isStandingOn(p, s))) p.grounded = false;
       }
     }
     // 강제 비행은 발동한 다음 스텝부터, 이동 뒤 grounded가 된 첫 스텝(착지)에서 끝난다. 천장 충돌은 grounded가 아니다.
@@ -702,7 +706,7 @@ export class World {
         if (se.phase === 'falling') {
           se.vy = Math.min(MAX_FALL_SPEED, se.vy + GRAVITY * dt);
           e.y += se.vy * dt;
-          const ground = [...this.level.solids, ...this.dynamicSolids()].find((s) => overlaps(e, s));
+          const ground = [...this.terrain, ...this.dynamicSolids()].find((s) => overlaps(e, s));
           if (ground) { e.y = ground.y - e.height; se.phase = 'patrolling'; }
           else if (e.y > this.level.height + 100) { se.phase = 'gone'; se.enemy = null; }
         } else if (se.phase === 'patrolling') updateEnemy(e, dt);
@@ -766,7 +770,7 @@ export class World {
       c.vy = Math.min(MAX_FALL_SPEED, c.vy + GRAVITY * dt);
       c.y += c.vy * dt;
       if (overlaps(p, ceilingRect(c))) crushedBy = c;
-      const ground = [...this.level.solids, ...this.dynamicSolids(c)].find((s) => overlaps(ceilingRect(c), s));
+      const ground = [...this.terrain, ...this.dynamicSolids(c)].find((s) => overlaps(ceilingRect(c), s));
       if (ground) { c.y = ground.y - c.config.block.height; c.vy = 0; c.phase = 'landed'; this.trapEvent('slam', ceilingRect(c)); }
       else if (c.y > this.level.height + 100) c.phase = 'gone';
     }
@@ -844,7 +848,7 @@ export class World {
   // 그 자리에 놓을 가시를 돌려준다. 솔리드는 지금 상태로 고정해 본다 — 점프 동안 바뀌는 솔리드는 배치 제약으로
   // 예측 궤적이 지나가는 범위에 두지 않는다(traps-spec #23, LevelRules.test.ts).
   private predictLandingSpikes(dt: number): Rect | null {
-    const { landing } = simulateJump(this.player, [...this.level.solids, ...this.dynamicSolids()], this.level, dt);
+    const { landing } = simulateJump(this.player, [...this.terrain, ...this.dynamicSolids()], this.level, dt);
     if (!landing) return null;
     const bottom = landing.y + landing.height;
     return { x: landing.x + landing.width / 2 - LANDING_SPIKE_WIDTH / 2, y: bottom - LANDING_SPIKE_HEIGHT, width: LANDING_SPIKE_WIDTH, height: LANDING_SPIKE_HEIGHT };

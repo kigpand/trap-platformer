@@ -38,7 +38,7 @@ export function playSolution(world: World, steps: readonly Step[]): number {
     let ok = true;
     if ('auto' in s) {
       ok = until(() => rightEdge() >= s.auto, () => {
-        const solids = [...world.level.solids, ...world.dynamicSolids()];
+        const solids = [...world.terrain, ...world.dynamicSolids()];
         const obstacles = [...world.level.hazards, ...world.enemies, ...world.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []))];
         return input(1, shouldJump(world.player, solids, obstacles));
       });

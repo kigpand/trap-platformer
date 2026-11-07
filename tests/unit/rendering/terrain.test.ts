@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, VIEW_HEIGHT } from '../../../src/game/rendering/CanvasRenderer';
-import { drawBlock, drawGround, GROUND_FILL } from '../../../src/game/rendering/terrain';
+import { drawBlock, drawGround, drawPipe, GROUND_FILL, GROUND_TOP, PIPE_CAP, PIPE_FILL } from '../../../src/game/rendering/terrain';
+import { hillColumns, type Hill } from '../../../src/game/world/level';
 import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { testLevel } from '../world/fixtures';
@@ -91,4 +92,48 @@ describe('ground edges land on whole device pixels', () => {
       vi.unstubAllGlobals();
     });
   }
+});
+
+describe('terrain features', () => {
+  const shot = (world: World, area: Rect): Map<string, string> => {
+    const canvas = document.createElement('canvas');
+    const { ctx, fills } = recorder();
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+    world.player.x = 100; world.player.y = 100; // 플레이어 그림이 지형지물과 겹치지 않게
+    new CanvasRenderer(canvas, () => false).render(world, { fps: 60, steps: 1 });
+    return pixels(fills, area);
+  };
+  const ground = { x: 0, y: 500, width: 2000, height: 120 };
+
+  it('paints a pipe only inside its collision rect, with a cap band on top', () => {
+    const pipe: Rect = { x: 400, y: 440, width: 60, height: 60 };
+    const { ctx, fills } = recorder();
+    drawPipe(ctx, pipe);
+    for (const f of fills) {
+      expect(f.x).toBeGreaterThanOrEqual(pipe.x); expect(f.y).toBeGreaterThanOrEqual(pipe.y);
+      expect(f.x + f.width).toBeLessThanOrEqual(pipe.x + pipe.width); expect(f.y + f.height).toBeLessThanOrEqual(pipe.y + pipe.height);
+    }
+    const map = pixels(fills, pipe);
+    expect(map.size).toBe(pipe.width * pipe.height);
+    expect(map.get('430,442')).toBe(PIPE_CAP);
+    expect(map.get('430,480')).toBe(PIPE_FILL);
+  });
+
+  it('draws two pipes of the same size identically wherever they are', () => {
+    const a: Rect = { x: 100, y: 440, width: 60, height: 60 };
+    const b: Rect = { x: 733, y: 391, width: 60, height: 60 };
+    const at = (r: Rect) => relative(drawn((ctx) => drawPipe(ctx, r), r), r);
+    expect(at(b)).toEqual(at(a));
+  });
+
+  it('draws the level pipes and hills (hills as ground columns with grass on every exposed step)', () => {
+    const pipe: Rect = { x: 300, y: 440, width: 60, height: 60 };
+    const hill: Hill = { x: 500, y: 500, steps: 3, stepWidth: 40, stepHeight: 40, topWidth: 80 };
+    const area = { x: 300, y: 300, width: 500, height: 200 };
+    const map = shot(new World(testLevel({ solids: [ground], pipes: [pipe], hills: [hill] })), area);
+    expect(map.get('330,480')).toBe(PIPE_FILL);
+    const asGround = drawn((ctx) => { for (const c of hillColumns(hill)) drawGround(ctx, c, view); }, { x: 500, y: 380, width: 240, height: 120 });
+    for (const [k, c] of asGround) expect(map.get(k), k).toBe(c);
+    for (const c of hillColumns(hill)) expect(map.get(`${c.x + 3},${c.y}`), `step at ${c.x}`).toBe(GROUND_TOP);
+  });
 });

@@ -94,3 +94,24 @@ export function drawBlock(ctx: CanvasRenderingContext2D, r: Rect, view: View, ed
   const h = Math.min(4, r.height);
   ctx.fillRect(r.x, edge === 'top' ? r.y : r.y + r.height - h, r.width, h);
 }
+
+// 파이프(지형지물): 청회색 금속 관에 윗부분 테두리 띠와 볼트. 무늬는 파이프 자신의 왼쪽 위 기준이라 같은 크기면 어디서든 똑같이
+// 그려진다. 모든 칠은 충돌 사각형 안에만 한다 — 테두리 띠가 몸통보다 튀어나와 보이면 설 수 있는 곳이 그림과 달라진다.
+export const PIPE_FILL = '#5b7f8f';
+export const PIPE_CAP = '#7aa3b2';
+const PIPE_LIGHT = '#a9c9d3'; // 왼쪽 반사광
+const PIPE_SHADE = '#3e5f6b'; // 오른쪽 그늘·띠 아래 줄
+const PIPE_BOLT = '#2c434c';
+const PIPE_CAP_HEIGHT = 14;
+export function drawPipe(ctx: CanvasRenderingContext2D, r: Rect): void {
+  const cap = Math.min(PIPE_CAP_HEIGHT, r.height);
+  ctx.fillStyle = PIPE_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
+  ctx.fillStyle = PIPE_SHADE; fillClipped(ctx, r, r.x + r.width - 10, r.y, 6, r.height);
+  ctx.fillStyle = PIPE_CAP; ctx.fillRect(r.x, r.y, r.width, cap);
+  ctx.fillStyle = PIPE_SHADE; fillClipped(ctx, r, r.x, r.y + cap, r.width, 2);
+  ctx.fillStyle = PIPE_LIGHT;
+  fillClipped(ctx, r, r.x + 6, r.y + 2, 4, cap - 4);
+  fillClipped(ctx, r, r.x + 8, r.y + cap + 2, 4, r.height - cap - 2);
+  ctx.fillStyle = PIPE_BOLT;
+  for (let x = r.x + 14; x + 2 <= r.x + r.width - 12; x += 12) fillClipped(ctx, r, x, r.y + cap / 2 - 1, 2, 2);
+}
