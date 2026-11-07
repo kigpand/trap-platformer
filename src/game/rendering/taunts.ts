@@ -28,6 +28,9 @@ export const TAUNTS: Readonly<Record<TauntKind, string>> = {
   arrow: '화살은 피하라고 있는 거야',
   mirrorEnemy: '나도 뛸 줄 알아',
   countingPlatform: '삼세번이야',
+  pipeEnemy: '파이프에도 누가 살아',
+  sinkingPipe: '서 있으면 가라앉아',
+  rollingStone: '언덕엔 돌이 굴러',
   baitGemPickup: '그거 장식인데?',
   flingJump: '점프 금지 구역이었어',
   reverseZone: '왼쪽이 오른쪽이야',
@@ -64,6 +67,9 @@ export const DEATH_NAMES: Readonly<Record<DeathStatKind, string>> = {
   arrow: '화살 발사대',
   mirrorEnemy: '따라 뛰는 적',
   countingPlatform: '세 번째 착지에 무너지는 발판',
+  pipeEnemy: '적이 나오는 파이프',
+  sinkingPipe: '가라앉는 파이프',
+  rollingStone: '굴러 내려오는 돌',
   fall: '그냥 떨어짐',
 };
 

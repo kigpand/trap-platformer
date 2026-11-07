@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { LEVELS, staticSolids } from '../../../src/game/world/level';
-import { BOULDER_SIZE, simulateJump, vanishingTile, vanishingTileCount, World } from '../../../src/game/world/World';
+import { hillColumns, LEVELS, staticSolids } from '../../../src/game/world/level';
+import { BOULDER_SIZE, STONE_SIZE, simulateJump, vanishingTile, vanishingTileCount, World } from '../../../src/game/world/World';
 import { MAX_SUBSTEP } from '../../../src/game/physics/Collision';
 import { createPlayer, JUMP_SPEED, PLAYER_WIDTH, SPEED } from '../../../src/game/entities/Player';
 import type { Level } from '../../../src/game/world/level';
 import { testLevel } from './fixtures';
-import type { Rect } from '../../../src/game/physics/AABB';
+import { overlaps, type Rect } from '../../../src/game/physics/AABB';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 
 // 모든 레벨 데이터에 대한 배치 규칙(docs/physics-spec.md "레벨 배치 제약").
@@ -20,6 +20,7 @@ describe('level placement rules (every level)', () => {
         ...level.fallingCeilings.map((c) => c.block), ...level.dodgingPlatforms.map((d) => d.platform),
         ...level.fakeGoals.flatMap((g) => g.floor), ...level.descendingCeilings.map((c) => c.block),
         ...level.rhythmPlatforms.map((r) => r.rect), ...level.countingPlatforms.map((c) => c.rect),
+        ...level.sinkingPipes.flatMap((sp) => [sp.pipe, { ...sp.pipe, y: sp.pipe.y + sp.pipe.height, height: level.height - sp.pipe.y - sp.pipe.height }]),
       ];
       expect(solids.length).toBeGreaterThan(10);
       const thin = solids.filter((r) => Math.min(r.width, r.height) <= MAX_SUBSTEP);
@@ -68,6 +69,10 @@ describe('level placement rules (every level)', () => {
     for (const [i, level] of LEVELS.entries()) expect(terrainFeatureViolations(level), `level ${i + 1}`).toEqual([]);
   });
 
+  it('places pipe enemies, sinking pipes and rolling stones by their spec constraints (#31-#33)', () => {
+    for (const [i, level] of LEVELS.entries()) expect(pipeHillTrapViolations(level), `level ${i + 1}`).toEqual([]);
+  });
+
   it('keeps changing solids off every predicted landing-spike trajectory', () => {
     for (const [i, level] of LEVELS.entries()) {
       expect(landingPredictionViolations(level), `level ${i + 1}`).toEqual([]);
@@ -94,6 +99,60 @@ function terrainFeatureViolations(level: Level): string[] {
   }
   return out;
 }
+
+// docs/traps-spec.md 31~33번 배치 제약.
+function pipeHillTrapViolations(level: Level): string[] {
+  const out: string[] = [];
+  const groundAt = (y: number, x0: number, x1: number): boolean => level.solids.some((s) => s.y === y && s.x <= x0 && s.x + s.width >= x1);
+  for (const pe of level.pipeEnemies) {
+    const { pipe } = pe;
+    const base = pipe.y + pipe.height;
+    if (!level.pipes.some((p) => p.x === pipe.x && p.y === pipe.y && p.width === pipe.width && p.height === pipe.height)) out.push(`pipe enemy at ${pipe.x} has no matching pipe`);
+    if (pe.maxX > pipe.x || pe.minX >= pe.maxX) out.push(`pipe enemy at ${pipe.x} does not patrol left of its pipe`);
+    if (!groundAt(base, pe.minX, pipe.x)) out.push(`pipe enemy at ${pipe.x} has no flat ground from its patrol to the pipe`);
+    if (overlaps(pe.trigger, { x: pipe.x, y: pipe.y - 32, width: pipe.width, height: 32 })) out.push(`pipe enemy at ${pipe.x} triggers on top of the pipe`);
+  }
+  for (const sp of level.sinkingPipes) {
+    const { pipe } = sp;
+    const base = pipe.y + pipe.height;
+    if (level.solids.some((s) => overlaps(s, { x: pipe.x, y: base, width: pipe.width, height: level.height - base }))) out.push(`sinking pipe at ${pipe.x} stands on ground`);
+    if (!level.solids.some((s) => s.y === base && s.x + s.width === pipe.x) || !level.solids.some((s) => s.y === base && s.x === pipe.x + pipe.width)) out.push(`sinking pipe at ${pipe.x} has no ground right beside it`);
+    if (pipe.height >= MAX_JUMP_HEIGHT) out.push(`sinking pipe at ${pipe.x} is too tall to jump onto`);
+  }
+  for (const st of level.rollingStones) {
+    const summits = level.hills.map((h) => hillColumns(h)[h.steps - 1]);
+    if (!summits.some((t) => st.y + STONE_SIZE === t.y && st.x >= t.x && st.x + STONE_SIZE <= t.x + t.width)) out.push(`rolling stone at ${st.x} is not on a hill summit`);
+    if (st.x < st.trigger.x + st.trigger.width + 60) out.push(`rolling stone at ${st.x} appears within 60px of its trigger`);
+    if (st.endX >= st.x) out.push(`rolling stone at ${st.x} does not roll left`);
+  }
+  return out;
+}
+
+describe('pipe and hill trap placement rule', () => {
+  const ground = { x: 0, y: 500, width: 2000, height: 120 };
+  const pipe = { x: 800, y: 440, width: 60, height: 60 };
+  const hill = { x: 400, y: 500, steps: 3, stepWidth: 60, stepHeight: 40, topWidth: 200 };
+  it('accepts placements that follow the spec', () => {
+    expect(pipeHillTrapViolations(testLevel({
+      solids: [{ x: 0, y: 500, width: 1200, height: 120 }, { x: 1260, y: 500, width: 740, height: 120 }], pipes: [pipe], hills: [hill],
+      pipeEnemies: [{ pipe, trigger: { x: 600, y: 300, width: 40, height: 200 }, minX: 640, maxX: 800 }],
+      sinkingPipes: [{ pipe: { x: 1200, y: 440, width: 60, height: 60 }, delay: 0.3 }],
+      rollingStones: [{ trigger: { x: 520, y: 300, width: 20, height: 80 }, x: 690, y: 350, endX: 100 }],
+    }))).toEqual([]);
+  });
+  it('rejects placements that break them', () => {
+    expect(pipeHillTrapViolations(testLevel({
+      solids: [ground], pipes: [], hills: [hill],
+      pipeEnemies: [{ pipe, trigger: { x: 810, y: 400, width: 20, height: 40 }, minX: 700, maxX: 900 }],
+      sinkingPipes: [{ pipe: { x: 1200, y: 400, width: 60, height: 100 }, delay: 0.3 }],
+      rollingStones: [{ trigger: { x: 520, y: 300, width: 20, height: 80 }, x: 580, y: 360, endX: 700 }],
+    }))).toEqual([
+      'pipe enemy at 800 has no matching pipe', 'pipe enemy at 800 does not patrol left of its pipe', 'pipe enemy at 800 triggers on top of the pipe',
+      'sinking pipe at 1200 stands on ground', 'sinking pipe at 1200 has no ground right beside it', 'sinking pipe at 1200 is too tall to jump onto',
+      'rolling stone at 580 is not on a hill summit', 'rolling stone at 580 appears within 60px of its trigger', 'rolling stone at 580 does not roll left',
+    ]);
+  });
+});
 
 describe('terrain feature placement rule', () => {
   const ground = { x: 0, y: 500, width: 1000, height: 120 };
@@ -126,6 +185,7 @@ function landingPredictionViolations(level: Level): Rect[] {
     ...level.fallingCeilings.map((c) => c.block), ...level.fakeGoals.flatMap((g) => g.floor),
     ...level.descendingCeilings.map((c) => ({ ...c.block, height: c.floorY - c.block.y })), // 내려오며 지나가는 범위 전체
     ...level.rhythmPlatforms.map((r) => r.rect), ...level.countingPlatforms.map((c) => c.rect),
+    ...level.sinkingPipes.map((sp) => ({ ...sp.pipe, height: level.height - sp.pipe.y })), // 가라앉으며 지나가는 범위 전체
   ];
   const violations: Rect[] = [];
   for (const zone of level.landingSpikeZones) {
