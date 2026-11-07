@@ -5,7 +5,7 @@ import { hillColumns } from '../world/level';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { arrowRect, boulderRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
 import { drawBlock, drawGround, drawPipe } from './terrain';
@@ -128,10 +128,21 @@ export class CanvasRenderer {
       drawGround(ctx, c, view);
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(c.x, c.y, c.width, c.height); }
     }
+    // #31 입구에서 올라오는 적은 파이프보다 먼저 그려, 입구 아래 부분이 파이프에 가려지게 한다.
+    for (const pe of world.pipeEnemies) if (pe.phase === 'emerging' && pe.enemy) drawEnemy(ctx, pe.enemy);
     for (const p of level.pipes) {
       if (!inView(p)) continue;
       drawPipe(ctx, p);
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
+    }
+    // #32 가라앉는 파이프: 진짜 파이프와 그 아래 바닥과 똑같이 그린다. 땅 기둥은 가라앉은 만큼 무늬를 함께 옮긴다.
+    for (const sp of world.sinkingPipes) {
+      const rects = sinkingPipeRects(sp);
+      if (rects.length === 0) continue;
+      const [pipe, plug] = rects;
+      drawGround(ctx, plug, view, { x: 0, y: sp.offset });
+      drawPipe(ctx, pipe);
+      if (this.debug) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.strokeRect(pipe.x, pipe.y, pipe.width, pipe.height + plug.height); }
     }
     for (const h of level.hazards) {
       if (!inView(h)) continue;
@@ -331,6 +342,20 @@ export class CanvasRenderer {
       }
       if (this.debug) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(amb.config.trigger.x, amb.config.trigger.y, amb.config.trigger.width, amb.config.trigger.height); }
     }
+    // #31 적이 나오는 파이프: 경고 중에는 입구 위에 점멸 테두리, 다 올라온 뒤에는 일반 적처럼 그린다.
+    for (const pe of world.pipeEnemies) {
+      const pipe = pe.config.pipe;
+      if (pe.phase === 'warning' && Math.floor(pe.timer * 10) % 2 === 0) {
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3;
+        ctx.strokeRect(pipe.x + (pipe.width - ENEMY_WIDTH) / 2, pipe.y - ENEMY_HEIGHT, ENEMY_WIDTH, ENEMY_HEIGHT);
+      }
+      if ((pe.phase === 'walking' || pe.phase === 'patrolling') && pe.enemy) drawEnemy(ctx, pe.enemy);
+      if (this.debug) {
+        const r = pipeEnemyRect(pe);
+        if (r) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height); }
+        const t = pe.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height);
+      }
+    }
     // 사망 원인 표시: 가짜 안전지대는 위에서 타일 자체를 경고색으로 칠하고, 그 밖의 함정·적 구간은 영역 위에
     // 반투명 경고색과 테두리를 겹친다(docs/traps-spec.md "공통 규칙").
     const cause = world.deathCause?.rect;
@@ -367,6 +392,20 @@ export class CanvasRenderer {
         ctx.fillRect(r.x + 10 + k * 10, r.y + 14, 6, r.height - 28);
       }
       if (this.debug) { const t = b.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
+    }
+    // #33 굴러 내려오는 돌: 나타난 뒤(멈춘 동안 포함) 모서리를 깎은 작은 돌로 그리고, 구른 거리에 따라 무늬 줄이 돌아간다.
+    for (const st of world.rollingStones) {
+      if (st.phase === 'waiting' || st.phase === 'rolling') {
+        const r = stoneRect(st);
+        ctx.fillStyle = BOULDER_FILL;
+        ctx.fillRect(r.x + 6, r.y, r.width - 12, r.height);
+        ctx.fillRect(r.x, r.y + 6, r.width, r.height - 12);
+        ctx.fillRect(r.x + 2, r.y + 2, r.width - 4, r.height - 4);
+        const k = Math.floor((st.config.x - st.x) / 8) % 3;
+        ctx.fillStyle = BOULDER_SHADE;
+        ctx.fillRect(r.x + 6 + k * 7, r.y + 7, 4, r.height - 14);
+      }
+      if (this.debug) { const t = st.config.trigger; ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(t.x, t.y, t.width, t.height); }
     }
     // #22 따라 하는 그림자: SHADOW_DELAY_STEPS번째 스텝 전에는 트리거한 자리에 충돌 없는 윤곽이 점점 진해지고, 그 뒤에는 반투명한 그림자.
     for (const sh of world.shadows) {

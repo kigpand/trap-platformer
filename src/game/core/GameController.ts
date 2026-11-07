@@ -17,7 +17,7 @@ export interface HudSnapshot extends GameSnapshot {
   levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
 }
 // 화면을 흔드는 깔림 사망 종류.
-const CRUSH_DEATHS: ReadonlySet<DeathCauseKind | null> = new Set(['fallingCeiling', 'descendingCeiling', 'boulder']);
+const CRUSH_DEATHS: ReadonlySet<DeathCauseKind | null> = new Set(['fallingCeiling', 'descendingCeiling', 'boulder', 'rollingStone']);
 const MUTED_STORAGE_KEY = 'trap-runner:muted';
 const VOLUME_STORAGE_KEY = 'trap-runner:volume';
 const DEFAULT_VOLUME = 0.8;

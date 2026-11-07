@@ -126,6 +126,26 @@ describe('terrain features', () => {
     expect(at(b)).toEqual(at(a));
   });
 
+  it('draws a sinking pipe at rest exactly like a real pipe on the ground (#32)', () => {
+    const pipe: Rect = { x: 400, y: 440, width: 60, height: 60 };
+    const area = { x: 380, y: 400, width: 100, height: VIEW_HEIGHT - 400 };
+    const real = shot(new World(testLevel({ solids: [ground], pipes: [pipe] })), area);
+    const gap = [{ x: 0, y: 500, width: 400, height: 120 }, { x: 460, y: 500, width: 1540, height: 120 }];
+    const sinking = shot(new World(testLevel({ solids: gap, sinkingPipes: [{ pipe, delay: 0.3 }] })), area);
+    expect(sinking).toEqual(real);
+  });
+
+  it('hides the part of a rising enemy that is still inside the pipe (#31)', () => {
+    const pipe: Rect = { x: 400, y: 440, width: 60, height: 60 };
+    const world = new World(testLevel({ solids: [ground], pipes: [pipe], pipeEnemies: [{ pipe, trigger: { x: 0, y: 0, width: 1, height: 1 }, minX: 200, maxX: 400 }] }));
+    const pe = world.pipeEnemies[0];
+    pe.phase = 'emerging'; pe.enemy = { x: 416, y: 426, width: 28, height: 28, vx: -120, minX: 200, maxX: 400 };
+    const plainWorld = new World(testLevel({ solids: [ground], pipes: [pipe] }));
+    expect(shot(world, pipe)).toEqual(shot(plainWorld, pipe));
+    const above = { x: 416, y: 426, width: 28, height: 14 };
+    expect(shot(world, above)).not.toEqual(shot(plainWorld, above)); // 입구 위로 나온 부분은 보인다
+  });
+
   it('draws the level pipes and hills (hills as ground columns with grass on every exposed step)', () => {
     const pipe: Rect = { x: 300, y: 440, width: 60, height: 60 };
     const hill: Hill = { x: 500, y: 500, steps: 3, stepWidth: 40, stepHeight: 40, topWidth: 80 };

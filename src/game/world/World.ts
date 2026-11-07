@@ -1,8 +1,8 @@
 import { overlaps, type Rect } from '../physics/AABB';
 import { createPlayer, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, SPEED, type Player } from '../entities/Player';
-import { createEnemy, ENEMY_HEIGHT, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
+import { createEnemy, ENEMY_HEIGHT, ENEMY_SPEED, ENEMY_WIDTH, updateEnemy, type Enemy } from '../entities/Enemy';
 import { moveWithCollisions } from '../physics/Collision';
-import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, CountingPlatform, MirrorEnemy, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor } from './level';
+import type { AmbushEnemy, Arrow, ArrowTrap, BaitGem, Boulder, CountingPlatform, MirrorEnemy, DescendingCeiling, RhythmPlatform, Shadow, DodgingPlatform, FallingCeiling, FakeGoal, Level, PopUpSpike, SkyDrop, SkyDropGroup, SpringFloor, PipeEnemy, SinkingPipe, RollingStone } from './level';
 import { staticSolids } from './level';
 import { cameraX, VIEW_WIDTH } from './viewport';
 
@@ -34,6 +34,12 @@ const ICE_ACCEL = 300; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에
 export const SHADOW_DELAY_STEPS = 42; // #22 그림자가 따라오기까지(0.7초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
+const PIPE_ENEMY_WARNING = 0.3; // #31 경고 시간(#3과 같음)
+const PIPE_ENEMY_RISE = 0.3; // #31 입구에서 다 올라오기까지
+const SINK_SPEED = 150; // #32 가라앉는 속도
+export const STONE_SIZE = 30; // #33 돌 크기
+const STONE_DELAY = 0.3; // #33 나타나서 구르기 시작하기까지
+const STONE_SPEED = 150; // #33 구르는 속도(플레이어보다 느림)
 
 export interface InputState { horizontal: -1 | 0 | 1; jumpPressed: boolean; restartPressed: boolean }
 // 효과음 재생을 위해 한 번의 update 동안 일어난 일을 기록한다. World는 소리를 모르고,
@@ -166,6 +172,44 @@ export function boulderRect(b: BoulderState): Rect { return { x: b.x, y: b.confi
 function boulderArea(b: Boulder): Rect {
   return union(b.trigger, { x: b.startX, y: b.y, width: b.endX - b.startX, height: BOULDER_SIZE });
 }
+// #31 적이 나오는 파이프: idle → warning(경고) → emerging(입구에서 올라옴) → walking(왼쪽으로 걸으며 떨어지고 착지) →
+// patrolling(파이프 왼쪽에 착지한 뒤 일반 적처럼 왕복). 떨어져 월드 아래로 나가면 gone.
+export interface PipeEnemyState { readonly config: PipeEnemy; phase: 'idle' | 'warning' | 'emerging' | 'walking' | 'patrolling' | 'gone'; timer: number; enemy: Enemy | null; vy: number }
+function createPipeEnemies(level: Level): PipeEnemyState[] {
+  return level.pipeEnemies.map((config) => ({ config, phase: 'idle', timer: 0, enemy: null, vy: 0 }));
+}
+// 판정 영역: 올라오는 동안은 입구 위로 나온 부분만.
+export function pipeEnemyRect(s: PipeEnemyState): Rect | null {
+  const e = s.enemy;
+  if (!e) return null;
+  return s.phase === 'emerging' ? { x: e.x, y: e.y, width: e.width, height: s.config.pipe.y - e.y } : e;
+}
+function pipeEnemyArea(c: PipeEnemy): Rect {
+  return union(union(c.trigger, c.pipe), { x: c.minX, y: c.pipe.y + c.pipe.height - ENEMY_HEIGHT, width: c.maxX - c.minX, height: ENEMY_HEIGHT });
+}
+// #32 가라앉는 파이프: idle → armed(윗면에 선 뒤 유예) → sinking(offset만큼 아래로) → gone. plug는 파이프 아래를 메운 땅 기둥.
+export interface SinkingPipeState { readonly config: SinkingPipe; readonly plug: Rect; phase: 'idle' | 'armed' | 'sinking' | 'gone'; timer: number; offset: number }
+function createSinkingPipes(level: Level): SinkingPipeState[] {
+  return level.sinkingPipes.map((config) => {
+    const top = config.pipe.y + config.pipe.height;
+    return { config, plug: { x: config.pipe.x, y: top, width: config.pipe.width, height: level.height - top }, phase: 'idle', timer: 0, offset: 0 };
+  });
+}
+// 지금 위치의 파이프와 땅 기둥(사라졌으면 빈 목록).
+export function sinkingPipeRects(s: SinkingPipeState): Rect[] {
+  if (s.phase === 'gone') return [];
+  return [{ ...s.config.pipe, y: s.config.pipe.y + s.offset }, { ...s.plug, y: s.plug.y + s.offset }];
+}
+// #33 굴러 내려오는 돌: idle → waiting(나타나 멈춤) → rolling(왼쪽으로 구르며 떨어지고 착지) → gone.
+export interface RollingStoneState { readonly config: RollingStone; phase: 'idle' | 'waiting' | 'rolling' | 'gone'; timer: number; x: number; y: number; vy: number }
+function createRollingStones(level: Level): RollingStoneState[] {
+  return level.rollingStones.map((config) => ({ config, phase: 'idle', timer: 0, x: config.x, y: config.y, vy: 0 }));
+}
+export function stoneRect(s: RollingStoneState): Rect { return { x: s.x, y: s.y, width: STONE_SIZE, height: STONE_SIZE }; }
+function stoneArea(c: RollingStone, level: Level): Rect {
+  const base = Math.max(...level.hills.filter((h) => h.x <= c.x && c.x < h.x + h.topWidth + 2 * (h.steps - 1) * h.stepWidth).map((h) => h.y), c.y + STONE_SIZE);
+  return union(c.trigger, { x: c.endX, y: c.y, width: c.x + STONE_SIZE - c.endX, height: base - c.y });
+}
 // #20 가짜 벽: 플레이어가 한 번 겹치면 그 목숨 동안 반투명하게 그린다(revealed). 솔리드가 아니다.
 export interface FakeWallState { readonly rect: Rect; revealed: boolean }
 // #21 미끼 보물: 처음 닿으면 사라진다(taken, 그 목숨 동안 유지).
@@ -253,7 +297,7 @@ function createFallingCeilings(level: Level): FallingCeilingState[] {
 export type DeathCauseKind =
   | 'hiddenBlock' | 'fallingPlatform' | 'ambush' | 'hazard' | 'conditional' | 'enemy'
   | 'vanishingGround' | 'invisibleBlock' | 'dodgingPlatform' | 'fallingCeiling' | 'popUpSpikes'
-  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform' | 'arrow' | 'mirrorEnemy' | 'countingPlatform';
+  | 'fakeCheckpoint' | 'fleeingGoal' | 'skyDrop' | 'flingJump' | 'reverseZone' | 'fakeClear' | 'boulder' | 'baitGem' | 'landingSpikes' | 'shadow' | 'heavyShoes' | 'ice' | 'descendingCeiling' | 'rhythmPlatform' | 'arrow' | 'mirrorEnemy' | 'countingPlatform' | 'pipeEnemy' | 'sinkingPipe' | 'rollingStone';
 // 놀리는 문구의 종류: 사망 원인 + 죽지 않는 문구(17번 스프링 바닥이 튕길 때, 21번 미끼 보물을 먹을 때 같은 자리에 띄운다).
 export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 // 당한 함정 통계의 종류: 사망 원인 + 원인 없는 낙사.
@@ -322,6 +366,9 @@ export class World {
   arrowTraps: ArrowTrapState[];
   mirrorEnemies: MirrorEnemyState[];
   countingPlatforms: CountingPlatformState[];
+  pipeEnemies: PipeEnemyState[];
+  sinkingPipes: SinkingPipeState[];
+  rollingStones: RollingStoneState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -381,6 +428,9 @@ export class World {
     this.arrowTraps = createArrowTraps(level);
     this.mirrorEnemies = createMirrorEnemies(level);
     this.countingPlatforms = createCountingPlatforms(level);
+    this.pipeEnemies = createPipeEnemies(level);
+    this.sinkingPipes = createSinkingPipes(level);
+    this.rollingStones = createRollingStones(level);
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -396,6 +446,7 @@ export class World {
     for (const c of this.descendingCeilings) rects.push(descendingRect(c));
     for (const r of this.level.rhythmPlatforms) if (rhythmPhase(r, this.lifeTime).solid) rects.push(r.rect);
     for (const c of this.countingPlatforms) if (c.solid) rects.push(c.config.rect);
+    for (const sp of this.sinkingPipes) rects.push(...sinkingPipeRects(sp));
     return rects;
   }
   drainEvents(): WorldEvent[] {
@@ -452,6 +503,9 @@ export class World {
     this.arrowTraps = createArrowTraps(this.level);
     this.mirrorEnemies = createMirrorEnemies(this.level);
     this.countingPlatforms = createCountingPlatforms(this.level);
+    this.pipeEnemies = createPipeEnemies(this.level);
+    this.sinkingPipes = createSinkingPipes(this.level);
+    this.rollingStones = createRollingStones(this.level);
     this.lifeTime = 0;
     this.fakeClear = null;
     this.flight = null;
@@ -507,6 +561,23 @@ export class World {
       vg.elapsed += dt;
       const gone = Math.min(vanishingTileCount(vg.rect), Math.floor((vg.elapsed * VANISH_SPEED) / VANISH_TILE + 1e-6));
       if (gone > vg.tilesGone) { vg.tilesGone = gone; this.lastFallTrap = { cause: { rect: vg.rect, kind: 'vanishingGround' }, at: this.clock }; }
+    }
+    // #32 가라앉는 파이프: 윗면에 선 스텝부터 유예를 세고, 지나면 땅 기둥과 함께 가라앉는다(가라앉는 동안에도 솔리드).
+    for (const sp of this.sinkingPipes) {
+      if (sp.phase === 'idle') {
+        if (!isStandingOn(p, sp.config.pipe)) continue;
+        sp.phase = 'armed'; sp.timer = sp.config.delay;
+      }
+      if (sp.phase === 'armed') {
+        sp.timer -= dt;
+        if (sp.timer > 1e-6) continue;
+        sp.phase = 'sinking';
+        this.lastFallTrap = { cause: { rect: union(sp.config.pipe, sp.plug), kind: 'sinkingPipe' }, at: this.clock };
+        this.trapEvent('collapse', sp.config.pipe);
+      }
+      if (sp.phase !== 'sinking') continue;
+      sp.offset += SINK_SPEED * dt;
+      if (sp.config.pipe.y + sp.offset > this.level.height) sp.phase = 'gone';
     }
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
@@ -727,6 +798,61 @@ export class World {
       if (b.x + BOULDER_SIZE >= b.config.endX - 1e-6) b.phase = 'gone';
     }
 
+    // #31 적이 나오는 파이프: 경고 → 올라옴 → 왼쪽으로 걸어 내려섬(13번처럼 착지 판정에만 솔리드를 씀) → 왕복.
+    for (const pe of this.pipeEnemies) {
+      const pipe = pe.config.pipe;
+      if (pe.phase === 'idle') {
+        if (!overlaps(p, pe.config.trigger)) continue;
+        pe.phase = 'warning'; pe.timer = 0;
+        this.trapEvent('warning', { x: pipe.x, y: pipe.y - ENEMY_HEIGHT, width: pipe.width, height: ENEMY_HEIGHT });
+      }
+      pe.timer += dt;
+      if (pe.phase === 'warning') {
+        if (pe.timer < PIPE_ENEMY_WARNING - 1e-6) continue;
+        pe.phase = 'emerging'; pe.timer = 0;
+        pe.enemy = { ...createEnemy(pe.config.minX, pe.config.maxX, pipe.y), x: pipe.x + (pipe.width - ENEMY_WIDTH) / 2, vx: -ENEMY_SPEED };
+        continue; // 생긴 스텝에는 입구 아래에 둔다
+      }
+      const e = pe.enemy;
+      if (!e) continue;
+      if (pe.phase === 'emerging') {
+        e.y = pipe.y - ENEMY_HEIGHT * Math.min(1, pe.timer / PIPE_ENEMY_RISE);
+        if (pe.timer >= PIPE_ENEMY_RISE - 1e-6) { e.y = pipe.y - ENEMY_HEIGHT; pe.phase = 'walking'; pe.vy = 0; }
+      } else if (pe.phase === 'walking') {
+        e.x += e.vx * dt;
+        pe.vy = Math.min(MAX_FALL_SPEED, pe.vy + GRAVITY * dt);
+        e.y += pe.vy * dt;
+        const ground = [...this.terrain, ...this.dynamicSolids()].find((s) => overlaps(e, s));
+        if (ground) {
+          e.y = ground.y - e.height; pe.vy = 0;
+          if (e.x + e.width <= pipe.x) pe.phase = 'patrolling';
+        } else if (e.y > this.level.height + 100) { pe.phase = 'gone'; pe.enemy = null; }
+      } else if (pe.phase === 'patrolling') updateEnemy(e, dt);
+    }
+
+    // #33 굴러 내려오는 돌: 트리거 스텝에 나타나 STONE_DELAY 뒤 왼쪽으로 구르고, 받침이 없으면 떨어져 아래 단에 올라선다.
+    for (const st of this.rollingStones) {
+      if (st.phase === 'idle') {
+        if (!overlaps(p, st.config.trigger)) continue;
+        st.phase = 'waiting'; st.timer = 0;
+        this.trapEvent('boulder', stoneRect(st));
+        continue;
+      }
+      if (st.phase === 'waiting') {
+        st.timer += dt;
+        if (st.timer >= STONE_DELAY - 1e-6) st.phase = 'rolling';
+        continue;
+      }
+      if (st.phase !== 'rolling') continue;
+      st.x -= STONE_SPEED * dt;
+      st.vy = Math.min(MAX_FALL_SPEED, st.vy + GRAVITY * dt);
+      st.y += st.vy * dt;
+      const r = stoneRect(st);
+      const ground = [...this.terrain, ...this.dynamicSolids()].find((s) => overlaps(r, s));
+      if (ground) { st.y = ground.y - STONE_SIZE; st.vy = 0; }
+      if (st.x <= st.config.endX + 1e-6 || st.y > this.level.height + 100) st.phase = 'gone';
+    }
+
     // #26 화살 발사대: 하늘에서 쏟아지는 적(#13)처럼 트리거 스텝부터 시간을 세고, 화살마다 경고 → 생성 → 비행.
     for (const t of this.arrowTraps) {
       if (t.elapsed === null) {
@@ -818,6 +944,10 @@ export class World {
     if (fakeCheckpoint) { this.reset(true, { rect: fakeCheckpoint, kind: 'fakeCheckpoint' }); return; }
     const boulder = this.boulders.find((b) => b.phase === 'rolling' && overlaps(p, boulderRect(b)));
     if (boulder) { this.reset(true, { rect: boulderArea(boulder.config), kind: 'boulder' }); return; }
+    const stone = this.rollingStones.find((st) => (st.phase === 'waiting' || st.phase === 'rolling') && overlaps(p, stoneRect(st)));
+    if (stone) { this.reset(true, { rect: stoneArea(stone.config, this.level), kind: 'rollingStone' }); return; }
+    const pipeEnemy = this.pipeEnemies.find((pe) => { const r = pipeEnemyRect(pe); return r !== null && r.height > 0 && overlaps(p, r); });
+    if (pipeEnemy) { this.reset(true, { rect: pipeEnemyArea(pipeEnemy.config), kind: 'pipeEnemy' }); return; }
     const mirror = this.mirrorEnemies.find((m) => overlaps(p, m.enemy));
     if (mirror) { this.reset(true, { rect: mirrorArea(mirror.config), kind: 'mirrorEnemy' }); return; }
     const enemy = this.enemies.find((e) => overlaps(p, e));

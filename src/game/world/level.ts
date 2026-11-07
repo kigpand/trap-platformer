@@ -50,6 +50,14 @@ export type Pipe = Rect;
 // 계단식 언덕(지형지물): y(받치는 바닥의 윗면) 위에 steps단으로 쌓은 언덕. 단마다 stepWidth만큼 안으로 들어가고 stepHeight만큼
 // 높아지며, 꼭대기 단의 너비는 topWidth다. 경사가 아니라 사각형 단이라 단마다 점프해 오른다(단차 보조 없음 — docs/physics-spec.md).
 export interface Hill { x: number; y: number; steps: number; stepWidth: number; stepHeight: number; topWidth: number }
+// 적이 나오는 파이프(#31): trigger에 처음 들어오면 경고 뒤 pipe(level.pipes 중 하나) 입구에서 적이 올라와, 왼쪽으로 걸어 내려선 뒤
+// 파이프 왼쪽에서 minX~maxX를 왕복한다.
+export interface PipeEnemy { pipe: Rect; trigger: Rect; minX: number; maxX: number }
+// 가라앉는 파이프(#32): 진짜 파이프처럼 그리는 파이프. 윗면에 선 뒤 delay(기본 0.3)초가 지나면 아래를 메운 땅 기둥과 함께 가라앉는다.
+// level.solids에는 파이프 바로 아래에 파이프 너비만큼 틈이 있어야 한다. level.pipes에는 넣지 않는다.
+export interface SinkingPipe { pipe: Rect; delay: number }
+// 굴러 내려오는 돌(#33): trigger에 처음 들어오면 (x, y)(왼쪽 위, 언덕 꼭대기 위)에 돌이 나타나 왼쪽으로 굴러 계단을 내려오고, x가 endX 이하가 되면 사라진다.
+export interface RollingStone { trigger: Rect; x: number; y: number; endX: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
 // 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
 export interface Level {
@@ -92,6 +100,9 @@ export interface Level {
   arrowTraps: readonly ArrowTrap[]; // #26 화살 발사대
   mirrorEnemies: readonly MirrorEnemy[]; // #29 따라 뛰는 적
   countingPlatforms: readonly CountingPlatform[]; // #30 세 번째 착지에 무너지는 발판
+  pipeEnemies: readonly PipeEnemy[]; // #31 적이 나오는 파이프
+  sinkingPipes: readonly SinkingPipe[]; // #32 가라앉는 파이프
+  rollingStones: readonly RollingStone[]; // #33 굴러 내려오는 돌
   iceFloors: readonly Rect[]; // #28 얼음 바닥(바닥 윗면에 겹쳐 두는 판정·장식 영역, 스프링 타일과 같은 방식)
 }
 
@@ -197,6 +208,9 @@ export const LEVEL_1: Level = {
   shadows: [{ trigger: { x: 7900, y: 300, width: 40, height: 200 }, endX: 9200 }],
   heavyZones: [],
   // 얼음 바닥: 구덩이(6500) 앞 400px. 끝 가까이에서 키를 떼면 약 73px 미끄러져 떨어진다. 달리던 그대로 뛰어 건넌다.
+  pipeEnemies: [],
+  sinkingPipes: [],
+  rollingStones: [],
   iceFloors: [{ x: 6100, y: 500, width: 400, height: 20 }],
   arrowTraps: [],
   mirrorEnemies: [],
@@ -314,6 +328,9 @@ export const LEVEL_2: Level = {
   shadows: [],
   // 무거운 신발: 구덩이(6200) 앞 20px(구덩이 100px — 일찍 뛰는 출발 구간 27px, traps-spec #24 실측).
   heavyZones: [{ zone: { x: 6180, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
+  pipeEnemies: [],
+  sinkingPipes: [],
+  rollingStones: [],
   iceFloors: [],
   // 화살 발사대: 트리거(7,400)를 지나면 오른쪽 화면 밖에서 낮은 화살(0.3초 뒤 경고) → 높은 화살(1.8초 뒤 경고).
   // 낮은 화살은 점프로 넘고, 높은 화살은 뛰지 않고 지나가게 둔다. 길(7,000-8,630)에는 솔리드가 없다.
@@ -434,6 +451,9 @@ export const LEVEL_3: Level = {
   shadows: [{ trigger: { x: 7550, y: 300, width: 40, height: 200 }, endX: 8800 }],
   // 무거운 신발: 화살 구간 끝, 구덩이(10000) 앞 20px.
   heavyZones: [{ zone: { x: 9980, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
+  pipeEnemies: [],
+  sinkingPipes: [],
+  rollingStones: [],
   iceFloors: [{ x: 7000, y: 500, width: 380, height: 20 }],
   // 화살 세 발: 낮은 것 → 높은 것 → 낮은 것. 길(9000-10330)에는 솔리드가 없다.
   arrowTraps: [{ trigger: { x: 9300, y: 300, width: 40, height: 200 }, arrows: [
@@ -521,6 +541,9 @@ export const LEVEL_4: Level = {
   landingSpikeZones: [{ x: 9160, y: 300, width: 40, height: 200 }],
   shadows: [{ trigger: { x: 500, y: 300, width: 40, height: 200 }, endX: 2700 }],
   heavyZones: [{ zone: { x: 9160, y: 300, width: 40, height: 200 }, jumpSpeed: 300 }],
+  pipeEnemies: [],
+  sinkingPipes: [],
+  rollingStones: [],
   iceFloors: [{ x: 2920, y: 500, width: 580, height: 20 }],
   arrowTraps: [{ trigger: { x: 5070, y: 300, width: 40, height: 200 }, arrows: [
     { y: 484, delay: 0.75, fromX: 5900, toX: 4900 },
