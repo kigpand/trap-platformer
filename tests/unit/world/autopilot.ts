@@ -13,7 +13,11 @@ export function shouldJump(player: Player, solids: readonly Rect[], obstacles: r
   );
   const edgeDistance = standingOn ? standingOn.x + standingOn.width - (player.x + player.width) : -1;
   const upcomingObstacle = obstacles.some((h) => h.x >= player.x + player.width && h.x - (player.x + player.width) < 20);
-  return standingOn === undefined || edgeDistance < 20 || upcomingObstacle;
+  // 앞을 막는 낮은 솔리드(파이프·언덕 단): 발보다 위로 솟아 있고 점프로 오를 수 있는 높이면 뛴다(단차 보조가 없어 걸어서는 막힌다).
+  const feet = player.y + player.height;
+  const wallAhead = solids.some((s) => s.x >= player.x + player.width && s.x - (player.x + player.width) < 20
+    && s.y < feet && s.y > feet - 81 && s.y + s.height > player.y);
+  return standingOn === undefined || edgeDistance < 20 || upcomingObstacle || wallAhead;
 }
 
 // 오른쪽으로 달리며 shouldJump로 점프만 결정하는 자동 플레이를, 클리어하거나 maxSteps에 닿을 때까지 돌린다.
