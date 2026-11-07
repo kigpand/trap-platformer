@@ -3,6 +3,8 @@ import type { Step } from './solution';
 
 // 레벨 2 해법 입력(구간별). Level2.test.ts와 점프 여유 표(scripts/slack.js)가 함께 쓴다.
 export const mirror = (w: World) => w.mirrorEnemies[0];
+// 맵 곳곳의 평범한 파이프·언덕은 앞에서 뛰어 넘거나 오른다. 해당 구간의 끝(또는 중간)에 붙여 체크포인트 해법에도 들어간다.
+const over = (x: number): Step[] => [{ run: x - 20 }, { jump: true }];
 export const ORIGINAL: Step[] = [{ auto: 2060 }]; // 낙하 발판 → 갑자기 출현하는 적 → 체크포인트 → 가짜 안전지대 → 왕복 적 → 체크포인트 2
 export const INVISIBLE_BLOCK: Step[] = [{ run: 2100 }, { jump: true }]; // 가장자리보다 일찍 뛰어 투명 블록 아래로
 export const SPIKES_AND_FAKE: Step[] = [
@@ -20,8 +22,8 @@ export const VANISHING_CEILING_ENEMY: Step[] = [
   { jump: true },
 ];
 export const DODGE: Step[] = [{ run: 3898 }, { hop: true }, { wait: 0.3 }, { jump: true }, { run: 4070 }, { jump: true }];
-export const FLING: Step[] = [{ run: 4395 }, { jump: true }, { run: 4870 }, { jump: true }]; // 뒤쪽 구덩이를 넘고, 날려버리는 점프 구역 앞에서 일찍 뛴다
-export const REVERSE: Step[] = [{ runUntil: (w) => w.reverse !== null }, { leftUntil: (w) => w.reverse === null }]; // 반전이 걸리면 ←로 반대편까지
+export const FLING: Step[] = [{ run: 4395 }, { jump: true }, ...over(4650), { run: 4870 }, { jump: true }]; // 뒤쪽 구덩이를 넘고, 날려버리는 점프 구역 앞에서 일찍 뛴다
+export const REVERSE: Step[] = [{ runUntil: (w) => w.reverse !== null }, { leftUntil: (w) => w.reverse === null }, ...over(5600)]; // 반전이 걸리면 ←로 반대편까지
 export const HEAVY: Step[] = [{ run: 6175 }, { jump: true }]; // 무거운 신발 구역 앞에서 뛴다
 export const LANDING_SPIKES: Step[] = [{ run: 6615 }, { jump: true }]; // 착지 예측 가시 구역 앞에서 뛰어 턱 위로
 export const ARROWS: Step[] = [
@@ -35,9 +37,10 @@ export const MIRROR: Step[] = [
   { run: 9020 }, // 순찰 구간 안으로 들어가
   { waitUntil: (w) => mirror(w).enemy.vx < 0 && mirror(w).enemy.x - (w.player.x + w.player.width) <= 40 }, { hop: true }, // 다가오면 제자리에서 뛴다
   { waitUntil: (w) => !mirror(w).airborne && mirror(w).enemy.x + mirror(w).enemy.width < w.player.x - 10 }, // 적이 머리 위로 넘어갔다
+  ...over(9450), { jump: true }, // 2단 언덕(단 40px — 두 번 뛰어 꼭대기로)
 ];
-export const COUNTING: Step[] = [{ run: 10115 }, { jump: true }, { run: 10400 }, { jump: true }]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지
-export const BOULDER: Step[] = [{ run: 12295 }, { jump: true }]; // 멈추지 않고 달리며 구덩이만 넘는다
+export const COUNTING: Step[] = [{ run: 10115 }, { jump: true }, { run: 10400 }, { jump: true }, ...over(10800)]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지
+export const BOULDER: Step[] = [{ run: 12295 }, { jump: true }, ...over(13300), { jump: true }, ...over(13900)]; // 돌덩이가 멈춘 뒤 3단 언덕과 파이프 // 멈추지 않고 달리며 구덩이만 넘는다
 export const FLEEING_GOAL: Step[] = [{ run: 14610 }, { wait: 0.4 }, { run: 14780 }, { jump: true }, { run: 15280 }];
 export const TAUNTING: Step[] = [...FLING, ...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL];
 export const AFTER_CP2: Step[] = [...INVISIBLE_BLOCK, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING];

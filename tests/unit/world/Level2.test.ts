@@ -182,7 +182,7 @@ describe('LEVEL_2', () => {
     const dies = (w: World, kind: string) => { expect(w.deaths).toBe(2); expect(w.snapshot().deathKind).toBe(kind); };
     // 날려버리는 점프: 구덩이 가장자리(구역 안)에서 뛰면 뒤쪽 구덩이로 날아간다
     const fling = cp(4);
-    playSolution(fling, [{ run: 4395 }, { jump: true }, { run: 4890 }]);
+    playSolution(fling, [{ run: 4395 }, { jump: true }, { run: 4630 }, { jump: true }, { run: 4890 }]); // 가운데 파이프(4650)는 넘는다
     step(fling, 1, true); until(fling, 1, () => fling.deaths > 1);
     dies(fling, 'flingJump');
     // 좌우 반전: 걸린 뒤에도 →를 누르면 방금 건넌 구덩이로 걸어 돌아간다
