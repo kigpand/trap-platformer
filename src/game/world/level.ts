@@ -549,8 +549,19 @@ export const LEVEL_4: Level = {
     { x: 17900, y: 500, width: 250, height: 120 },
     { x: 18250, y: 500, width: 350, height: 120 },
   ],
-  pipes: [],
-  hills: [],
+  // 맵 곳곳의 함정 없는 평지에 흩어 둔 평범한 파이프·언덕(프로젝트 오너 요청, 2026-11-07). 겹친 함정 구간과, 체크포인트에서
+  // 다음 함정까지의 길(그냥 하면 당하는지 확인하는 길)·그림자 길·화살 길·돌덩이 길은 비운다. 모두 해법의 6프레임 여유를 지킨다.
+  pipes: [
+    { x: 10, y: 460, width: 40, height: 40 }, // 스폰 뒤 왼쪽 끝(첫 화면)
+    { x: 4350, y: 450, width: 50, height: 50 }, // 2구간 뒤, 체크포인트 1 앞
+    { x: 12300, y: 460, width: 40, height: 40 }, // 돌덩이가 멈춘 뒤(12200), 체크포인트 3 앞
+    { x: 14100, y: 450, width: 50, height: 50 }, // 기습 적 너머, 도망가는 발판 앞
+    { x: 15400, y: 450, width: 60, height: 50 }, // 스프링 너머
+  ],
+  hills: [
+    { x: 3950, y: 500, steps: 2, stepWidth: 50, stepHeight: 40, topWidth: 120 }, // 솟는 가시 너머
+    { x: 8000, y: 500, steps: 3, stepWidth: 50, stepHeight: 30, topWidth: 100 }, // 떨어지는 천장 너머, 체크포인트 2 앞
+  ],
   goal: { x: 17700, y: 440, width: 40, height: 60 },
   hazards: [{ x: 16680, y: 495, width: 80, height: 25 }],
   fallingPlatforms: [{ x: 13100, y: 480, width: 140, height: 20 }],
