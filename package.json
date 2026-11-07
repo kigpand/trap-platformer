@@ -16,7 +16,8 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "verify": "pnpm check && pnpm test:e2e",
     "perf": "pnpm build && node scripts/perf.js",
-    "slack": "node scripts/slack.js"
+    "slack": "node scripts/slack.js",
+    "shots": "pnpm build && node scripts/shots.js"
   },
   "dependencies": {
     "react": "^19.1.0",
