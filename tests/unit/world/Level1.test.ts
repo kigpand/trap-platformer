@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1 } from '../../../src/game/world/level';
 import { playSolution, recordInputs } from './solution';
-import { ceiling, dodge, DODGE, FAKE_CLEAR_AND_GEM, fakeFlag, FULL, ICE, pipeEnemy, RHYTHM, SHADOW, SPIKES, SPRING_AND_GOAL, TAUNTING, TERRAIN, TO_FAKE_FLAG, VANISHING_AND_CEILING } from './level1Solution';
+import { ceiling, dodge, DODGE, FAKE_CLEAR_AND_GEM, fakeFlag, FULL, HILL_BEFORE_RHYTHM, ICE, PIPE_BEFORE_GEM, PIPE_BEFORE_ICE, PIPE_BEFORE_SPRING, pipeEnemy, RHYTHM, SHADOW, SPIKES, SPRING_AND_GOAL, TAUNTING, TERRAIN, TO_FAKE_FLAG, VANISHING_AND_CEILING } from './level1Solution';
 
 const IDLE = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 
@@ -86,12 +86,13 @@ describe('LEVEL_1 (easy, extended)', () => {
     expect(wall.snapshot().deathKind).toBe('descendingCeiling');
     // 얼음: "멈추면 안전" 표지판 말대로 구덩이 앞에서 키를 떼면 미끄러져 떨어진다
     const ice = respawnAt(cp5);
+    playSolution(ice, PIPE_BEFORE_ICE);
     until(ice, 1, () => ice.player.x + ice.player.width >= 6460);
     until(ice, 0, () => ice.deaths > 1);
     expect(ice.snapshot().deathKind).toBe('ice');
     // 박자 발판: 늦게 올라타 그 위에서 머뭇거리면 발밑에서 사라진다(이미 사라진 발판으로 뛰어든 낙사는 원인 없는 낙사다)
     const rhythm = respawnAt(cp6);
-    playSolution(rhythm, [{ run: 7398 }, { waitUntil: (w) => w.lifeTime % 2 > 0.4 && w.lifeTime % 2 < 0.45 }, { jump: true }]);
+    playSolution(rhythm, [...HILL_BEFORE_RHYTHM, { run: 7398 }, { waitUntil: (w) => w.lifeTime % 2 > 0.4 && w.lifeTime % 2 < 0.45 }, { jump: true }]);
     until(rhythm, 0, () => rhythm.deaths > 1);
     expect(rhythm.snapshot().deathKind).toBe('rhythmPlatform');
     // 그림자: 구간 안에서 멈추면 2초 뒤 잡힌다
@@ -101,7 +102,7 @@ describe('LEVEL_1 (easy, extended)', () => {
     expect(shadow.snapshot().deathKind).toBe('shadow');
     // 스프링: 그냥 달려가면 튕겨 한참 뒤로 날아간다(죽지는 않는다). 떨어지는 자리는 언덕(끝 10740)보다 뒤의 평지다.
     const spring = respawnAt(cp7);
-    playSolution(spring, TERRAIN);
+    playSolution(spring, [...TERRAIN, ...PIPE_BEFORE_SPRING]);
     until(spring, 1, () => spring.flight !== null);
     expect(spring.taunt?.kind).toBe('springFloor');
     until(spring, 1, () => spring.flight === null);
@@ -129,7 +130,7 @@ describe('LEVEL_1 (easy, extended)', () => {
 
   it('kills a player who goes for the bait gem in the pit', () => {
     const world = respawnAt(cp4);
-    playSolution(world, [{ run: 4840 }]); // 구덩이로 걸어 들어가 보석에 닿는다
+    playSolution(world, [...PIPE_BEFORE_GEM, { run: 4840 }]); // 구덩이로 걸어 들어가 보석에 닿는다
     for (let i = 0; i < 200 && world.deaths === 1; i++) world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
     expect(world.baitGems[0].taken).toBe(false); // 사망해 다시 나타났다
     expect(world.snapshot().deathKind).toBe('baitGem');
