@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MUD_JUMP_SPEED, MUD_SPEED, WIND_MAX_FALL, World } from '../../../src/game/world/World';
+import { MUD_JUMP_SPEED, MUD_SPEED, WIND_MAX_FALL, World, type InputState } from '../../../src/game/world/World';
 import { standAt, testLevel } from './fixtures';
 import { playSolution } from './solution';
 
@@ -10,7 +10,7 @@ const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: fals
 const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
 const feet = (w: World) => w.player.y + w.player.height;
-function apex(world: World, input = idle): number {
+function apex(world: World, input: InputState = idle): number {
   let top = feet(world);
   for (let i = 0; i < 120; i++) { world.update(dt, input); top = Math.min(top, feet(world)); }
   return 500 - top;

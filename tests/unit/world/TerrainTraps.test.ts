@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { World, vanishingTile } from '../../../src/game/world/World';
+import { World, vanishingTile, type InputState } from '../../../src/game/world/World';
 import { standAt, testLevel } from './fixtures';
 import type { Rect } from '../../../src/game/physics/AABB';
 
@@ -11,7 +11,7 @@ const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: fals
 const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 
 const level = testLevel;
-function runUntil(world: World, input: typeof idle, steps: number, stop: () => boolean = () => false): void {
+function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
   for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
 }
 

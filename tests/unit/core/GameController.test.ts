@@ -123,7 +123,7 @@ describe('GameController best record', () => {
     expect(shake).toHaveBeenCalledTimes(1);
     vi.spyOn(World.prototype, 'drainEvents').mockReturnValueOnce(['death']);
     vi.spyOn(World.prototype, 'snapshot').mockReturnValue({
-      x: 0, y: 0, grounded: true, deaths: 1, cleared: false, checkpoint: false, time: 0, runDeaths: 1, deathKind: 'boulder',
+      x: 0, y: 0, grounded: true, deaths: 1, cleared: false, checkpoint: false, time: 0, runDeaths: 1, deathKind: 'boulder', runDeathsByKind: { boulder: 1 },
     });
     fire(3100 / 60); // 경계에 딱 맞춘 프레임은 누적 오차로 스텝을 건너뛸 수 있어 조금 더 넘긴다
     expect(shake).toHaveBeenCalledTimes(2);

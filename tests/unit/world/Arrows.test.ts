@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARROW_WARNING, World } from '../../../src/game/world/World';
+import { ARROW_WARNING, World, type InputState } from '../../../src/game/world/World';
 import type { Arrow } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { standAt, testLevel } from './fixtures';
@@ -11,7 +11,7 @@ const trigger: Rect = { x: 400, y: 300, width: 40, height: 200 };
 const low: Arrow = { y: 484, delay: 0, fromX: 1300, toX: 200 }; // 바닥 위 10~16px — 서 있으면 맞고 뛰면 넘는다
 const high: Arrow = { y: 450, delay: 0, fromX: 1300, toX: 200 }; // 아랫면 456 — 서 있는 머리(468) 위로 지나간다
 const level = (arrows: Arrow[]) => testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], arrowTraps: [{ trigger, arrows }] });
-function runUntil(world: World, input: typeof idle, steps: number, stop: () => boolean = () => false): void {
+function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
   for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
 }
 
