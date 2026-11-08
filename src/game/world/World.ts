@@ -529,8 +529,19 @@ export class World implements LifeState {
     this.reverseHeard.clear();
     this.heavyShoes = false;
   }
+  // 고정 스텝 하나. 단계의 순서가 동작의 일부다(각 단계 주석 참고) — 단계를 옮기거나 합치면 테스트·해법 여유가 바뀔 수 있다.
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
+    this.tickTimers(dt);
+    this.updateCollapses(dt);
+    this.applyInput(dt, input);
+    const wasAirborne = this.moveAndLand(dt);
+    const { crushedBy, squashedBy } = this.updateTraps(dt, wasAirborne);
+    this.saveCheckpoints();
+    this.resolveOutcome(crushedBy, squashedBy);
+  }
+  // 1. 시계·박자 발판·놀리는 문구·사망 원인 표시의 시간을 흘린다.
+  private tickTimers(dt: number): void {
     if (!this.runComplete) this.runTime += dt;
     this.clock += dt;
     // #27 박자 발판: 시간을 먼저 흘려 이번 스텝의 켜짐·꺼짐을 정하고, 아래 지지 재확인이 꺼진 발판을 바로 반영한다.
@@ -550,8 +561,10 @@ export class World implements LifeState {
       this.deathCause.remaining -= dt;
       if (this.deathCause.remaining <= 1e-6) this.deathCause = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
     }
+  }
+  // 2. 붕괴하는 발판·땅·가라앉는 파이프를 처리하고 지지를 다시 확인한다(점프 입력보다 먼저).
+  private updateCollapses(dt: number): void {
     const p = this.player;
-
     // 점프 입력을 확인하기 전에 붕괴를 먼저 처리하고, 남은 솔리드 기준으로 grounded를
     // 다시 확인해 발판이 사라진 바로 그 프레임부터 정확한 값을 쓰도록 한다
     // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
@@ -601,7 +614,10 @@ export class World implements LifeState {
       const stillSupported = [...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s));
       if (!stillSupported) p.grounded = false;
     }
-
+  }
+  // 3. 좌우 입력(반전·얼음·진흙·벨트)과 점프(날려버리는 점프·무거운 신발·착지 예측 가시·따라 뛰는 적)를 반영한다.
+  private applyInput(dt: number, input: InputState): void {
+    const p = this.player;
     // #16 좌우 반전은 공중에서도 걸려 있다. 강제 비행 중에는 어차피 좌우 입력을 쓰지 않는다.
     const horizontal = this.reverse ? -input.horizontal as -1 | 0 | 1 : input.horizontal;
     // #28 얼음 바닥: 얼음 위에 서 있고 이번 스텝에 뛰지 않으면 수평 속도가 목표 속도로 ICE_ACCEL씩만 바뀐다.
@@ -650,6 +666,10 @@ export class World implements LifeState {
         m.airborne = true; m.vy = -m.config.jumpSpeed;
       }
     }
+  }
+  // 4. 중력(바람)·투명 블록·충돌 이동·착지 판정(세 번째 착지 발판·강제 비행 끝·스프링·트램펄린). 이동 전 공중 여부를 돌려준다.
+  private moveAndLand(dt: number): boolean {
+    const p = this.player;
     // 지형지물 바람 구간: 안에 있는 동안 중력이 약해지고 떨어지는 속도가 묶인다(강제 비행 중에는 평소대로).
     const wind = this.flight ? undefined : this.level.windZones.find((w) => overlaps(p, w.zone));
     p.vy = Math.min(wind ? WIND_MAX_FALL : MAX_FALL_SPEED, p.vy + (wind ? GRAVITY - wind.lift : GRAVITY) * dt);
@@ -708,6 +728,11 @@ export class World implements LifeState {
       const tramp = this.level.trampolines.find((t) => isStandingOn(p, t.tile));
       if (tramp) { p.vy = -tramp.speed; p.grounded = false; this.trapEvent('spring', tramp.tile); }
     }
+    return wasAirborne;
+  }
+  // 5. 이동을 마친 위치로 함정·적을 갱신한다. 깔림 판정은 사망 판정(7)에서 쓰도록 돌려준다.
+  private updateTraps(dt: number, wasAirborne: boolean): { crushedBy: FallingCeilingState | null; squashedBy: DescendingCeilingState | null } {
+    const p = this.player;
     this.updateReverse();
     this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
@@ -945,7 +970,11 @@ export class World implements LifeState {
     }
 
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
-
+    return { crushedBy, squashedBy };
+  }
+  // 6. 체크포인트 저장(가짜 체크포인트에 닿은 스텝은 저장하지 않음).
+  private saveCheckpoints(): void {
+    const p = this.player;
     // 가짜 체크포인트(#11)에 닿은 스텝에는 진짜 체크포인트도 저장하지 않는다 — 사망 판정보다 저장이 먼저라
     // 둘이 겹치면 진짜를 저장한 뒤 죽어, 가짜에 당하고도 진행이 저장됐다(Codex 리뷰).
     const touchingFake = this.level.fakeCheckpoints.some((zone) => overlaps(p, zone));
@@ -955,7 +984,10 @@ export class World implements LifeState {
       if (current?.x !== cp.respawnX || current.y !== cp.respawnY) this.events.push('checkpoint'); // 새로 활성화될 때만
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
-
+  }
+  // 7. 사망 판정(먼저 걸린 원인 하나로 재시작), 가짜 클리어·클리어, 낙사.
+  private resolveOutcome(crushedBy: FallingCeilingState | null, squashedBy: DescendingCeilingState | null): void {
+    const p = this.player;
     if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
     if (squashedBy) { this.reset(true, { rect: union(squashedBy.config.block, squashedBy.config.trigger), kind: 'descendingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
