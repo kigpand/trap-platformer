@@ -10,7 +10,7 @@ export const dodge = LEVEL_1.dodgingPlatforms[0];
 // 그 구간부터 시작하는 체크포인트 해법에도 들어간다.
 const over = (x: number): Step[] => [{ run: x - 20 }, { jump: true }];
 export const HILL_AFTER_DODGE: Step[] = over(3380); // 2단 언덕(단 30px — 한 번에 꼭대기로), 내려갈 때는 달리기만
-export const PIPE_BEFORE_GEM: Step[] = over(4500);
+export const PIPE_BEFORE_GEM: Step[] = [{ run: 4600 }]; // 트램펄린(4430)이 파이프(4500)를 넘겨 준다 — 달리기만 하면 된다
 export const PIPE_BEFORE_ICE: Step[] = over(5950); // 체크포인트 5(5800)에서 떨어져 착지한 뒤 뛸 거리를 둔다
 export const HILL_BEFORE_RHYTHM: Step[] = [...over(6950), { jump: true }]; // 단 40px — 두 번 뛰어 꼭대기로
 export const PIPE_AFTER_SHADOW: Step[] = over(9500);
