@@ -342,10 +342,10 @@ export function simulateJump(start: Player, solids: readonly Rect[], level: Pick
   return { landing: null, minX, maxX };
 }
 
-export class World {
-  player: Player;
-  deaths = 0;
-  cleared = false;
+// 목숨마다 새로 만드는 함정·적 상태 전체. 생성자와 reset()이 같은 createLifeState로 만든다 — 예전에는 두 곳에 같은 목록을
+// 따로 적어, 함정을 더할 때 한쪽을 빠뜨리면 재시작해도 그 함정이 초기화되지 않을 수 있었다. 새 함정 상태는 여기 한 곳에 더한다
+// (World가 LifeState를 구현하므로 빠뜨리면 컴파일 오류).
+export interface LifeState {
   fallingPlatforms: CollapsingSolidState[];
   hiddenBlocks: CollapsingSolidState[];
   enemies: Enemy[];
@@ -372,6 +372,68 @@ export class World {
   pipeEnemies: PipeEnemyState[];
   sinkingPipes: SinkingPipeState[];
   rollingStones: RollingStoneState[];
+}
+export function createLifeState(level: Level): LifeState {
+  return {
+    fallingPlatforms: createCollapsingSolids(level.fallingPlatforms),
+    hiddenBlocks: createCollapsingSolids(level.hiddenBlocks),
+    enemies: createEnemies(level),
+    ambushes: createAmbushes(level),
+    conditionalTraps: createConditionalTraps(level),
+    vanishingGrounds: createVanishingGrounds(level),
+    invisibleBlocks: createInvisibleBlocks(level),
+    fallingCeilings: createFallingCeilings(level),
+    dodgingPlatforms: createDodgingPlatforms(level),
+    popUpSpikes: createPopUpSpikes(level),
+    goal: createGoal(level),
+    skyDrops: createSkyDrops(level),
+    springFloors: createSpringFloors(level),
+    fakeGoals: createFakeGoals(level),
+    boulders: createBoulders(level),
+    fakeWalls: level.fakeWalls.map((rect) => ({ rect, revealed: false })),
+    baitGems: level.baitGems.map((config) => ({ config, taken: false })),
+    landingSpikes: level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false })),
+    shadows: createShadows(level),
+    descendingCeilings: createDescendingCeilings(level),
+    arrowTraps: createArrowTraps(level),
+    mirrorEnemies: createMirrorEnemies(level),
+    countingPlatforms: createCountingPlatforms(level),
+    pipeEnemies: createPipeEnemies(level),
+    sinkingPipes: createSinkingPipes(level),
+    rollingStones: createRollingStones(level),
+  };
+}
+
+export class World implements LifeState {
+  player: Player;
+  deaths = 0;
+  cleared = false;
+  fallingPlatforms!: CollapsingSolidState[];
+  hiddenBlocks!: CollapsingSolidState[];
+  enemies!: Enemy[];
+  ambushes!: AmbushState[];
+  conditionalTraps!: ConditionalTrapState[];
+  vanishingGrounds!: VanishingGroundState[];
+  invisibleBlocks!: InvisibleBlockState[];
+  fallingCeilings!: FallingCeilingState[];
+  dodgingPlatforms!: DodgingPlatformState[];
+  popUpSpikes!: PopUpSpikeState[];
+  goal!: GoalState;
+  skyDrops!: SkyDropGroupState[];
+  springFloors!: SpringFloorState[];
+  fakeGoals!: FakeGoalState[];
+  boulders!: BoulderState[];
+  fakeWalls!: FakeWallState[];
+  baitGems!: BaitGemState[];
+  landingSpikes!: LandingSpikeState[];
+  shadows!: ShadowState[];
+  descendingCeilings!: DescendingCeilingState[];
+  arrowTraps!: ArrowTrapState[];
+  mirrorEnemies!: MirrorEnemyState[];
+  countingPlatforms!: CountingPlatformState[];
+  pipeEnemies!: PipeEnemyState[];
+  sinkingPipes!: SinkingPipeState[];
+  rollingStones!: RollingStoneState[];
   // #14 가짜 클리어 중이면 그 깃발과, 닿은 순간의 표시용 런 시간. 화면에는 진짜 클리어처럼 시간이 멈춘 것으로 보이지만
   // 실제 런 시간(runTime)은 계속 흐르고 기록도 저장하지 않는다.
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
@@ -408,32 +470,8 @@ export class World {
   constructor(readonly level: Level) {
     this.player = createPlayer(level.spawn.x, level.spawn.y);
     this.terrain = staticSolids(level);
-    this.fallingPlatforms = createCollapsingSolids(level.fallingPlatforms);
-    this.hiddenBlocks = createCollapsingSolids(level.hiddenBlocks);
-    this.enemies = createEnemies(level);
-    this.ambushes = createAmbushes(level);
-    this.conditionalTraps = createConditionalTraps(level);
-    this.vanishingGrounds = createVanishingGrounds(level);
-    this.invisibleBlocks = createInvisibleBlocks(level);
-    this.fallingCeilings = createFallingCeilings(level);
-    this.dodgingPlatforms = createDodgingPlatforms(level);
-    this.popUpSpikes = createPopUpSpikes(level);
-    this.goal = createGoal(level);
-    this.skyDrops = createSkyDrops(level);
-    this.springFloors = createSpringFloors(level);
-    this.fakeGoals = createFakeGoals(level);
-    this.boulders = createBoulders(level);
-    this.fakeWalls = level.fakeWalls.map((rect) => ({ rect, revealed: false }));
-    this.baitGems = level.baitGems.map((config) => ({ config, taken: false }));
-    this.landingSpikes = level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
-    this.shadows = createShadows(level);
-    this.descendingCeilings = createDescendingCeilings(level);
-    this.arrowTraps = createArrowTraps(level);
-    this.mirrorEnemies = createMirrorEnemies(level);
-    this.countingPlatforms = createCountingPlatforms(level);
-    this.pipeEnemies = createPipeEnemies(level);
-    this.sinkingPipes = createSinkingPipes(level);
-    this.rollingStones = createRollingStones(level);
+    // 목숨마다 새로 만드는 상태(필드 선언의 !는 여기서 채우기 때문 — createLifeState가 LifeState 전체를 돌려준다).
+    Object.assign(this, createLifeState(level));
   }
   // 함정이 만들고 없애는 솔리드(레벨의 고정 바닥 제외). 플레이어 충돌·지지 재확인·떨어지는 천장 착지가 같은 목록을 쓴다.
   dynamicSolids(exclude?: FallingCeilingState): Rect[] {
@@ -483,32 +521,7 @@ export class World {
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : this.level.spawn;
     this.player = createPlayer(spawn.x, spawn.y);
     this.cleared = false;
-    this.fallingPlatforms = createCollapsingSolids(this.level.fallingPlatforms);
-    this.hiddenBlocks = createCollapsingSolids(this.level.hiddenBlocks);
-    this.enemies = createEnemies(this.level);
-    this.ambushes = createAmbushes(this.level);
-    this.conditionalTraps = createConditionalTraps(this.level);
-    this.vanishingGrounds = createVanishingGrounds(this.level);
-    this.invisibleBlocks = createInvisibleBlocks(this.level);
-    this.fallingCeilings = createFallingCeilings(this.level);
-    this.dodgingPlatforms = createDodgingPlatforms(this.level);
-    this.popUpSpikes = createPopUpSpikes(this.level);
-    this.goal = createGoal(this.level);
-    this.skyDrops = createSkyDrops(this.level);
-    this.springFloors = createSpringFloors(this.level);
-    this.fakeGoals = createFakeGoals(this.level);
-    this.boulders = createBoulders(this.level);
-    this.fakeWalls = this.level.fakeWalls.map((rect) => ({ rect, revealed: false }));
-    this.baitGems = this.level.baitGems.map((config) => ({ config, taken: false }));
-    this.landingSpikes = this.level.landingSpikeZones.map((zone) => ({ zone, fired: false, spikes: null, armed: false }));
-    this.shadows = createShadows(this.level);
-    this.descendingCeilings = createDescendingCeilings(this.level);
-    this.arrowTraps = createArrowTraps(this.level);
-    this.mirrorEnemies = createMirrorEnemies(this.level);
-    this.countingPlatforms = createCountingPlatforms(this.level);
-    this.pipeEnemies = createPipeEnemies(this.level);
-    this.sinkingPipes = createSinkingPipes(this.level);
-    this.rollingStones = createRollingStones(this.level);
+    Object.assign(this, createLifeState(this.level));
     this.lifeTime = 0;
     this.fakeClear = null;
     this.flight = null;
@@ -516,8 +529,19 @@ export class World {
     this.reverseHeard.clear();
     this.heavyShoes = false;
   }
+  // 고정 스텝 하나. 단계의 순서가 동작의 일부다(각 단계 주석 참고) — 단계를 옮기거나 합치면 테스트·해법 여유가 바뀔 수 있다.
   update(dt: number, input: InputState): void {
     if (input.restartPressed) { this.reset(); return; }
+    this.tickTimers(dt);
+    this.updateCollapses(dt);
+    this.applyInput(dt, input);
+    const wasAirborne = this.moveAndLand(dt);
+    const { crushedBy, squashedBy } = this.updateTraps(dt, wasAirborne);
+    this.saveCheckpoints();
+    this.resolveOutcome(crushedBy, squashedBy);
+  }
+  // 1. 시계·박자 발판·놀리는 문구·사망 원인 표시의 시간을 흘린다.
+  private tickTimers(dt: number): void {
     if (!this.runComplete) this.runTime += dt;
     this.clock += dt;
     // #27 박자 발판: 시간을 먼저 흘려 이번 스텝의 켜짐·꺼짐을 정하고, 아래 지지 재확인이 꺼진 발판을 바로 반영한다.
@@ -537,8 +561,10 @@ export class World {
       this.deathCause.remaining -= dt;
       if (this.deathCause.remaining <= 1e-6) this.deathCause = null; // 1/60 누적 오차로 120스텝 뒤에도 0보다 조금 크게 남지 않게
     }
+  }
+  // 2. 붕괴하는 발판·땅·가라앉는 파이프를 처리하고 지지를 다시 확인한다(점프 입력보다 먼저).
+  private updateCollapses(dt: number): void {
     const p = this.player;
-
     // 점프 입력을 확인하기 전에 붕괴를 먼저 처리하고, 남은 솔리드 기준으로 grounded를
     // 다시 확인해 발판이 사라진 바로 그 프레임부터 정확한 값을 쓰도록 한다
     // (Codex 리뷰: 붕괴 직후 한 프레임 점프 가능 버그).
@@ -588,7 +614,10 @@ export class World {
       const stillSupported = [...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s));
       if (!stillSupported) p.grounded = false;
     }
-
+  }
+  // 3. 좌우 입력(반전·얼음·진흙·벨트)과 점프(날려버리는 점프·무거운 신발·착지 예측 가시·따라 뛰는 적)를 반영한다.
+  private applyInput(dt: number, input: InputState): void {
+    const p = this.player;
     // #16 좌우 반전은 공중에서도 걸려 있다. 강제 비행 중에는 어차피 좌우 입력을 쓰지 않는다.
     const horizontal = this.reverse ? -input.horizontal as -1 | 0 | 1 : input.horizontal;
     // #28 얼음 바닥: 얼음 위에 서 있고 이번 스텝에 뛰지 않으면 수평 속도가 목표 속도로 ICE_ACCEL씩만 바뀐다.
@@ -637,6 +666,10 @@ export class World {
         m.airborne = true; m.vy = -m.config.jumpSpeed;
       }
     }
+  }
+  // 4. 중력(바람)·투명 블록·충돌 이동·착지 판정(세 번째 착지 발판·강제 비행 끝·스프링·트램펄린). 이동 전 공중 여부를 돌려준다.
+  private moveAndLand(dt: number): boolean {
+    const p = this.player;
     // 지형지물 바람 구간: 안에 있는 동안 중력이 약해지고 떨어지는 속도가 묶인다(강제 비행 중에는 평소대로).
     const wind = this.flight ? undefined : this.level.windZones.find((w) => overlaps(p, w.zone));
     p.vy = Math.min(wind ? WIND_MAX_FALL : MAX_FALL_SPEED, p.vy + (wind ? GRAVITY - wind.lift : GRAVITY) * dt);
@@ -695,6 +728,11 @@ export class World {
       const tramp = this.level.trampolines.find((t) => isStandingOn(p, t.tile));
       if (tramp) { p.vy = -tramp.speed; p.grounded = false; this.trapEvent('spring', tramp.tile); }
     }
+    return wasAirborne;
+  }
+  // 5. 이동을 마친 위치로 함정·적을 갱신한다. 깔림 판정은 사망 판정(7)에서 쓰도록 돌려준다.
+  private updateTraps(dt: number, wasAirborne: boolean): { crushedBy: FallingCeilingState | null; squashedBy: DescendingCeilingState | null } {
+    const p = this.player;
     this.updateReverse();
     this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
@@ -932,7 +970,11 @@ export class World {
     }
 
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
-
+    return { crushedBy, squashedBy };
+  }
+  // 6. 체크포인트 저장(가짜 체크포인트에 닿은 스텝은 저장하지 않음).
+  private saveCheckpoints(): void {
+    const p = this.player;
     // 가짜 체크포인트(#11)에 닿은 스텝에는 진짜 체크포인트도 저장하지 않는다 — 사망 판정보다 저장이 먼저라
     // 둘이 겹치면 진짜를 저장한 뒤 죽어, 가짜에 당하고도 진행이 저장됐다(Codex 리뷰).
     const touchingFake = this.level.fakeCheckpoints.some((zone) => overlaps(p, zone));
@@ -942,7 +984,10 @@ export class World {
       if (current?.x !== cp.respawnX || current.y !== cp.respawnY) this.events.push('checkpoint'); // 새로 활성화될 때만
       this.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
     }
-
+  }
+  // 7. 사망 판정(먼저 걸린 원인 하나로 재시작), 가짜 클리어·클리어, 낙사.
+  private resolveOutcome(crushedBy: FallingCeilingState | null, squashedBy: DescendingCeilingState | null): void {
+    const p = this.player;
     if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
     if (squashedBy) { this.reset(true, { rect: union(squashedBy.config.block, squashedBy.config.trigger), kind: 'descendingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
