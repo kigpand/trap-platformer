@@ -141,30 +141,45 @@ describe('#15 fling jump', () => {
 
 describe('#16 reverse zone', () => {
   // 바닥(0-300) → 구덩이(300-400) → 건너편(400-). 구역은 건너편 시작(420-660).
+  // 2026-11-08 프로젝트 오너 결정: 구역과 겹쳐 있는 동안만 반전되고, 벗어나면(어느 쪽으로든) 풀린다.
   const zone: Rect = { x: 420, y: 300, width: 240, height: 200 };
   const L = testLevel({ solids: [{ x: 0, y: 500, width: 300, height: 120 }, { x: 400, y: 500, width: 1600, height: 120 }], reverseZones: [zone] });
 
-  it('swaps left and right on entry and walks the player back into the pit just crossed; the zone is blamed', () => {
+  it('swaps left and right while the player is inside the zone', () => {
     const world = new World(L);
-    standAt(world, 380);
-    runUntil(world, right, 20, () => world.reverse !== null);
-    expect(world.reverse?.enteredFrom).toBe('left');
-    runUntil(world, right, 300, () => world.deaths > 0);
-    expect(world.deaths).toBe(1);
-    expect(world.deathCause?.rect).toBe(zone);
-    expect(world.snapshot().deathKind).toBe('reverseZone');
-    expect(world.reverse).toBeNull(); // 사망으로 풀린다
+    standAt(world, 500);
+    world.update(dt, idle);
+    expect(world.reverse?.zone).toBe(zone);
+    world.update(dt, right);
+    expect(world.player.vx).toBe(-210);
   });
 
-  it('stays latched after backing out the entry side, so input does not jitter at the edge', () => {
+  it('holds a player who keeps pressing right at the entry edge: in and out, never through and never dead', () => {
     const world = new World(L);
     standAt(world, 380);
     runUntil(world, right, 20, () => world.reverse !== null);
-    const xs: number[] = [];
-    for (let i = 0; i < 20; i++) { world.update(dt, right); xs.push(world.player.x); }
-    expect(world.player.x + world.player.width).toBeLessThan(zone.x); // 구역 밖으로 나왔다
-    expect(world.reverse).not.toBeNull();
-    expect(xs.every((x, i) => i === 0 || x < xs[i - 1])).toBe(true); // 매 스텝 왼쪽으로만 — 떨리지 않는다
+    let inside = 0, outside = 0;
+    for (let i = 0; i < 300; i++) {
+      world.update(dt, right);
+      if (world.reverse) inside++; else outside++;
+      expect(Math.abs(world.player.x + world.player.width - zone.x)).toBeLessThan(10); // 들어온 쪽 경계에 머문다
+    }
+    expect(inside).toBeGreaterThan(0);
+    expect(outside).toBeGreaterThan(0);
+    expect(world.deaths).toBe(0);
+  });
+
+  it('is released as soon as the player leaves through the entry side, and latches again on re-entry', () => {
+    const world = new World(L);
+    standAt(world, 380);
+    runUntil(world, right, 20, () => world.reverse !== null);
+    runUntil(world, right, 20, () => world.reverse === null); // 반전된 →로 들어온 쪽으로 밀려 나간다
+    expect(world.player.x + world.player.width).toBeLessThanOrEqual(zone.x);
+    for (let i = 0; i < 10; i++) { world.update(dt, idle); expect(world.reverse).toBeNull(); } // 구역 밖에서는 풀린 채
+    world.update(dt, left);
+    expect(world.player.vx).toBe(-210); // 구역 밖에서는 원래 방향
+    runUntil(world, right, 20, () => world.reverse !== null);
+    expect(world.reverse?.zone).toBe(zone); // 다시 들어오면 다시 걸린다
   });
 
   it('reverses in the air too, and leaves jumping alone', () => {
@@ -179,6 +194,22 @@ describe('#16 reverse zone', () => {
     expect(world.player.vx).toBe(-210);
   });
 
+  it('blames the zone for a fall within 3 seconds after leaving it', () => {
+    // 구역이 구덩이 바로 끝(400)에서 시작하면: 반전된 →로 뛰어 구덩이 위로 나간 뒤 키를 떼면 그대로 떨어진다.
+    const edge: Rect = { ...zone, x: 400 };
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 300, height: 120 }, { x: 400, y: 500, width: 1600, height: 120 }], reverseZones: [edge] }));
+    standAt(world, 405);
+    world.update(dt, idle);
+    expect(world.reverse).not.toBeNull();
+    world.update(dt, { ...right, jumpPressed: true }); // 반전된 →: 왼쪽으로 뛴다
+    runUntil(world, right, 30, () => world.reverse === null); // 공중에서 구역을 벗어나면 풀린다
+    runUntil(world, idle, 300, () => world.deaths > 0);
+    expect(world.deaths).toBe(1);
+    expect(world.snapshot().deathKind).toBe('reverseZone');
+    expect(world.deathCause?.rect).toBe(edge);
+    expect(world.reverse).toBeNull();
+  });
+
   it('can be beaten by pressing the opposite key out of the far side, which releases it', () => {
     const world = new World(L);
     standAt(world, 380);
@@ -191,26 +222,10 @@ describe('#16 reverse zone', () => {
     expect(world.deaths).toBe(0);
   });
 
-  it('does not re-latch while the key that carried the player out is still held (Codex review)', () => {
-    // 해제된 스텝에 플레이어는 구역 오른쪽 경계 바로 밖에 있고, 계속 누르던 ←는 이제 진짜 왼쪽이라 다음 스텝에 다시 겹친다.
-    // 그때 오른쪽 진입으로 다시 걸면 ←가 →가 되어 밀려 나가고 또 풀리기를 반복하며 떨렸다.
-    const world = new World(L);
-    standAt(world, 380);
-    runUntil(world, right, 20, () => world.reverse !== null);
-    runUntil(world, left, 200, () => world.reverse === null);
-    const xs: number[] = [];
-    for (let i = 0; i < 30; i++) { world.update(dt, left); xs.push(world.player.x); expect(world.reverse).toBeNull(); }
-    expect(xs.every((x, i) => i === 0 || x < xs[i - 1])).toBe(true); // 평소대로 왼쪽으로만 간다
-    expect(world.player.x + world.player.width).toBeGreaterThan(zone.x + zone.width - 120); // 구역 안으로 걸어 들어왔다
-    world.update(dt, idle); // 키를 떼면 다시 걸릴 수 있다
-    expect(world.reverse?.enteredFrom).toBe('right');
-  });
-
-  it('latches from the right when entered from the right, and releases on the left side', () => {
+  it('works the same when entered from the right', () => {
     const world = new World(L);
     standAt(world, 700);
     runUntil(world, left, 20, () => world.reverse !== null);
-    expect(world.reverse?.enteredFrom).toBe('right');
     runUntil(world, right, 200, () => world.reverse === null); // 반전: 오른쪽 키 = 왼쪽으로
     expect(world.player.x + world.player.width).toBeLessThanOrEqual(zone.x);
   });
