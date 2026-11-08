@@ -17,7 +17,7 @@ const standingOn = (w: World, r: Rect) => w.player.grounded && Math.abs(w.player
 describe('movement terrain in the levels', () => {
   it.each(LEVELS.map((level, i) => [i + 1, level] as const))('level %i: the solution steps on every trampoline, belt and mud floor and jumps through every wind zone', (n, level) => {
     const world = new World(level);
-    const rects = [...level.trampolines.map((t) => t.tile), ...level.conveyors.map((c) => c.rect), ...level.mudFloors];
+    const rects = [...level.trampolines.map((t) => t.tile), ...level.conveyors.map((c) => c.rect), ...level.mudFloors, ...level.oneWayPlatforms];
     expect(rects.length, `level ${n}`).toBeGreaterThan(0);
     const touched = new Set<Rect>();
     const windsCrossed = new Set<Rect>(); // 바람 구간은 공중에서 지나가야 영향을 받는다

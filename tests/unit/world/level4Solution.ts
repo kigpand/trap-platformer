@@ -38,7 +38,7 @@ export const HIDDEN_FALLING_AMBUSH: Step[] = [
   { run: 12860 }, { jump: true }, { run: 13050 }, { jump: true }, { jump: true },
   { run: 13470 }, { waitUntil: (w) => { const e = ambusher(w); return !!e && e.vx < 0 && e.x >= 13760 - 28 - 40; } },
   { runUntil: (w) => { const e = ambusher(w); return !!e && e.x - (w.player.x + w.player.width) <= 45; } }, { jump: true },
-  ...over(14100),
+  ...over(14100), { run: 14378 }, { jump: true }, // 파이프를 넘고, 진흙 너머 발판(14380)에 올라갔다 끝에서 내려온다
 ];
 // 8. 도망가는 발판이 투명 블록 아래로 비켜선다: 가장자리보다 일찍 뛰어 비켜선 발판에 내리고, 스프링 앞 좁은 땅에 내려 스프링을 넘는다.
 export const DODGE_INVISIBLE_SPRING: Step[] = [{ run: 14655 }, { jump: true }, { run: 14830 }, { jump: true }, { jump: true }];

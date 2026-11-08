@@ -54,7 +54,7 @@ export const TERRAIN: Step[] = [
   { waitUntil: (w) => w.rollingStones[0].phase === 'rolling' && w.rollingStones[0].x - (w.player.x + w.player.width) < 40 },
   { hop: true }, // 굴러오는 돌을 넘는다
 ];
-export const SPRING_AND_GOAL: Step[] = [...PIPE_BEFORE_SPRING, { run: 11585 }, { jump: true }, { run: LEVEL_1.goal.x + 20 }]; // 스프링 타일을 넘는다
+export const SPRING_AND_GOAL: Step[] = [...PIPE_BEFORE_SPRING, { run: 11240 }, { jump: true }, { run: 11585 }, { jump: true }, { run: LEVEL_1.goal.x + 20 }]; // 스프링 타일을 넘는다
 export const TAUNTING = [...FAKE_CLEAR_AND_GEM, ...CORRIDOR, ...ICE, ...RHYTHM, ...SHADOW, ...TERRAIN, ...SPRING_AND_GOAL];
 // 스폰에서 가짜 깃발까지.
 export const TO_FAKE_FLAG: Step[] = [...ORIGINAL, ...VANISHING_AND_CEILING, ...SPIKES, ...DODGE, { run: fakeFlag().x + 10 }];

@@ -8,7 +8,7 @@ import {
 import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
-import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline, drawWind } from './terrain';
+import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawPlatform, drawTrampoline, drawWind } from './terrain';
 import { drawFlag, drawGoal, drawSign, drawSpikes, GOAL_FILL } from './props';
 export { GOAL_FILL, SPIKE_FILL } from './props';
 import { TAUNTS } from './taunts';
@@ -130,6 +130,11 @@ export class CanvasRenderer {
     }
     // #31 입구에서 올라오는 적은 파이프보다 먼저 그려, 입구 아래 부분이 파이프에 가려지게 한다.
     for (const pe of world.pipeEnemies) if (pe.phase === 'emerging' && pe.enemy) drawEnemy(ctx, pe.enemy);
+    for (const pl of level.oneWayPlatforms) {
+      if (!inView(pl)) continue;
+      drawPlatform(ctx, pl);
+      if (this.debug) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.strokeRect(pl.x, pl.y, pl.width, pl.height); }
+    }
     for (const p of level.pipes) {
       if (!inView(p)) continue;
       drawPipe(ctx, p);
