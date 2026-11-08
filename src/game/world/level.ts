@@ -1,4 +1,5 @@
 import type { Rect } from '../physics/AABB';
+import { defineLevel } from './levelData';
 export interface EnemyPatrol { minX: number; maxX: number; y: number }
 export interface AmbushEnemy extends EnemyPatrol { trigger: Rect }
 export interface ConditionalTrap { zone: Rect }
@@ -119,7 +120,7 @@ export interface Level {
   iceFloors: readonly Rect[]; // #28 얼음 바닥(바닥 윗면에 겹쳐 두는 판정·장식 영역, 스프링 타일과 같은 방식)
 }
 
-export const LEVEL_1: Level = {
+export const LEVEL_1: Level = defineLevel({
   width: 12000,
   height: 620,
   spawn: { x: 65, y: 350 },
@@ -212,18 +213,12 @@ export const LEVEL_1: Level = {
   // 레벨 1은 새 함정을 하나씩 소개하는 쉬운 단계다(docs/game-design.md "레벨 진행" 난이도 곡선).
   // 사라지는 땅: ground3 끝(1960)에서 ground4(2240)까지 7칸. 멈추지 않고 달리면 지나간다.
   vanishingGrounds: [{ x: 1960, y: 500, width: 280, height: 120 }],
-  invisibleBlocks: [],
   // 떨어지는 천장: 그냥 지나가면 깔린다. 트리거에 살짝 들어갔다 물러서 떨어뜨린 뒤 넘는다(높이 40px).
   fallingCeilings: [{ block: { x: 2450, y: 380, width: 40, height: 40 }, trigger: { x: 2420, y: 380, width: 70, height: 120 } }],
   // 도망가는 발판: ground4 끝(3000)과 ground5(3260) 사이 260px 구덩이. 제자리 점프로 먼저 도망가게 한 뒤 바뀐 자리로 뛴다.
   dodgingPlatforms: [{ platform: { x: 3030, y: 480, width: 60, height: 20 }, trigger: { x: 2960, y: 380, width: 40, height: 100 }, to: { x: 3120, y: 480 } }],
   // 솟아오르는 가시: 레벨 1은 좁은 가시(16px)로 넘을 여유를 넉넉히 준다.
   popUpSpikes: [{ spikes: { x: 2640, y: 476, width: 16, height: 24 }, trigger: { x: 2580, y: 400, width: 60, height: 100 } }],
-  fakeCheckpoints: [],
-  goalHops: [],
-  skyDrops: [],
-  flingZones: [],
-  reverseZones: [],
   // 뒷걸음 스프링 바닥: 목표(11900) 직전. 밟는 순간 세게 튕겨 약 710px 뒤 평지에 떨어진다(구덩이·함정 없음). 타일을 점프로 넘는다.
   springFloors: [{ tile: { x: 11600, y: 500, width: 40, height: 20 }, vx: -600, vy: -800 }],
   // 가짜 클리어: 예전 목표 자리. 바닥(3800-4100)이 깃발 좌우 80px보다 넓게 덮어, N을 누르면 어디서든 떨어진다.
@@ -235,15 +230,12 @@ export const LEVEL_1: Level = {
     { x: 10290, y: 500, text: '파이프는 안전' }, // 가라앉는 파이프
     { x: 11450, y: 500, text: '거의 다 왔어!' }, // 스프링
   ],
-  boulders: [],
   // 가짜 벽: 내려오는 천장 통로 끝을 막은 것처럼 보이는 벽(높이 120 > 최대 점프). 멈칫하면 천장에 깔린다. 그대로 지나간다.
   fakeWalls: [{ x: 5400, y: 380, width: 40, height: 120 }],
   // 미끼 보물: 구덩이(4800-4900) 안, 바닥 높이 바로 아래. 먹으려면 구덩이로 떨어져야 한다. 보통 점프로 넘으면 한참 위를 지난다.
   baitGems: [{ x: 4840, y: 485 }],
-  landingSpikeZones: [],
   // 따라 하는 그림자: 박자 발판을 건넌 뒤 7900부터 9200까지. 그 사이에는 달리며 넘는 구덩이(100px)만 있다.
   shadows: [{ trigger: { x: 7900, y: 300, width: 40, height: 200 }, endX: 9200 }],
-  heavyZones: [],
   // 얼음 바닥: 구덩이(6500) 앞 400px. 끝 가까이에서 키를 떼면 약 184px 미끄러져 떨어진다. 달리던 그대로 뛰어 건넌다.
   // 적이 나오는 파이프: 트리거(9980)를 지나면 파이프(10160) 입구에서 적이 올라와 내려선 뒤 10020~10160을 왕복한다.
   // 트리거 앞에서 기다렸다가 다가오는 적을 넘고, 적이 돌아서는 사이 파이프를 넘는다.
@@ -263,9 +255,6 @@ export const LEVEL_1: Level = {
   // (가라앉는 파이프 오른쪽 끝 10400보다 앞에서 멈춘다 — traps-spec #33 "내려가기만 하는 길"). 꼭대기에서 돌을 넘는다.
   rollingStones: [{ trigger: { x: 10520, y: 320, width: 20, height: 100 }, x: 10640, y: 390, endX: 10410 }],
   iceFloors: [{ x: 6100, y: 500, width: 400, height: 20 }],
-  arrowTraps: [],
-  mirrorEnemies: [],
-  countingPlatforms: [],
   // 내려오는 천장: 통로(5150-5450) 위 블록이 화면 위쪽(아랫면 130)에서 150px/s로 빠르게 내려온다 — 서 있는 머리(468)까지
   // 338px, 약 2.25초. 트리거(5110)에서 통로를 빠져나가기까지 달려서 약 1.74초라 0.5초 여유가 있다(traps-spec #25).
   descendingCeilings: [{ block: { x: 5150, y: 90, width: 300, height: 40 }, trigger: { x: 5110, y: 300, width: 40, height: 200 }, speed: 150, floorY: 500 }],
@@ -274,13 +263,13 @@ export const LEVEL_1: Level = {
     { rect: { x: 7480, y: 500, width: 80, height: 20 }, period: 2, onDuration: 1.2, offset: 0 },
     { rect: { x: 7640, y: 500, width: 80, height: 20 }, period: 2, onDuration: 1.2, offset: -0.5 },
   ],
-};
+});
 
 // 레벨 2: 레벨 1과 다른 함정 조합(낙하 발판·갑자기 출현하는 적·가짜 안전지대 + 왕복 적)과 순서.
 // 레벨 1은 낙하 발판 아래 틈을 그냥 뛰어넘을 수도 있었지만, 여기서는 구덩이(400-640, 240px)가 평지 점프
 // 거리(약 147px)보다 넓어 가운데 낙하 발판을 반드시 밟고 유예 시간(World.ts의 FALL_TRIGGER_DELAY) 안에 다시 뛰어야 한다.
 // 배치 제약(docs/physics-spec.md "레벨 배치 제약")과 도달 가능성은 tests/unit/world/Level2.test.ts가 검증한다.
-export const LEVEL_2: Level = {
+export const LEVEL_2: Level = defineLevel({
   width: 15300,
   height: 620,
   spawn: { x: 65, y: 350 },
@@ -324,7 +313,6 @@ export const LEVEL_2: Level = {
   hazards: [{ x: 1300, y: 495, width: 80, height: 25 }],
   // 낙하하는 발판: 구덩이 가운데 징검다리. 바닥보다 20px 높아 양쪽에서 점프로 오르내린다(docs/traps-spec.md #2).
   fallingPlatforms: [{ x: 480, y: 480, width: 80, height: 20 }],
-  hiddenBlocks: [],
   // 왕복 적: 가짜 안전지대 너머. 위험지대를 넘어 착지하는 지점(약 1400)과 순찰 구간(1500-1600)을 띄워,
   // 체크포인트에서 재시작해 적의 순찰 위치가 초기화돼도 착지하자마자 부딪히지 않게 한다. 적을 넘어 착지한
   // 뒤에도 groundB 끝(1760)까지 다시 점프할 거리가 남는다.
@@ -335,7 +323,6 @@ export const LEVEL_2: Level = {
   ambushes: [
     { trigger: { x: 720, y: 440, width: 40, height: 80 }, minX: 960, maxX: 1060, y: 472 },
   ],
-  conditionalTraps: [],
   // 체크포인트: 영역 위쪽(360)이 점프 최고점의 발 위치(약 419)보다 높아 건너뛸 수 없다(physics-spec "레벨 배치 제약").
   checkpoints: [
     { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
@@ -373,21 +360,14 @@ export const LEVEL_2: Level = {
     { trigger: { x: 14600, y: 400, width: 40, height: 100 }, to: { x: 15040, y: 440, width: 40, height: 60 } },
     { trigger: { x: 14960, y: 400, width: 40, height: 100 }, to: { x: 15240, y: 440, width: 40, height: 60 } },
   ],
-  skyDrops: [],
   // 날려버리는 점프: 구덩이(4900) 앞 20px. 그 안에서 뛰면 뒤로 높이 날아가 뒤쪽 구덩이(4400-4500)에 떨어진다. 일찍 뛰어 넘는다.
   flingZones: [{ zone: { x: 4880, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
   // 좌우 반전: 구덩이(4900-5000)를 건너 조금 걸어간 곳. 반전된 채 →를 누르면 구역 경계에서 들락날락하며 지나가지 못한다.
   reverseZones: [{ x: 5150, y: 300, width: 240, height: 200 }],
-  springFloors: [],
-  fakeGoals: [],
-  signs: [],
   // 따라오는 돌덩이: 트리거(11,700) 160px 넘게 뒤(11,400)에서 나타나 13,000까지. 길에는 달리며 넘는 구덩이(80px) 하나뿐.
   boulders: [{ trigger: { x: 11700, y: 300, width: 40, height: 200 }, startX: 11400, endX: 13000, y: 440 }],
-  fakeWalls: [],
-  baitGems: [],
   // 착지 예측 가시: 턱(6700) 앞 60px. 그 안에서 뛰면 착지 지점에 가시. 구역 앞에서 뛰면 턱 위에 내려선다.
   landingSpikeZones: [{ x: 6620, y: 300, width: 60, height: 200 }],
-  shadows: [],
   // 무거운 신발: 구덩이(6200) 앞 20px(구덩이 100px — 일찍 뛰는 출발 구간 27px, traps-spec #24 실측).
   heavyZones: [{ zone: { x: 6180, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
   // 움직임을 바꾸는 지형지물(2026-11-08): 좌우 반전을 빠져나간 뒤 진흙(5420-5520), 언덕 너머 트램펄린(9720),
@@ -405,8 +385,6 @@ export const LEVEL_2: Level = {
   // 가라앉는 파이프: 좌우 반전을 빠져나간 뒤의 파이프(5600, 높이 40)가 사실은 가라앉는다. 멀리서 넘으면 그만이고, 올라서서
   // 머뭇거리면 아래 틈(50px)으로 떨어진다.
   sinkingPipes: [{ pipe: { x: 5600, y: 460, width: 50, height: 40 }, delay: 0.3 }],
-  rollingStones: [],
-  iceFloors: [],
   // 화살 발사대: 트리거(7,400)를 지나면 오른쪽 화면 밖에서 낮은 화살(0.3초 뒤 경고) → 높은 화살(1.8초 뒤 경고).
   // 낮은 화살은 점프로 넘고, 높은 화살은 뛰지 않고 지나가게 둔다. 길(7,000-8,630)에는 솔리드가 없다.
   arrowTraps: [{ trigger: { x: 7400, y: 300, width: 40, height: 200 }, arrows: [
@@ -418,14 +396,12 @@ export const LEVEL_2: Level = {
   // 세 번째 착지 발판: 구덩이(10,100-10,160) 너머 10,160-10,550, 장애물 두 개(10,240·10,400). 구덩이 끝에서 바로 뛰면
   // 발판 착지 → 장애물 두 번 넘기로 세 번째 착지에 무너진다. 발끝까지 버티다 늦게 뛰면(9~25px 내밂, 실측) 첫 장애물까지 넘어 두 번만 착지한다.
   countingPlatforms: [{ rect: { x: 10160, y: 500, width: 390, height: 20 }, landings: 3 }],
-  descendingCeilings: [],
-  rhythmPlatforms: [],
-};
+});
 
 // 레벨 3(어려움): 새 함정 8종을 명세 기본 크기로, 쉴 틈 없이 이어 붙인다(docs/game-design.md "난이도 곡선").
 // 출발 구간 실측: 40px 가시 10px, 높이 60px 가짜 체크포인트 12px, 투명 블록을 피하는 이른 점프 23px.
 // 해법과 도달 가능성은 tests/unit/world/Level3.test.ts가 검증한다.
-export const LEVEL_3: Level = {
+export const LEVEL_3: Level = defineLevel({
   width: 16800,
   height: 620,
   spawn: { x: 65, y: 350 },
@@ -466,11 +442,6 @@ export const LEVEL_3: Level = {
   // 가짜 안전지대: 두 번째 사라지는 땅이 끝나자마자. 달리던 그대로 뛰어 넘어야 한다. 체크포인트 3(3350)에서
   // 재시작한 화면(오른쪽 끝 3926) 안에 들어오도록 둔다 — 사망 원인 표시를 재시작 직후 바로 본다(physics-spec 배치 제약).
   hazards: [{ x: 3840, y: 495, width: 80, height: 25 }],
-  fallingPlatforms: [],
-  hiddenBlocks: [],
-  enemies: [],
-  ambushes: [],
-  conditionalTraps: [],
   checkpoints: [
     { zone: { x: 1100, y: 360, width: 40, height: 140 }, respawnX: 1100, respawnY: 350 },
     { zone: { x: 2080, y: 360, width: 40, height: 140 }, respawnX: 2080, respawnY: 350 },
@@ -543,14 +514,12 @@ export const LEVEL_3: Level = {
   trampolines: [{ tile: { x: 13100, y: 500, width: 40, height: 20 }, speed: 720 }],
   conveyors: [{ rect: { x: 12100, y: 500, width: 180, height: 20 }, speed: -90 }],
   mudFloors: [{ x: 6450, y: 500, width: 150, height: 20 }],
-  windZones: [],
   // 한쪽 통과 발판: 스프링 앞 구덩이(15600-15800) 위 70px. 위쪽으로만 갈 수 있는 길이다 — 구덩이 앞에서 뛰어 발판에 올라서고,
   // 발판 위에서 그대로 뛰어 스프링(15850)을 넘는다. 스프링에 튕겨 뒤로 날아갈 때는 발판을 아래에서 통과한다.
   oneWayPlatforms: [{ x: 15590, y: 430, width: 230, height: 12 }],
   pipeEnemies: [{ pipe: { x: 12900, y: 440, width: 60, height: 60 }, trigger: { x: 12680, y: 300, width: 40, height: 200 }, minX: 12650, maxX: 12900 }],
   // 가라앉는 파이프: 체크포인트 6 뒤 진흙을 지나 얼음 앞의 파이프(6650, 높이 40)가 사실은 가라앉는다. 아래는 40px 틈.
   sinkingPipes: [{ pipe: { x: 6650, y: 460, width: 40, height: 40 }, delay: 0.3 }],
-  rollingStones: [],
   iceFloors: [{ x: 7000, y: 500, width: 380, height: 20 }],
   // 화살 세 발: 낮은 것 → 높은 것 → 낮은 것. 길(9000-10330)에는 솔리드가 없다.
   arrowTraps: [{ trigger: { x: 9300, y: 300, width: 40, height: 200 }, arrows: [
@@ -570,11 +539,11 @@ export const LEVEL_3: Level = {
     { rect: { x: 13620, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -0.6 },
     { rect: { x: 13770, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -1.2 },
   ],
-};
+});
 
 // 레벨 4(지옥): 함정 30종을 셋씩 겹친 구간 G1~G9와 끝 구간(docs/game-design.md "난이도 곡선"). 위치는 해법의 점프마다
 // 6프레임 이상 여유가 남도록 고정 스텝 시뮬레이션으로 맞췄다(tests/unit/world/Level4.test.ts의 시간 여유 측정).
-export const LEVEL_4: Level = {
+export const LEVEL_4: Level = defineLevel({
   width: 18600,
   height: 620,
   spawn: { x: 65, y: 350 },
@@ -616,7 +585,6 @@ export const LEVEL_4: Level = {
   hazards: [{ x: 16680, y: 495, width: 80, height: 25 }],
   fallingPlatforms: [{ x: 13100, y: 480, width: 140, height: 20 }],
   hiddenBlocks: [{ x: 12900, y: 500, width: 80, height: 120 }],
-  enemies: [],
   ambushes: [{ trigger: { x: 13420, y: 440, width: 40, height: 80 }, minX: 13600, maxX: 13760, y: 472 }],
   conditionalTraps: [{ zone: { x: 16380, y: 440, width: 50, height: 80 } }],
   checkpoints: [
@@ -653,16 +621,13 @@ export const LEVEL_4: Level = {
   // 움직임을 바꾸는 지형지물(2026-11-08): 기습 적 너머 파이프 뒤 진흙(14180-14350), 스프링 너머 파이프 뒤 트램펄린(15500).
   // 트램펄린은 체크포인트 앞에 두지 않는다 — 튕겨 넘으면 체크포인트를 건너뛸 수 있다.
   trampolines: [{ tile: { x: 15500, y: 500, width: 40, height: 20 }, speed: 720 }],
-  conveyors: [],
   mudFloors: [{ x: 14180, y: 500, width: 170, height: 20 }],
   // 바람 구간: 5구간(무거운 신발·착지 예측 가시) 뒤 넓은 구덩이(9500-9700) 위. 돌덩이가 나타나는 자리(10260)보다 앞이다.
   windZones: [{ zone: { x: 9480, y: 250, width: 240, height: 370 }, lift: 800 }],
   // 한쪽 통과 발판: 진흙 너머 도망가는 발판 앞 평지(14380-14500) 위 70px. 끝에서 내려와 도망가는 발판 앞 점프 자리까지 착지할 거리를 둔다.
   oneWayPlatforms: [{ x: 14380, y: 430, width: 120, height: 12 }],
-  pipeEnemies: [],
   // 가라앉는 파이프: 2구간 뒤 언덕을 내려온 곳의 파이프(4350, 높이 50)가 사실은 가라앉는다. 아래는 50px 틈.
   sinkingPipes: [{ pipe: { x: 4350, y: 450, width: 50, height: 50 }, delay: 0.3 }],
-  rollingStones: [],
   iceFloors: [{ x: 2920, y: 500, width: 580, height: 20 }],
   arrowTraps: [{ trigger: { x: 5070, y: 300, width: 40, height: 200 }, arrows: [
     { y: 484, delay: 0.75, fromX: 5900, toX: 4900 },
@@ -678,7 +643,7 @@ export const LEVEL_4: Level = {
     { rect: { x: 5220, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -0.6 },
     { rect: { x: 5370, y: 500, width: 80, height: 20 }, period: 1.8, onDuration: 1.4, offset: -1.2 },
   ],
-};
+});
 
 // 플레이 순서. 클리어 후 "다음 레벨"로 다음 항목을 시작하고, 마지막 레벨 뒤에는 완료 화면에서 처음으로 돌아간다.
 export const LEVELS: readonly Level[] = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
