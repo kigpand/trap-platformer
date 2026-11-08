@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOULDER_SIZE, World } from '../../../src/game/world/World';
+import { BOULDER_SIZE, World, type InputState } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { standAt, testLevel } from './fixtures';
 
@@ -11,7 +11,7 @@ const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: fals
 const trigger: Rect = { x: 600, y: 300, width: 40, height: 200 };
 const boulder = { trigger, startX: 380, endX: 1900, y: 500 - BOULDER_SIZE };
 const L = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], boulders: [boulder] });
-function runUntil(world: World, input: typeof idle, steps: number, stop: () => boolean = () => false): void {
+function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
   for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
 }
 function enterTrigger(world: World): void {

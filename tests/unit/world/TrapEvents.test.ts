@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { World, type TrapEvent } from '../../../src/game/world/World';
+import { World, type TrapEvent, type InputState } from '../../../src/game/world/World';
 import type { Level } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { standAt, testLevel } from './fixtures';
@@ -11,10 +11,10 @@ const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: fals
 const flat: Rect = { x: 0, y: 500, width: 2000, height: 120 };
 
 // 입력을 하나씩 넣으며 스텝마다 나온 함정 이벤트를 모은다.
-function collect(world: World, inputs: (typeof idle)[]): TrapEvent[][] {
+function collect(world: World, inputs: InputState[]): TrapEvent[][] {
   return inputs.map((input) => { world.update(dt, input); return world.drainTrapEvents(); });
 }
-const repeat = (input: typeof idle, n: number) => Array.from({ length: n }, () => input);
+const repeat = (input: InputState, n: number) => Array.from({ length: n }, () => input);
 function firstAt(events: TrapEvent[][]): { step: number; event: TrapEvent } {
   const step = events.findIndex((e) => e.length > 0);
   expect(step, 'an event was emitted').toBeGreaterThanOrEqual(0);
@@ -23,7 +23,7 @@ function firstAt(events: TrapEvent[][]): { step: number; event: TrapEvent } {
 }
 
 describe('trap events for sound effects', () => {
-  it.each<[string, Partial<Level>, number, (typeof idle)[], TrapEvent['kind'], (w: World) => Rect]>([
+  it.each<[string, Partial<Level>, number, InputState[], TrapEvent['kind'], (w: World) => Rect]>([
     ['spring', { springFloors: [{ tile: { x: 600, y: 500, width: 40, height: 20 }, vx: -600, vy: -800 }] }, 560, repeat(right, 20), 'spring', (w) => w.level.springFloors[0].tile],
     ['spikes (pop-up)', { popUpSpikes: [{ spikes: { x: 700, y: 476, width: 40, height: 24 }, trigger: { x: 600, y: 400, width: 40, height: 100 } }] }, 560, repeat(right, 20), 'spikes', (w) => w.level.popUpSpikes[0].spikes],
     ['gem', { baitGems: [{ x: 620, y: 470 }] }, 560, repeat(right, 30), 'gem', () => ({ x: 620, y: 470, width: 20, height: 20 })],

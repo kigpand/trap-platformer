@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { World } from '../../../src/game/world/World';
+import { World, type InputState } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { standAt, testLevel } from './fixtures';
 
@@ -10,7 +10,7 @@ const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false
 const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
-function runUntil(world: World, input: typeof idle, steps: number, stop: () => boolean = () => false): void {
+function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
   for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
 }
 

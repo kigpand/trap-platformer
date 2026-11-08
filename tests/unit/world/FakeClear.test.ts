@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { World } from '../../../src/game/world/World';
+import { World, type InputState } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
 import { standAt, testLevel } from './fixtures';
 
@@ -15,7 +15,7 @@ const L = testLevel({
   solids: [{ x: 0, y: 500, width: 800, height: 120 }, { x: 1100, y: 500, width: 900, height: 120 }],
   goal, fakeGoals: [{ flag, floor: [floor] }],
 });
-function runUntil(world: World, input: typeof idle, steps: number, stop: () => boolean = () => false): void {
+function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
   for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
 }
 function touchFlag(world: World): void {

@@ -1,9 +1,14 @@
 name: CI
 
 on:
+  # 기준 브랜치와 상관없이 모든 PR에서 돈다 — 앞 PR 위에 쌓은 PR(기준이 기능 브랜치)도 열리자마자 검사받는다.
   pull_request:
-    branches: [master]
   workflow_dispatch:
+
+# 같은 PR(또는 같은 브랜치의 수동 실행)에 새 커밋이 오면 이전 실행을 취소한다.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
