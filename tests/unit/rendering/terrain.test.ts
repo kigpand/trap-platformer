@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, VIEW_HEIGHT } from '../../../src/game/rendering/CanvasRenderer';
-import { BELT_FILL, drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline, GROUND_FILL, GROUND_TOP, MUD_FILL, PIPE_CAP, PIPE_FILL, TRAMPOLINE_MAT } from '../../../src/game/rendering/terrain';
+import { BELT_FILL, drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline, drawWind, GROUND_FILL, GROUND_TOP, MUD_FILL, PIPE_CAP, PIPE_FILL, TRAMPOLINE_MAT } from '../../../src/game/rendering/terrain';
 import { hillColumns, type Hill } from '../../../src/game/world/level';
 import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
@@ -202,5 +202,15 @@ describe('movement terrain (trampoline, conveyor, mud)', () => {
     expect(map.get('550,509')).toBe(BELT_FILL);
     expect(map.get('651,500')).toBe(MUD_FILL);
     expect(map.get('390,505')).not.toBe(TRAMPOLINE_MAT); // 바깥은 그대로 땅
+  });
+});
+
+describe('wind zone drawing', () => {
+  it('paints only inside the zone and moves its streaks up with time', () => {
+    const zone: Rect = { x: 300, y: 250, width: 200, height: 250 };
+    const r = recorder(); drawWind(r.ctx, zone, 0.3, view);
+    expect(r.fills.every((f) => f.x >= zone.x && f.y >= zone.y && f.x + f.width <= zone.x + zone.width && f.y + f.height <= zone.y + zone.height)).toBe(true);
+    const at = (phase: number) => drawn((ctx) => drawWind(ctx, zone, phase, view), zone);
+    expect(at(0)).not.toEqual(at(0.1));
   });
 });

@@ -166,3 +166,22 @@ export function drawMud(ctx: CanvasRenderingContext2D, r: Rect, view: View): voi
     if (k % 2 === 0) fillClipped(ctx, { ...r, height: h }, cx * CELL + (k % 10), r.y + 3 + ((k >> 3) % 6), 4, 2);
   }
 }
+// 바람 구간: 영역을 옅게 물들이고, 위로 흘러가는 바람 줄을 그린다(칸마다 고정 해시로 출발 높이를 달리하고 phase(렌더링 전용 시간)만큼 올라감).
+export const WIND_TINT = 'rgba(186,230,253,0.14)';
+export const WIND_STREAK = 'rgba(224,242,254,0.8)';
+const WIND_CELL = 16;
+const WIND_RISE = 140; // 바람 줄이 올라가는 속도(그림만, px/s)
+export function drawWind(ctx: CanvasRenderingContext2D, zone: Rect, phase: number, view: View): void {
+  const v = visiblePart(zone, view);
+  if (!v) return;
+  ctx.fillStyle = WIND_TINT; ctx.fillRect(v.x, v.y, v.width, v.height);
+  ctx.fillStyle = WIND_STREAK;
+  const bottom = zone.y + zone.height;
+  for (let cx = Math.floor(v.x / WIND_CELL); cx <= Math.floor((v.x + v.width - 1) / WIND_CELL); cx++) {
+    const k = hash(cx, 11);
+    for (const lane of [0, 0.5]) { // 칸마다 바람 줄 두 개(높이를 반 바퀴 엇갈림)
+      const travel = (phase * WIND_RISE + k * 7 + lane * zone.height) % zone.height;
+      fillClipped(ctx, zone, cx * WIND_CELL + (k % 12), bottom - travel - 16, 2, 16);
+    }
+  }
+}

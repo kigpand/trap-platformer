@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MUD_JUMP_SPEED, MUD_SPEED, World } from '../../../src/game/world/World';
+import { MUD_JUMP_SPEED, MUD_SPEED, WIND_MAX_FALL, World } from '../../../src/game/world/World';
 import { standAt, testLevel } from './fixtures';
 import { playSolution } from './solution';
 
@@ -113,5 +113,39 @@ describe('mud floor', () => {
     const world = new World(L);
     expect(playSolution(world, [{ run: 900 }])).toBe(1);
     expect(world.deaths).toBe(0);
+  });
+});
+
+describe('wind zone', () => {
+  // 바닥(0-400) → 넓은 구덩이(400-640, 240px) → 건너편. 구덩이 위가 바람 구간이다.
+  const wind = { zone: { x: 380, y: 250, width: 280, height: 370 }, lift: 800 };
+  const ground = [{ x: 0, y: 500, width: 400, height: 120 }, { x: 640, y: 500, width: 1360, height: 120 }];
+  const L = testLevel({ solids: ground, windZones: [wind] });
+
+  it('makes a jump inside it much higher and caps the fall speed', () => {
+    const world = new World(testLevel({ solids: [flat], windZones: [{ zone: { x: 300, y: 200, width: 300, height: 300 }, lift: 800 }] }));
+    standAt(world, 400);
+    world.update(dt, { ...idle, jumpPressed: true });
+    let top = feet(world), maxFall = 0;
+    for (let i = 0; i < 240; i++) { world.update(dt, idle); top = Math.min(top, feet(world)); maxFall = Math.max(maxFall, world.player.vy); }
+    expect(500 - top).toBeGreaterThan(190); // 평소 81px
+    expect(maxFall).toBeLessThanOrEqual(WIND_MAX_FALL);
+  });
+
+  it('carries a running jump across a pit too wide for a normal jump (real input)', () => {
+    const world = new World(L);
+    expect(playSolution(world, [{ run: 395 }, { jump: true }])).toBe(2);
+    expect(world.deaths).toBe(0);
+    expect(world.player.x).toBeGreaterThan(640);
+    const without = new World(testLevel({ solids: ground }));
+    playSolution(without, [{ run: 395 }, { jump: true }]);
+    expect(without.deaths).toBe(1); // 바람이 없으면 못 건넌다
+  });
+
+  it('does nothing to a player walking on the ground outside it', () => {
+    const world = new World(L);
+    standAt(world, 100);
+    world.update(dt, { ...idle, jumpPressed: true });
+    expect(apex(world)).toBeLessThan(85);
   });
 });
