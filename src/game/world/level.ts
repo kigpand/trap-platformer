@@ -240,9 +240,11 @@ export const LEVEL_1: Level = {
   // 얼음 바닥: 구덩이(6500) 앞 400px. 끝 가까이에서 키를 떼면 약 184px 미끄러져 떨어진다. 달리던 그대로 뛰어 건넌다.
   // 적이 나오는 파이프: 트리거(9980)를 지나면 파이프(10160) 입구에서 적이 올라와 내려선 뒤 10020~10160을 왕복한다.
   // 트리거 앞에서 기다렸다가 다가오는 적을 넘고, 적이 돌아서는 사이 파이프를 넘는다.
-  trampolines: [],
-  conveyors: [],
-  mudFloors: [],
+  // 움직임을 바꾸는 지형지물(2026-11-08): 가짜 클리어 바닥 너머 앞으로 미는 벨트(4120-4280), 파이프(4500)를 넘겨 주는
+  // 트램펄린(4430), 보석 구덩이 앞 진흙(4620-4740 — 구덩이 앞 점프는 진흙을 벗어난 뒤).
+  trampolines: [{ tile: { x: 4430, y: 500, width: 40, height: 20 }, speed: 720 }],
+  conveyors: [{ rect: { x: 4120, y: 500, width: 160, height: 20 }, speed: 90 }],
+  mudFloors: [{ x: 4620, y: 500, width: 120, height: 20 }],
   pipeEnemies: [{ pipe: { x: 10160, y: 440, width: 60, height: 60 }, trigger: { x: 9980, y: 300, width: 40, height: 200 }, minX: 10020, maxX: 10160 }],
   // 가라앉는 파이프: 바닥 틈(10340-10400) 위. "파이프는 안전" 표지판 뒤에 있다. 올라서면 0.3초 뒤 가라앉으니 바로 다시 뛴다.
   sinkingPipes: [{ pipe: { x: 10340, y: 440, width: 60, height: 60 }, delay: 0.3 }],
@@ -377,9 +379,11 @@ export const LEVEL_2: Level = {
   shadows: [],
   // 무거운 신발: 구덩이(6200) 앞 20px(구덩이 100px — 일찍 뛰는 출발 구간 27px, traps-spec #24 실측).
   heavyZones: [{ zone: { x: 6180, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
-  trampolines: [],
-  conveyors: [],
-  mudFloors: [],
+  // 움직임을 바꾸는 지형지물(2026-11-08): 좌우 반전을 빠져나간 뒤 진흙(5420-5520), 언덕 너머 트램펄린(9720),
+  // 도망가는 목표 앞 거꾸로 미는 벨트(14300-14550).
+  trampolines: [{ tile: { x: 9720, y: 500, width: 40, height: 20 }, speed: 720 }],
+  conveyors: [{ rect: { x: 14300, y: 500, width: 250, height: 20 }, speed: -60 }],
+  mudFloors: [{ x: 5420, y: 500, width: 100, height: 20 }],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],
@@ -513,9 +517,11 @@ export const LEVEL_3: Level = {
   heavyZones: [{ zone: { x: 9980, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
   // 적이 나오는 파이프: 언덕을 내려와 트리거(12680)를 지나면 파이프(12900)에서 적이 나와 언덕 아래(12650)부터 파이프까지 왕복한다. 박자 발판 앞
   // 체크포인트(13300)보다 앞이다.
-  trampolines: [],
-  conveyors: [],
-  mudFloors: [],
+  // 움직임을 바꾸는 지형지물(2026-11-08): 체크포인트 6 뒤 진흙(6450-6600), 언덕 앞 거꾸로 미는 벨트(12100-12280),
+  // 적이 나오는 파이프 너머 트램펄린(13100).
+  trampolines: [{ tile: { x: 13100, y: 500, width: 40, height: 20 }, speed: 720 }],
+  conveyors: [{ rect: { x: 12100, y: 500, width: 180, height: 20 }, speed: -90 }],
+  mudFloors: [{ x: 6450, y: 500, width: 150, height: 20 }],
   pipeEnemies: [{ pipe: { x: 12900, y: 440, width: 60, height: 60 }, trigger: { x: 12680, y: 300, width: 40, height: 200 }, minX: 12650, maxX: 12900 }],
   sinkingPipes: [],
   rollingStones: [],
@@ -617,9 +623,11 @@ export const LEVEL_4: Level = {
   landingSpikeZones: [{ x: 9160, y: 300, width: 40, height: 200 }],
   shadows: [{ trigger: { x: 500, y: 300, width: 40, height: 200 }, endX: 2700 }],
   heavyZones: [{ zone: { x: 9160, y: 300, width: 40, height: 200 }, jumpSpeed: 300 }],
-  trampolines: [],
+  // 움직임을 바꾸는 지형지물(2026-11-08): 기습 적 너머 파이프 뒤 진흙(14180-14350), 스프링 너머 파이프 뒤 트램펄린(15500).
+  // 트램펄린은 체크포인트 앞에 두지 않는다 — 튕겨 넘으면 체크포인트를 건너뛸 수 있다.
+  trampolines: [{ tile: { x: 15500, y: 500, width: 40, height: 20 }, speed: 720 }],
   conveyors: [],
-  mudFloors: [],
+  mudFloors: [{ x: 14180, y: 500, width: 170, height: 20 }],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],
