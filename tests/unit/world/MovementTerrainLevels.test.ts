@@ -34,3 +34,22 @@ describe('movement terrain in the levels', () => {
     expect(level.windZones.filter((w) => !windsCrossed.has(w.zone)), `level ${n} wind`).toEqual([]);
   });
 });
+
+// 바람 구간 아래 구덩이는 "바람 없이는 못 건넘"이어야 한다(Codex 리뷰: 폭 160px이라 가장자리에서 뛰면 바람 없이도 건넜다).
+// 바람을 뺀 레벨에서, 구덩이 앞 가장자리 근처(발끝이 25px까지 나간 자리 포함)의 모든 정수 x에서 달리며 뛰어 본다.
+describe('wind pits in the levels', () => {
+  const run = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+  it.each(LEVELS.flatMap((level, i) => level.windZones.map((w) => [i + 1, level, w.zone] as const)))('level %i: the pit under the wind cannot be crossed by a normal jump', (_, level, zone) => {
+    const near = level.solids.filter((s) => s.y === 500 && s.x + s.width > zone.x && s.x + s.width < zone.x + zone.width)
+      .reduce((a, b) => (b.x + b.width > a.x + a.width ? b : a));
+    const edge = near.x + near.width;
+    const calm = { ...level, windZones: [] };
+    for (let x = edge - 60; x < edge; x++) {
+      const world = new World(calm);
+      world.player.x = x; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+      world.update(1 / 60, { ...run, jumpPressed: true });
+      for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(1 / 60, run);
+      expect(world.deaths, `jump from x ${x}`).toBe(1);
+    }
+  });
+});

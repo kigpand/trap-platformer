@@ -142,9 +142,10 @@ export const LEVEL_1: Level = {
     { x: 8400, y: 500, width: 300, height: 120 },
     // 지형지물 구간(9880~10740, 체크포인트 7 뒤): 파이프 → 적이 나오는 파이프 → 가라앉는 파이프(10340-10400 틈) → 언덕과 굴러 내려오는 돌.
     // 스프링(11600)에 튕기면 약 10840에 떨어지므로 언덕은 그보다 앞(10740)에서 끝난다.
-    // 9320-9480: 바람 구간이 있는 넓은 구덩이(160px — 평소 점프로는 못 건넌다).
-    { x: 8800, y: 500, width: 520, height: 120 },
-    { x: 9480, y: 500, width: 860, height: 120 },
+    // 9300-9500: 바람 구간이 있는 넓은 구덩이(200px). 평지 점프로 건널 수 있는 최대 폭은 약 172px(점프 거리 약 147px + 플레이어 너비 26px)라
+    // 바람 없이는 못 건넌다(Codex 리뷰: 160px일 때는 가장자리에서 뛰면 건넜다 — MovementTerrainLevels.test.ts).
+    { x: 8800, y: 500, width: 500, height: 120 },
+    { x: 9500, y: 500, width: 840, height: 120 },
     { x: 10400, y: 500, width: 1600, height: 120 },
   ],
   // 파이프: 맵 곳곳의 함정 없는 평지에 넘는 장애물로 흩어 둔다(프로젝트 오너 요청, 2026-11-07). 첫 화면에도 보이도록 스폰 뒤(왼쪽 끝)에
@@ -250,8 +251,8 @@ export const LEVEL_1: Level = {
   trampolines: [{ tile: { x: 4430, y: 500, width: 40, height: 20 }, speed: 720 }],
   conveyors: [{ rect: { x: 4120, y: 500, width: 160, height: 20 }, speed: 90 }],
   mudFloors: [{ x: 4620, y: 500, width: 120, height: 20 }],
-  // 바람 구간: 그림자 뒤 넓은 구덩이(9320-9480) 위. 가장자리에서 뛰면 떠올라 천천히 내려오며 건너편에 닿는다.
-  windZones: [{ zone: { x: 9300, y: 250, width: 200, height: 370 }, lift: 800 }],
+  // 바람 구간: 그림자 뒤 넓은 구덩이(9300-9500) 위. 가장자리에서 뛰면 떠올라 천천히 내려오며 건너편에 닿는다.
+  windZones: [{ zone: { x: 9280, y: 250, width: 240, height: 370 }, lift: 800 }],
   pipeEnemies: [{ pipe: { x: 10160, y: 440, width: 60, height: 60 }, trigger: { x: 9980, y: 300, width: 40, height: 200 }, minX: 10020, maxX: 10160 }],
   // 가라앉는 파이프: 바닥 틈(10340-10400) 위. "파이프는 안전" 표지판 뒤에 있다. 올라서면 0.3초 뒤 가라앉으니 바로 다시 뛴다.
   sinkingPipes: [{ pipe: { x: 10340, y: 440, width: 60, height: 60 }, delay: 0.3 }],
@@ -297,8 +298,8 @@ export const LEVEL_2: Level = {
     { x: 10240, y: 470, width: 10, height: 30 }, // 세 번째 착지 발판 위 장애물 두 개
     { x: 10400, y: 470, width: 10, height: 30 },
     { x: 10550, y: 500, width: 1750, height: 120 }, // 따라오는 돌덩이, 12300-12380 구덩이
-    { x: 12380, y: 500, width: 1460, height: 120 }, // 13840-14000: 바람 구간이 있는 넓은 구덩이
-    { x: 14000, y: 500, width: 800, height: 120 }, // 도망가는 목표(예전 groundF 자리를 옮김), 14800-14900 구덩이
+    { x: 12380, y: 500, width: 1440, height: 120 }, // 13820-14020: 바람 구간이 있는 넓은 구덩이(200px — 바람 없이는 못 건넘)
+    { x: 14020, y: 500, width: 780, height: 120 }, // 도망가는 목표(예전 groundF 자리를 옮김), 14800-14900 구덩이
     { x: 14900, y: 500, width: 400, height: 120 },
   ],
   // 맵 곳곳의 함정 없는 평지에 흩어 둔 평범한 파이프·언덕(프로젝트 오너 요청, 2026-11-07). 화살이 지나가는 길(7000-8600)과
@@ -391,8 +392,8 @@ export const LEVEL_2: Level = {
   trampolines: [{ tile: { x: 9720, y: 500, width: 40, height: 20 }, speed: 720 }],
   conveyors: [{ rect: { x: 14300, y: 500, width: 250, height: 20 }, speed: -60 }],
   mudFloors: [{ x: 5420, y: 500, width: 100, height: 20 }],
-  // 바람 구간: 언덕 너머 넓은 구덩이(13840-14000) 위.
-  windZones: [{ zone: { x: 13820, y: 250, width: 200, height: 370 }, lift: 800 }],
+  // 바람 구간: 언덕 너머 넓은 구덩이(13820-14020) 위.
+  windZones: [{ zone: { x: 13800, y: 250, width: 240, height: 370 }, lift: 800 }],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],
