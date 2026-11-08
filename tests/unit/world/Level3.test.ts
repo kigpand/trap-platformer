@@ -90,6 +90,31 @@ describe('LEVEL_3 (hard)', () => {
     expect(b.deathCause?.rect.x).toBe(LEVEL_3.skyDrops[1].trigger.x);
   });
 
+  it('makes the one-way platform the only way over the pit before the spring', () => {
+    // 위쪽으로만 갈 수 있는 길(2026-11-08): 발판을 빼면 구덩이 앞 가장자리 근처 어디서 뛰어도 떨어진다.
+    const plat = LEVEL_3.oneWayPlatforms[0];
+    const calm = { ...LEVEL_3, oneWayPlatforms: [] };
+    for (let x = 15600 - 60; x < 15600; x++) {
+      const world = new World(calm);
+      world.player.x = x; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+      world.update(dt, { horizontal: 1, jumpPressed: true, restartPressed: false });
+      for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
+      expect(world.deaths, `jump from x ${x}`).toBe(1);
+    }
+    expect(plat.x).toBeLessThan(15600);
+    expect(plat.x + plat.width).toBeGreaterThan(15800);
+  });
+
+  it('still bounces the spring back onto flat ground (passing up through the platform)', () => {
+    const world = respawnAt(12);
+    playSolution(world, [...CEILING_FAKE_SPRING.slice(0, 2), { run: 15900 }]); // 발판에서 내려와 그대로 스프링으로
+    for (let i = 0; i < 300 && (world.flight !== null || !world.player.grounded); i++) world.update(dt, { horizontal: 0, jumpPressed: false, restartPressed: false });
+    expect(world.springFloors[0].bounced).toBe(true);
+    expect(world.deaths).toBe(1); // 체크포인트로 보내려던 사망 1회뿐
+    expect(world.player.y + world.player.height).toBe(500);
+    expect(world.player.x).toBeLessThan(15500);
+  });
+
   it('catches the naive play at each new pairing', () => {
     const step = (w: World, horizontal: -1 | 0 | 1, jumpPressed = false) => w.update(dt, { horizontal, jumpPressed, restartPressed: false });
     const until = (w: World, horizontal: -1 | 0 | 1, stop: () => boolean) => { for (let i = 0; i < 1500 && !stop(); i++) step(w, horizontal); };
@@ -130,6 +155,15 @@ describe('LEVEL_3 (hard)', () => {
     playSolution(pipe, [...COUNTING, ...HILL_PIPE_ENEMY.slice(0, 3)]);
     until(pipe, 1, () => pipe.deaths > 1);
     dies(pipe, 'pipeEnemy');
+    // 가라앉는 파이프(#32): 얼음 앞 파이프 위에 올라서 머뭇거리면 아래 틈으로 떨어진다
+    const sink = respawnAt(5);
+    const sp = LEVEL_3.sinkingPipes[0].pipe;
+    playSolution(sink, [{ run: sp.x }]);
+    step(sink, 1, true); for (let i = 0; i < 16; i++) step(sink, 1);
+    until(sink, 0, () => sink.player.grounded);
+    expect(sink.player.y + sink.player.height).toBe(sp.y);
+    until(sink, 0, () => sink.deaths > 1);
+    dies(sink, 'sinkingPipe');
     // 두 번째 가짜 클리어: "진짜 끝!" 깃발에서 다음 레벨을 누르면 떨어진다
     const fake = respawnAt(11);
     playSolution(fake, [{ run: LEVEL_3.fakeGoals[0].flag.x + 10 }]);

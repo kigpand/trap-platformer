@@ -38,7 +38,7 @@
 - 레벨 3에는 14~30번 17종을 모두 섞어 다시 배치했다(맵 3배 확장, `tests/unit/world/Level3.test.ts`).
 - 레벨 4에는 1~30번 30종을 셋씩 겹쳐 모두 배치했다(`tests/unit/world/Level4.test.ts`, 구간 구성은 `docs/game-design.md` "난이도 곡선").
 - [x] 19. 따라오는 돌덩이 — `Level.boulders`, `World.boulders`(트리거 스텝에 시작 x에 나타나 다음 스텝부터 180px/s, 오른쪽 끝이 끝 x에 닿은 스텝에 사라짐), 생성 위치 제약은 `LevelRules.test.ts`, `tests/unit/world/Boulder.test.ts`. 레벨 2에 배치했다
-- [x] 31. 적이 나오는 파이프 · [x] 32. 가라앉는 파이프 · [x] 33. 굴러 내려오는 돌 — `Level.pipeEnemies`/`sinkingPipes`/`rollingStones`, `World.pipeEnemies`·`World.sinkingPipes`(가라앉는 동안 `dynamicSolids()`)·`World.rollingStones`, 배치 제약은 `LevelRules.test.ts`, `tests/unit/world/PipeHillTraps.test.ts`. 레벨 1의 그림자 뒤 지형지물 구간(9880~10740)에 하나씩 배치했다(`Level1.test.ts`). 31번은 레벨 3의 언덕 뒤(12900)와 레벨 2의 한쪽 통과 발판 옆(10800 — 발판 위가 안전한 자리)에도, 32번은 레벨 2의 좌우 반전 뒤(5600)에도 두었다(`Level2.test.ts`·`Level3.test.ts`)
+- [x] 31. 적이 나오는 파이프 · [x] 32. 가라앉는 파이프 · [x] 33. 굴러 내려오는 돌 — `Level.pipeEnemies`/`sinkingPipes`/`rollingStones`, `World.pipeEnemies`·`World.sinkingPipes`(가라앉는 동안 `dynamicSolids()`)·`World.rollingStones`, 배치 제약은 `LevelRules.test.ts`, `tests/unit/world/PipeHillTraps.test.ts`. 레벨 1의 그림자 뒤 지형지물 구간(9880~10740)에 하나씩 배치했다(`Level1.test.ts`). 31번은 레벨 3의 언덕 뒤(12900)와 레벨 2의 한쪽 통과 발판 옆(10800 — 발판 위가 안전한 자리)에도, 32번은 레벨 2의 좌우 반전 뒤(5600)와 레벨 3의 얼음 앞(6650)에도 두었다(`Level2.test.ts`·`Level3.test.ts`)
 - [x] 13. 하늘에서 쏟아지는 적 — `Level.skyDrops`, `World.skyDrops`(경고·낙하·착지 후 왕복·구덩이 낙하 제거), `tests/unit/world/SkyDrops.test.ts`. 배치: 레벨 3에 두 무리
 
 ## 함정 5종
