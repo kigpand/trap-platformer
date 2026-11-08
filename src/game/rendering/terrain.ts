@@ -115,3 +115,54 @@ export function drawPipe(ctx: CanvasRenderingContext2D, r: Rect): void {
   ctx.fillStyle = PIPE_BOLT;
   for (let x = r.x + 14; x + 2 <= r.x + r.width - 12; x += 12) fillClipped(ctx, r, x, r.y + cap / 2 - 1, 2, 2);
 }
+
+// 움직임을 바꾸는 지형지물(함정 아님 — 보이는 그대로 동작하므로 바닥과 구분되게 그린다). 모두 판정 사각형 안에만 칠한다.
+// 트램펄린: 바닥 윗면에 놓인 보라색 매트와 양쪽 다리.
+export const TRAMPOLINE_MAT = '#c084fc';
+const TRAMPOLINE_FRAME = '#475569';
+const TRAMPOLINE_SPRING = '#cbd5e1';
+export function drawTrampoline(ctx: CanvasRenderingContext2D, t: Rect): void {
+  const h = Math.min(16, t.height);
+  ctx.fillStyle = '#101729'; fillClipped(ctx, t, t.x + 4, t.y + 5, t.width - 8, h - 7); // 매트 아래 빈 공간
+  ctx.fillStyle = TRAMPOLINE_SPRING; // 지그재그 스프링 두 개
+  for (const sx of [t.x + 8, t.x + t.width - 12]) for (let k = 0; k < 4; k++) fillClipped(ctx, t, sx + (k % 2 === 0 ? 0 : 2), t.y + 6 + k * 2, 2, 2);
+  ctx.fillStyle = TRAMPOLINE_FRAME;
+  fillClipped(ctx, t, t.x, t.y + 3, 4, h - 3);
+  fillClipped(ctx, t, t.x + t.width - 4, t.y + 3, 4, h - 3);
+  fillClipped(ctx, t, t.x, t.y + h - 2, t.width, 2);
+  ctx.fillStyle = TRAMPOLINE_MAT;
+  fillClipped(ctx, t, t.x, t.y, t.width, 5);
+}
+// 컨베이어 벨트: 바닥 윗면을 덮는 회색 벨트와 흐르는 방향의 화살(">" 또는 "<") 무늬. 무늬는 월드 좌표 기준이고, phase(렌더링 전용 시간)만큼 흐른다.
+export const BELT_FILL = '#3f4a5c';
+export const BELT_ARROW = '#a3b1c6';
+const BELT_HEIGHT = 10;
+const BELT_CELL = 16;
+const CHEVRON: readonly (readonly [number, number])[] = [[0, 1], [2, 3], [4, 4], [2, 5], [0, 7]];
+export function drawConveyor(ctx: CanvasRenderingContext2D, r: Rect, speed: number, phase: number, view: View): void {
+  const h = Math.min(BELT_HEIGHT, r.height);
+  ctx.fillStyle = BELT_FILL; ctx.fillRect(r.x, r.y, r.width, h);
+  const v = visiblePart(r, view);
+  if (!v) return;
+  const right = speed >= 0;
+  const shift = ((phase * speed) % BELT_CELL + BELT_CELL) % BELT_CELL;
+  const belt = { ...r, height: h };
+  ctx.fillStyle = BELT_ARROW;
+  for (let x = Math.floor((v.x - shift) / BELT_CELL) * BELT_CELL + shift; x < v.x + v.width; x += BELT_CELL) {
+    for (const [dx, dy] of CHEVRON) fillClipped(ctx, belt, x + (right ? dx : 4 - dx), r.y + dy, 2, 2);
+  }
+}
+// 진흙: 바닥 윗면을 덮는 갈색 진흙과 어두운 웅덩이 점. 무늬는 월드 좌표 칸 해시.
+export const MUD_FILL = '#6b4f2a';
+const MUD_SPOT = '#4a3620';
+export function drawMud(ctx: CanvasRenderingContext2D, r: Rect, view: View): void {
+  const h = Math.min(12, r.height);
+  ctx.fillStyle = MUD_FILL; ctx.fillRect(r.x, r.y, r.width, h);
+  const v = visiblePart(r, view);
+  if (!v) return;
+  ctx.fillStyle = MUD_SPOT;
+  for (let cx = Math.floor(v.x / CELL); cx <= Math.floor((v.x + v.width - 1) / CELL); cx++) {
+    const k = hash(cx, 7);
+    if (k % 2 === 0) fillClipped(ctx, { ...r, height: h }, cx * CELL + (k % 10), r.y + 3 + ((k >> 3) % 6), 4, 2);
+  }
+}

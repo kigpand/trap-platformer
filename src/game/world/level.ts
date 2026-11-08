@@ -50,6 +50,11 @@ export type Pipe = Rect;
 // 계단식 언덕(지형지물): y(받치는 바닥의 윗면) 위에 steps단으로 쌓은 언덕. 단마다 stepWidth만큼 안으로 들어가고 stepHeight만큼
 // 높아지며, 꼭대기 단의 너비는 topWidth다. 경사가 아니라 사각형 단이라 단마다 점프해 오른다(단차 보조 없음 — docs/physics-spec.md).
 export interface Hill { x: number; y: number; steps: number; stepWidth: number; stepHeight: number; topWidth: number }
+// 움직임을 바꾸는 지형지물(함정 아님 — 보이는 그대로 동작한다). 셋 다 바닥 윗면에 겹쳐 두는 판정·그림 영역이다(얼음 #28과 같은 방식).
+// 트램펄린: 타일 위에 서는 스텝에 위로 speed(px/s, 기본 720 — 최고 약 190px)로 튕긴다. 공중 좌우 조작은 평소대로.
+export interface Trampoline { tile: Rect; speed: number }
+// 컨베이어 벨트: 위에 서 있는 동안 수평 속도에 speed(px/s, +는 오른쪽)를 더한다. 뛰거나 떨어지면 평소대로.
+export interface Conveyor { rect: Rect; speed: number }
 // 적이 나오는 파이프(#31): trigger에 처음 들어오면 경고 뒤 pipe(level.pipes 중 하나) 입구에서 적이 올라와, 왼쪽으로 걸어 내려선 뒤
 // 파이프 왼쪽에서 minX~maxX를 왕복한다.
 export interface PipeEnemy { pipe: Rect; trigger: Rect; minX: number; maxX: number }
@@ -100,6 +105,9 @@ export interface Level {
   arrowTraps: readonly ArrowTrap[]; // #26 화살 발사대
   mirrorEnemies: readonly MirrorEnemy[]; // #29 따라 뛰는 적
   countingPlatforms: readonly CountingPlatform[]; // #30 세 번째 착지에 무너지는 발판
+  trampolines: readonly Trampoline[]; // 지형지물: 트램펄린
+  conveyors: readonly Conveyor[]; // 지형지물: 컨베이어 벨트
+  mudFloors: readonly Rect[]; // 지형지물: 진흙 바닥(위에서 걷기·점프가 느리고 낮아짐)
   pipeEnemies: readonly PipeEnemy[]; // #31 적이 나오는 파이프
   sinkingPipes: readonly SinkingPipe[]; // #32 가라앉는 파이프
   rollingStones: readonly RollingStone[]; // #33 굴러 내려오는 돌
@@ -232,6 +240,9 @@ export const LEVEL_1: Level = {
   // 얼음 바닥: 구덩이(6500) 앞 400px. 끝 가까이에서 키를 떼면 약 184px 미끄러져 떨어진다. 달리던 그대로 뛰어 건넌다.
   // 적이 나오는 파이프: 트리거(9980)를 지나면 파이프(10160) 입구에서 적이 올라와 내려선 뒤 10020~10160을 왕복한다.
   // 트리거 앞에서 기다렸다가 다가오는 적을 넘고, 적이 돌아서는 사이 파이프를 넘는다.
+  trampolines: [],
+  conveyors: [],
+  mudFloors: [],
   pipeEnemies: [{ pipe: { x: 10160, y: 440, width: 60, height: 60 }, trigger: { x: 9980, y: 300, width: 40, height: 200 }, minX: 10020, maxX: 10160 }],
   // 가라앉는 파이프: 바닥 틈(10340-10400) 위. "파이프는 안전" 표지판 뒤에 있다. 올라서면 0.3초 뒤 가라앉으니 바로 다시 뛴다.
   sinkingPipes: [{ pipe: { x: 10340, y: 440, width: 60, height: 60 }, delay: 0.3 }],
@@ -366,6 +377,9 @@ export const LEVEL_2: Level = {
   shadows: [],
   // 무거운 신발: 구덩이(6200) 앞 20px(구덩이 100px — 일찍 뛰는 출발 구간 27px, traps-spec #24 실측).
   heavyZones: [{ zone: { x: 6180, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
+  trampolines: [],
+  conveyors: [],
+  mudFloors: [],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],
@@ -499,6 +513,9 @@ export const LEVEL_3: Level = {
   heavyZones: [{ zone: { x: 9980, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
   // 적이 나오는 파이프: 언덕을 내려와 트리거(12680)를 지나면 파이프(12900)에서 적이 나와 언덕 아래(12650)부터 파이프까지 왕복한다. 박자 발판 앞
   // 체크포인트(13300)보다 앞이다.
+  trampolines: [],
+  conveyors: [],
+  mudFloors: [],
   pipeEnemies: [{ pipe: { x: 12900, y: 440, width: 60, height: 60 }, trigger: { x: 12680, y: 300, width: 40, height: 200 }, minX: 12650, maxX: 12900 }],
   sinkingPipes: [],
   rollingStones: [],
@@ -600,6 +617,9 @@ export const LEVEL_4: Level = {
   landingSpikeZones: [{ x: 9160, y: 300, width: 40, height: 200 }],
   shadows: [{ trigger: { x: 500, y: 300, width: 40, height: 200 }, endX: 2700 }],
   heavyZones: [{ zone: { x: 9160, y: 300, width: 40, height: 200 }, jumpSpeed: 300 }],
+  trampolines: [],
+  conveyors: [],
+  mudFloors: [],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],
