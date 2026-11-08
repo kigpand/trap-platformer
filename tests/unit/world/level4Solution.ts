@@ -30,7 +30,7 @@ export const CEILING_MIRROR: Step[] = [
   ...over(8000), { jump: true }, // 3단 언덕(단 30px — 두 번 뛰어 꼭대기로)
 ];
 // 5. "여기서 점프!" 표지판 = 무거운 신발 구역 = 착지 예측 가시 구역: 구역 앞에서 보통 점프로 넘는다.
-export const HEAVY_SPIKES: Step[] = [{ run: 9135 }, { jump: true }];
+export const HEAVY_SPIKES: Step[] = [{ run: 9135 }, { jump: true }, { run: 9495 }, { jump: true }]; // 이어서 바람을 타고 넓은 구덩이(9500-9700)
 // 6. 돌덩이에 쫓기며 가짜 벽을 그대로 지나, 세 번째 착지 발판 위 장애물 셋을 두 번만 착지해 넘는다(둘째 점프로 B를 넘어 C 위에 선다).
 export const BOULDER_COUNTING: Step[] = [{ run: 11600 }, { jump: true }, { run: 11765 }, { jump: true }, ...over(12300)];
 // 7. 숨겨진 블록 틈을 뛰어넘고, 낙하 발판에 내리자마자 다시 뛰고, 기습 적은 먼 끝에서 돌아올 때 마주 넘는다.
