@@ -217,6 +217,20 @@ describe('LEVEL_2', () => {
     playSolution(counting, [{ run: 10100 }, { jump: true }, { run: 10240 }, { jump: true }, { run: 10400 }, { jump: true }]);
     until(counting, 0, () => counting.deaths > 1);
     dies(counting, 'countingPlatform');
+    // 가라앉는 파이프(#32): 반전을 빠져나간 뒤 파이프 위에 올라서 머뭇거리면 아래 틈으로 떨어진다
+    const sink = cp(5);
+    const sp = LEVEL_2.sinkingPipes[0].pipe;
+    playSolution(sink, [...REVERSE.slice(0, 2), { run: sp.x }]); // 파이프 옆면까지 걸어가
+    step(sink, 1, true); for (let i = 0; i < 18; i++) step(sink, 1); // 뛰어서 파이프 위로만 옮겨 가고
+    until(sink, 0, () => sink.player.grounded);
+    expect(sink.player.y + sink.player.height).toBe(sp.y); // 파이프 위에 섰다
+    until(sink, 0, () => sink.deaths > 1);
+    dies(sink, 'sinkingPipe');
+    // 적이 나오는 파이프(#31): 세 번째 착지 발판을 건너 그대로 땅으로 달려가면 나온 적에 부딪힌다
+    const pipe = cp(10);
+    playSolution(pipe, COUNTING.slice(0, 4));
+    until(pipe, 1, () => pipe.deaths > 1);
+    dies(pipe, 'pipeEnemy');
     // 따라오는 돌덩이: 트리거를 지나 멈추면 깔린다
     const boulder = cp(11);
     playSolution(boulder, [{ run: 11760 }]);
