@@ -8,7 +8,7 @@ import {
 import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
-import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline } from './terrain';
+import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline, drawWind } from './terrain';
 import { drawFlag, drawGoal, drawSign, drawSpikes, GOAL_FILL } from './props';
 export { GOAL_FILL, SPIKE_FILL } from './props';
 import { TAUNTS } from './taunts';
@@ -251,6 +251,7 @@ export class CanvasRenderer {
     const beltPhase = performance.now() / 1000;
     for (const c of level.conveyors) if (inView(c.rect)) drawConveyor(ctx, c.rect, c.speed, beltPhase, view);
     for (const t of level.trampolines) if (inView(t.tile)) drawTrampoline(ctx, t.tile);
+    for (const w of level.windZones) if (inView(w.zone)) drawWind(ctx, w.zone, beltPhase, view);
     // #24 무거운 신발 구역은 보이지 않는다(디버그에서만).
     if (this.debug) { ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 2; for (const h of level.heavyZones) ctx.strokeRect(h.zone.x, h.zone.y, h.zone.width, h.zone.height); }
     // #17 스프링 바닥: 튕기기 전에는 아래 바닥과 똑같아 따로 그리지 않고, 튕긴 뒤에는 그 목숨 동안 눌린 스프링으로 그린다.

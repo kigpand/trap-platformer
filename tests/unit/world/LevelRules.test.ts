@@ -214,6 +214,7 @@ function landingPredictionViolations(level: Level): Rect[] {
     ...level.descendingCeilings.map((c) => ({ ...c.block, height: c.floorY - c.block.y })), // 내려오며 지나가는 범위 전체
     ...level.rhythmPlatforms.map((r) => r.rect), ...level.countingPlatforms.map((c) => c.rect),
     ...level.sinkingPipes.map((sp) => ({ ...sp.pipe, height: level.height - sp.pipe.y })), // 가라앉으며 지나가는 범위 전체
+    ...level.windZones.map((w) => w.zone), // 바람은 솔리드가 아니지만 예측(평소 중력)과 실제 궤적을 어긋나게 한다
   ];
   const violations: Rect[] = [];
   for (const zone of level.landingSpikeZones) {

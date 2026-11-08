@@ -34,6 +34,7 @@ const ICE_ACCEL = 120; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에
 export const SHADOW_DELAY_STEPS = 42; // #22 그림자가 따라오기까지(0.7초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
+export const WIND_MAX_FALL = 180; // 바람 구간 안에서 떨어지는 속도 상한(평소 900)
 export const MUD_SPEED = 105; // 진흙 위 걷기 속도(평소 210의 절반)
 export const MUD_JUMP_SPEED = 360; // 진흙 위 점프 초기 속도(평소 480 — 최고 약 48px)
 const PIPE_ENEMY_WARNING = 0.3; // #31 경고 시간(#3과 같음)
@@ -636,7 +637,9 @@ export class World {
         m.airborne = true; m.vy = -m.config.jumpSpeed;
       }
     }
-    p.vy = Math.min(MAX_FALL_SPEED, p.vy + GRAVITY * dt);
+    // 지형지물 바람 구간: 안에 있는 동안 중력이 약해지고 떨어지는 속도가 묶인다(강제 비행 중에는 평소대로).
+    const wind = this.flight ? undefined : this.level.windZones.find((w) => overlaps(p, w.zone));
+    p.vy = Math.min(wind ? WIND_MAX_FALL : MAX_FALL_SPEED, p.vy + (wind ? GRAVITY - wind.lift : GRAVITY) * dt);
     // #7 투명 블록: 이번 이동으로 머리가 아랫면을 지나가면(위로 이동 중, 블록 아래에서 출발) 나타나 솔리드가 된다.
     // 수평 겹침은 머리가 아랫면 높이에 닿는 바로 그 순간의 x로 판정한다 — 이동 후 x로 보면, 옆에서 대각선으로
     // 올라오다 아랫면 높이를 지난 뒤에야 수평으로 겹치는 경우를 아래에서 찧은 것으로 오인한다(Codex 리뷰).
