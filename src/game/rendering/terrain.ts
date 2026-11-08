@@ -115,3 +115,53 @@ export function drawPipe(ctx: CanvasRenderingContext2D, r: Rect): void {
   ctx.fillStyle = PIPE_BOLT;
   for (let x = r.x + 14; x + 2 <= r.x + r.width - 12; x += 12) fillClipped(ctx, r, x, r.y + cap / 2 - 1, 2, 2);
 }
+
+// 움직임을 바꾸는 지형지물(함정 아님 — 보이는 그대로 동작하므로 바닥과 구분되게 그린다). 모두 판정 사각형 안에만 칠한다.
+// 트램펄린: 바닥 윗면에 놓인 보라색 매트와 양쪽 다리.
+export const TRAMPOLINE_MAT = '#c084fc';
+const TRAMPOLINE_FRAME = '#475569';
+export function drawTrampoline(ctx: CanvasRenderingContext2D, t: Rect): void {
+  const h = Math.min(12, t.height);
+  ctx.fillStyle = TRAMPOLINE_FRAME;
+  fillClipped(ctx, t, t.x, t.y + 4, 4, h - 4);
+  fillClipped(ctx, t, t.x + t.width - 4, t.y + 4, 4, h - 4);
+  fillClipped(ctx, t, t.x, t.y + h - 2, t.width, 2);
+  ctx.fillStyle = TRAMPOLINE_MAT;
+  fillClipped(ctx, t, t.x + 2, t.y, t.width - 4, 4);
+}
+// 컨베이어 벨트: 바닥 윗면을 덮는 회색 벨트와 흐르는 방향의 화살 무늬. 무늬는 월드 좌표 기준이고, phase(렌더링 전용 시간)만큼 흐른다.
+export const BELT_FILL = '#3f4a5c';
+export const BELT_ARROW = '#a3b1c6';
+const BELT_HEIGHT = 10;
+const BELT_CELL = 20;
+export function drawConveyor(ctx: CanvasRenderingContext2D, r: Rect, speed: number, phase: number, view: View): void {
+  const h = Math.min(BELT_HEIGHT, r.height);
+  ctx.fillStyle = BELT_FILL; ctx.fillRect(r.x, r.y, r.width, h);
+  const v = visiblePart(r, view);
+  if (!v) return;
+  const dir = Math.sign(speed);
+  const shift = ((phase * speed) % BELT_CELL + BELT_CELL) % BELT_CELL;
+  ctx.fillStyle = BELT_ARROW;
+  for (let x = Math.floor((v.x - shift) / BELT_CELL) * BELT_CELL + shift; x < v.x + v.width; x += BELT_CELL) {
+    // ">"(오른쪽) 또는 "<"(왼쪽) 모양의 화살촉 세 줄
+    const tip = dir >= 0 ? 6 : 0;
+    fillClipped(ctx, r, x + (dir >= 0 ? 0 : 6), r.y + 2, 2, 2);
+    fillClipped(ctx, r, x + 3, r.y + 4, 2, 2);
+    fillClipped(ctx, r, x + (dir >= 0 ? 0 : 6), r.y + 6, 2, 2);
+    fillClipped(ctx, r, x + tip, r.y + 4, 2, 2);
+  }
+}
+// 진흙: 바닥 윗면을 덮는 갈색 진흙과 어두운 웅덩이 점. 무늬는 월드 좌표 칸 해시.
+export const MUD_FILL = '#6b4f2a';
+const MUD_SPOT = '#4a3620';
+export function drawMud(ctx: CanvasRenderingContext2D, r: Rect, view: View): void {
+  const h = Math.min(12, r.height);
+  ctx.fillStyle = MUD_FILL; ctx.fillRect(r.x, r.y, r.width, h);
+  const v = visiblePart(r, view);
+  if (!v) return;
+  ctx.fillStyle = MUD_SPOT;
+  for (let cx = Math.floor(v.x / CELL); cx <= Math.floor((v.x + v.width - 1) / CELL); cx++) {
+    const k = hash(cx, 7);
+    if (k % 2 === 0) fillClipped(ctx, { ...r, height: h }, cx * CELL + (k % 10), r.y + 3 + ((k >> 3) % 6), 4, 2);
+  }
+}

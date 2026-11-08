@@ -11,7 +11,7 @@
 - `game/entities/Player.ts`: 플레이어 상태와 갱신 함수
 - `game/entities/Enemy.ts`: 적 패트롤 상태와 갱신 함수(중력 없는 단순 왕복)
 - `game/world/`: 레벨 데이터와 시뮬레이션. 함정 하나하나의 동작은 `docs/traps-spec.md`, 레벨 구성은 `docs/game-design.md`가 기준이다.
-  - `level.ts`: `Level` 타입과 `LEVEL_1`~`LEVEL_4`, 진행 순서 `LEVELS`. 레벨 하나의 크기·스폰·지형·목표·체크포인트·함정 30종·적 배치를 한 객체로 묶는다(레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만든다). 지형지물(`pipes` 파이프, `hills` 계단식 언덕)도 여기 두며, `staticSolids(level)`가 바닥·블록·파이프·언덕 기둥(`hillColumns`)을 움직이지 않는 지형 하나로 합친다.
+  - `level.ts`: `Level` 타입과 `LEVEL_1`~`LEVEL_4`, 진행 순서 `LEVELS`. 레벨 하나의 크기·스폰·지형·목표·체크포인트·함정 30종·적 배치를 한 객체로 묶는다(레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만든다). 지형지물(`pipes` 파이프, `hills` 계단식 언덕, 움직임을 바꾸는 `trampolines`·`conveyors`·`mudFloors`)도 여기 두며, `staticSolids(level)`가 바닥·블록·파이프·언덕 기둥(`hillColumns`)을 움직이지 않는 지형 하나로 합친다.
   - `World.ts`: `new World(level)`로 레벨을 받아 고정 스텝마다 `update`한다. 렌더러는 `world.level`과 `World`의 상태를 읽기만 한다. 충돌·지지 확인은 `world.terrain`(= `staticSolids(level)`)과 `dynamicSolids()`를 함께 쓴다.
     - 상태: 플레이어, 적, 함정마다의 상태 목록(`World.vanishingGrounds`, `World.shadows` 등), 현재 목표 위치(`World.goal`), 목숨마다 새로 세는 시간(`World.lifeTime`), 체크포인트 재시작 위치.
     - 함정이 만들고 없애는 솔리드는 `dynamicSolids()` 한 목록으로 충돌·지지 확인·천장 착지에 함께 쓴다. 이동 규칙을 바꾸는 함정(얼음·무거운 신발·강제 비행 `World.flight`·좌우 반전 `World.reverse`)은 `World.update`에서 그 구역 안에서만 적용한다 — 입력 소스와 상관없이 같은 규칙이 걸린다.

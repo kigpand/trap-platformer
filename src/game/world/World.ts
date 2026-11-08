@@ -34,6 +34,8 @@ const ICE_ACCEL = 120; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에
 export const SHADOW_DELAY_STEPS = 42; // #22 그림자가 따라오기까지(0.7초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
+export const MUD_SPEED = 105; // 진흙 위 걷기 속도(평소 210의 절반)
+export const MUD_JUMP_SPEED = 360; // 진흙 위 점프 초기 속도(평소 480 — 최고 약 48px)
 const PIPE_ENEMY_WARNING = 0.3; // #31 경고 시간(#3과 같음)
 const PIPE_ENEMY_RISE = 0.3; // #31 입구에서 다 올라오기까지
 const SINK_SPEED = 150; // #32 가라앉는 속도
@@ -592,9 +594,13 @@ export class World {
     // 뛰는 스텝과 공중·일반 바닥에서는 평소처럼 즉시 바뀐다(docs/physics-spec.md의 함정 예외).
     const jumping = input.jumpPressed && p.grounded;
     const ice = !this.flight && !jumping && p.grounded ? this.level.iceFloors.find((t) => isStandingOn(p, t)) : undefined;
+    // 지형지물: 진흙 위에서는 걷기가 느리고(뛰는 스텝 포함 — 진흙에서 뛰어오르는 첫 걸음도 무겁다), 컨베이어 위에서는 벨트 속도가 더해진다
+    // (뛰는 스텝은 제외 — 공중은 평소 규칙). 둘 다 바닥에 서 있을 때만이다.
+    const mud = !this.flight && p.grounded && this.level.mudFloors.some((t) => isStandingOn(p, t));
+    const belt = !this.flight && !jumping && p.grounded ? this.level.conveyors.find((c) => isStandingOn(p, c.rect)) : undefined;
     if (this.flight) p.vx = this.flight.vx;
     else {
-      const target = horizontal * SPEED;
+      const target = horizontal * (mud ? MUD_SPEED : SPEED) + (belt ? belt.speed : 0);
       if (ice) {
         const dv = ICE_ACCEL * dt;
         p.vx = Math.max(p.vx - dv, Math.min(p.vx + dv, target));
@@ -613,7 +619,7 @@ export class World {
         // #24 무거운 신발: 구역 안에서 뛰면 낮고 짧은 점프. 떨어지면 3초 규칙으로 구역 탓.
         const heavy = this.level.heavyZones.find((h) => overlaps(p, h.zone));
         if (heavy) this.lastFallTrap = { cause: { rect: heavy.zone, kind: 'heavyShoes' }, at: this.clock };
-        p.vy = -(heavy ? heavy.jumpSpeed : JUMP_SPEED); p.grounded = false;
+        p.vy = -(heavy ? heavy.jumpSpeed : mud ? MUD_JUMP_SPEED : JUMP_SPEED); p.grounded = false;
         // #23 착지 예측 가시: 이 점프가 지금 입력을 유지한 채 떨어질 자리에 즉시 가시를 솟게 한다.
         const ls = this.landingSpikes.find((s) => !s.fired && overlaps(p, s.zone));
         if (ls) {
@@ -679,6 +685,12 @@ export class World {
         this.launch(spring.config.vx, spring.config.vy);
         this.taunt = { kind: 'springFloor', remaining: TAUNT_DURATION };
       }
+    }
+    // 지형지물 트램펄린: 이동을 마치고 타일 위에 서게 된 스텝(걸어 올라섬·착지)에 위로 튕긴다. 스프링(#17)과 달리 강제 비행이 아니라
+    // 공중 좌우 조작은 평소대로이고, 숨겨 두지 않으므로 놀리는 문구도 없다.
+    if (!this.flight) {
+      const tramp = this.level.trampolines.find((t) => isStandingOn(p, t.tile));
+      if (tramp) { p.vy = -tramp.speed; p.grounded = false; this.trapEvent('spring', tramp.tile); }
     }
     this.updateReverse();
     this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));

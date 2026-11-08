@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, VIEW_HEIGHT } from '../../../src/game/rendering/CanvasRenderer';
-import { drawBlock, drawGround, drawPipe, GROUND_FILL, GROUND_TOP, PIPE_CAP, PIPE_FILL } from '../../../src/game/rendering/terrain';
+import { BELT_FILL, drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline, GROUND_FILL, GROUND_TOP, MUD_FILL, PIPE_CAP, PIPE_FILL, TRAMPOLINE_MAT } from '../../../src/game/rendering/terrain';
 import { hillColumns, type Hill } from '../../../src/game/world/level';
 import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
@@ -155,5 +155,52 @@ describe('terrain features', () => {
     const asGround = drawn((ctx) => { for (const c of hillColumns(hill)) drawGround(ctx, c, view); }, { x: 500, y: 380, width: 240, height: 120 });
     for (const [k, c] of asGround) expect(map.get(k), k).toBe(c);
     for (const c of hillColumns(hill)) expect(map.get(`${c.x + 3},${c.y}`), `step at ${c.x}`).toBe(GROUND_TOP);
+  });
+});
+
+describe('movement terrain (trampoline, conveyor, mud)', () => {
+  const inside = (fills: { x: number; y: number; width: number; height: number }[], r: Rect) => fills.every((f) =>
+    f.x >= r.x && f.y >= r.y && f.x + f.width <= r.x + r.width && f.y + f.height <= r.y + r.height);
+
+  it('paints each one only inside its rect', () => {
+    const t: Rect = { x: 400, y: 500, width: 40, height: 20 };
+    const a = recorder(); drawTrampoline(a.ctx, t);
+    expect(inside(a.fills, t)).toBe(true);
+    expect(pixels(a.fills, t).get('420,501')).toBe(TRAMPOLINE_MAT);
+    const belt: Rect = { x: 300, y: 500, width: 400, height: 20 };
+    const b = recorder(); drawConveyor(b.ctx, belt, 90, 0.37, view);
+    expect(inside(b.fills, belt)).toBe(true);
+    expect(new Set(pixels(b.fills, belt).values())).toContain(BELT_FILL);
+    const mud: Rect = { x: 300, y: 500, width: 400, height: 20 };
+    const c = recorder(); drawMud(c.ctx, mud, view);
+    expect(inside(c.fills, mud)).toBe(true);
+    expect(pixels(c.fills, mud).get('301,500')).toBe(MUD_FILL);
+  });
+
+  it('points the belt arrows with its direction and moves them with time', () => {
+    const belt: Rect = { x: 300, y: 500, width: 200, height: 20 };
+    const at = (speed: number, phase: number) => drawn((ctx) => drawConveyor(ctx, belt, speed, phase, view), belt);
+    expect(at(90, 0)).not.toEqual(at(-90, 0));
+    expect(at(90, 0)).not.toEqual(at(90, 0.05));
+  });
+
+  it('is drawn by the renderer so the player can see it (not disguised as ground)', () => {
+    const level = testLevel({
+      solids: [{ x: 0, y: 500, width: 2000, height: 120 }],
+      trampolines: [{ tile: { x: 400, y: 500, width: 40, height: 20 }, speed: 720 }],
+      conveyors: [{ rect: { x: 500, y: 500, width: 100, height: 20 }, speed: 90 }],
+      mudFloors: [{ x: 650, y: 500, width: 100, height: 20 }],
+    });
+    const canvas = document.createElement('canvas');
+    const { ctx, fills } = recorder();
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+    const world = new World(level);
+    world.player.x = 100; world.player.y = 100;
+    new CanvasRenderer(canvas, () => false).render(world, { fps: 60, steps: 1 });
+    const map = pixels(fills, { x: 380, y: 500, width: 400, height: 12 });
+    expect(map.get('420,501')).toBe(TRAMPOLINE_MAT);
+    expect(map.get('550,509')).toBe(BELT_FILL);
+    expect(map.get('651,500')).toBe(MUD_FILL);
+    expect(map.get('390,505')).not.toBe(TRAMPOLINE_MAT); // 바깥은 그대로 땅
   });
 });

@@ -69,6 +69,10 @@ describe('level placement rules (every level)', () => {
     for (const [i, level] of LEVELS.entries()) expect(terrainFeatureViolations(level), `level ${i + 1}`).toEqual([]);
   });
 
+  it('lays every trampoline, conveyor belt and mud floor on top of terrain', () => {
+    for (const [i, level] of LEVELS.entries()) expect(overlayViolations(level), `level ${i + 1}`).toEqual([]);
+  });
+
   it('places pipe enemies, sinking pipes and rolling stones by their spec constraints (#31-#33)', () => {
     for (const [i, level] of LEVELS.entries()) expect(pipeHillTrapViolations(level), `level ${i + 1}`).toEqual([]);
   });
@@ -99,6 +103,30 @@ function terrainFeatureViolations(level: Level): string[] {
   }
   return out;
 }
+
+// 움직임을 바꾸는 지형지물(트램펄린·컨베이어·진흙)은 얼음처럼 지형 윗면에 겹쳐 둔다 — 윗면이 아니면 isStandingOn으로 밟을 수 없어
+// 보이기만 하고 동작하지 않는다.
+function overlayViolations(level: Level): string[] {
+  const terrain = staticSolids(level);
+  const onTop = (r: Rect) => terrain.some((s) => s.y === r.y && s.x <= r.x && s.x + s.width >= r.x + r.width);
+  return [
+    ...level.trampolines.filter((t) => !onTop(t.tile)).map((t) => `trampoline at ${t.tile.x}`),
+    ...level.conveyors.filter((c) => !onTop(c.rect)).map((c) => `conveyor at ${c.rect.x}`),
+    ...level.mudFloors.filter((m) => !onTop(m)).map((m) => `mud at ${m.x}`),
+  ];
+}
+
+describe('movement terrain placement rule', () => {
+  it('rejects overlays that do not lie on a terrain top', () => {
+    const ground = { x: 0, y: 500, width: 1000, height: 120 };
+    expect(overlayViolations(testLevel({
+      solids: [ground],
+      trampolines: [{ tile: { x: 100, y: 500, width: 40, height: 20 }, speed: 720 }, { tile: { x: 200, y: 480, width: 40, height: 20 }, speed: 720 }],
+      conveyors: [{ rect: { x: 980, y: 500, width: 100, height: 20 }, speed: 90 }],
+      mudFloors: [{ x: 300, y: 500, width: 100, height: 20 }],
+    }))).toEqual(['trampoline at 200', 'conveyor at 980']);
+  });
+});
 
 // docs/traps-spec.md 31~33번 배치 제약.
 function pipeHillTrapViolations(level: Level): string[] {
