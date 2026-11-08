@@ -39,7 +39,7 @@ const OG_HTML = (canvas) => `<!doctype html><meta charset="utf-8">
 <div class="wrap">
   <div class="eyebrow">BROWSER TRAP PLATFORMER</div>
   <h1>TRAP RUNNER</h1>
-  <p>보이는 대로 믿으면 떨어진다 — 함정 30종 · 레벨 4개</p>
+  <p>보이는 대로 믿으면 떨어진다 — 함정 33종 · 레벨 4개</p>
   <div class="shot"><img src="${canvas}"></div>
 </div>`;
 
