@@ -3,7 +3,7 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_4, LEVELS } from '../../../src/game/world/level';
 import { playSolution, type Step } from './solution';
 import { jumpSlack } from './tolerance';
-import { CEILING_MIRROR, CONDITIONAL_FLING_HAZARD, DODGE_INVISIBLE_SPRING, FINALE, FROM_CP1, FROM_CP2, FROM_CP3, FROM_CP4, FROM_SPAWN, FULL, HEAVY_SPIKES, HIDDEN_FALLING_AMBUSH, mirror, RHYTHM_ARROWS, SHADOW_DROPS } from './level4Solution';
+import { CEILING_MIRROR, CONDITIONAL_FLING_HAZARD, DODGE_INVISIBLE_SPRING, FINALE, FROM_CP1, FROM_CP2, FROM_CP3, FROM_CP4, FROM_SPAWN, FULL, HEAVY_SPIKES, HIDDEN_FALLING_AMBUSH, ICE_REVERSE_SPIKES, mirror, RHYTHM_ARROWS, SHADOW_DROPS } from './level4Solution';
 
 // 레벨 4(지옥, 18,600px): 함정 30종을 셋씩 겹친 구간 아홉 개와 마지막 가짜 연속 구간(docs/game-design.md "난이도 곡선").
 // 한 함정을 피하는 방법이 다른 함정을 부르도록 묶고, 체크포인트는 두 구간마다 하나 둔다. 해법의 점프마다 6프레임 이상 여유를 둔다.
@@ -100,6 +100,14 @@ describe('LEVEL_4 (hell)', () => {
     for (let i = 0; i < 900; i++) step(reversed, 1);
     expect(reversed.deaths).toBe(0);
     expect(reversed.player.x).toBeLessThan(LEVEL_4.reverseZones[0].x + LEVEL_4.reverseZones[0].width);
+    // 2-3 사이: 언덕을 내려와 파이프 위에 올라서 머뭇거리면 가라앉는다(#32)
+    const sink = new World(LEVEL_4);
+    const sp = LEVEL_4.sinkingPipes[0].pipe;
+    playSolution(sink, [...SHADOW_DROPS, ...ICE_REVERSE_SPIKES.slice(0, -2), { run: sp.x }]);
+    step(sink, 1, true); for (let i = 0; i < 18; i++) step(sink, 1);
+    for (let i = 0; i < 120 && !sink.player.grounded; i++) step(sink, 0);
+    expect(sink.player.y + sink.player.height).toBe(sp.y);
+    expect(naive(sink, [], 0)).toBe('sinkingPipe');
     // 3. 박자보다 늦게 올라타 머뭇거리면 발판이 사라지고, 내려서 그대로 달리면 둘째 화살
     expect(naive(respawnAt(0), [{ run: 4998 }, { waitUntil: (w) => w.lifeTime % 1.8 > 0.15 && w.lifeTime % 1.8 < 0.2 }, { jump: true }], 0)).toBe('rhythmPlatform');
     expect(naive(respawnAt(0), RHYTHM_ARROWS.slice(0, 6), 1)).toBe('arrow');

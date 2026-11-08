@@ -582,9 +582,11 @@ export const LEVEL_4: Level = {
     { x: 0, y: 500, width: 760, height: 120 }, // 시작
     { x: 1360, y: 500, width: 1480, height: 120 }, // G1 사라지는 땅(760-1360) 뒤 쏟아지는 적, 2840-2920 구덩이
     { x: 2920, y: 500, width: 580, height: 120 }, // G2 얼음(전체) 위 좌우 반전, 3500-3600 구덩이
-    { x: 3600, y: 500, width: 1400, height: 120 }, // 솟아오르는 가시 → G3 박자 발판 구덩이(5000-5520)
+    { x: 3600, y: 500, width: 750, height: 120 }, // 솟아오르는 가시, 4350-4400은 가라앉는 파이프 아래 틈
+    { x: 4400, y: 500, width: 600, height: 120 }, // G3 박자 발판 구덩이(5000-5520)
     { x: 5520, y: 500, width: 3680, height: 120 }, // G4 내려오는 천장 통로·떨어지는 천장 → G5 무거운 신발 구덩이(9200-9260)
-    { x: 9260, y: 500, width: 2340, height: 120 }, // G6 돌덩이·가짜 벽, 11600-12100 세 번째 착지 발판 다리
+    { x: 9260, y: 500, width: 240, height: 120 }, // 9500-9700: 바람 구간이 있는 넓은 구덩이(200px — 바람 없이는 못 건넘)
+    { x: 9700, y: 500, width: 1900, height: 120 }, // G6 돌덩이·가짜 벽, 11600-12100 세 번째 착지 발판 다리
     { x: 11640, y: 470, width: 10, height: 30 }, // 세 번째 착지 발판 위 장애물 셋
     { x: 11810, y: 470, width: 10, height: 30 },
     { x: 11870, y: 470, width: 10, height: 30 },
@@ -602,7 +604,6 @@ export const LEVEL_4: Level = {
   // 다음 함정까지의 길(그냥 하면 당하는지 확인하는 길)·그림자 길·화살 길·돌덩이 길은 비운다. 모두 해법의 6프레임 여유를 지킨다.
   pipes: [
     { x: 10, y: 460, width: 40, height: 40 }, // 스폰 뒤 왼쪽 끝(첫 화면)
-    { x: 4350, y: 450, width: 50, height: 50 }, // 2구간 뒤, 체크포인트 1 앞
     { x: 12300, y: 460, width: 40, height: 40 }, // 돌덩이가 멈춘 뒤(12200), 체크포인트 3 앞
     { x: 14100, y: 450, width: 50, height: 50 }, // 기습 적 너머, 도망가는 발판 앞
     { x: 15400, y: 450, width: 60, height: 50 }, // 스프링 너머
@@ -654,11 +655,13 @@ export const LEVEL_4: Level = {
   trampolines: [{ tile: { x: 15500, y: 500, width: 40, height: 20 }, speed: 720 }],
   conveyors: [],
   mudFloors: [{ x: 14180, y: 500, width: 170, height: 20 }],
-  windZones: [],
+  // 바람 구간: 5구간(무거운 신발·착지 예측 가시) 뒤 넓은 구덩이(9500-9700) 위. 돌덩이가 나타나는 자리(10260)보다 앞이다.
+  windZones: [{ zone: { x: 9480, y: 250, width: 240, height: 370 }, lift: 800 }],
   // 한쪽 통과 발판: 진흙 너머 도망가는 발판 앞 평지(14380-14500) 위 70px. 끝에서 내려와 도망가는 발판 앞 점프 자리까지 착지할 거리를 둔다.
   oneWayPlatforms: [{ x: 14380, y: 430, width: 120, height: 12 }],
   pipeEnemies: [],
-  sinkingPipes: [],
+  // 가라앉는 파이프: 2구간 뒤 언덕을 내려온 곳의 파이프(4350, 높이 50)가 사실은 가라앉는다. 아래는 50px 틈.
+  sinkingPipes: [{ pipe: { x: 4350, y: 450, width: 50, height: 50 }, delay: 0.3 }],
   rollingStones: [],
   iceFloors: [{ x: 2920, y: 500, width: 580, height: 20 }],
   arrowTraps: [{ trigger: { x: 5070, y: 300, width: 40, height: 200 }, arrows: [
