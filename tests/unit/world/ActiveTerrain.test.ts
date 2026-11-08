@@ -149,3 +149,46 @@ describe('wind zone', () => {
     expect(apex(world)).toBeLessThan(85);
   });
 });
+
+describe('one-way platform', () => {
+  // 바닥 위 80px 높이(420)의 발판. 바닥에서 뛰면 아래로 통과해 올라서고, 끝에서 걸어 떨어진다.
+  const plat = { x: 400, y: 420, width: 200, height: 12 };
+  const L = testLevel({ solids: [flat], oneWayPlatforms: [plat] });
+
+  it('is jumped up through from below and stood on (real input)', () => {
+    const world = new World(L);
+    expect(playSolution(world, [{ run: 450 }, { jump: true }])).toBe(2);
+    expect(feet(world)).toBe(plat.y);
+    expect(world.player.grounded).toBe(true);
+  });
+
+  it('lets a walker pass under it and drops a player who walks off its end', () => {
+    const under = new World(L);
+    standAt(under, 300);
+    for (let i = 0; i < 120; i++) under.update(dt, right);
+    expect(under.player.x).toBeGreaterThan(plat.x + plat.width); // 머리 높이(468)보다 위라 그냥 지나간다
+    const top = new World(L);
+    standAt(top, 450, plat.y);
+    for (let i = 0; i < 90; i++) top.update(dt, right);
+    expect(feet(top)).toBe(500); // 끝에서 바닥으로 떨어졌다
+  });
+
+  it('is part of the landing prediction (#23): predicted spikes sit on the platform', () => {
+    const zone = { x: 380, y: 300, width: 60, height: 200 };
+    const world = new World(testLevel({ solids: [flat], oneWayPlatforms: [plat], landingSpikeZones: [zone] }));
+    standAt(world, 400);
+    world.update(dt, { ...right, jumpPressed: true });
+    const spikes = world.landingSpikes[0].spikes;
+    expect(spikes && spikes.y + spikes.height).toBe(plat.y);
+    for (let i = 0; i < 120 && world.deaths === 0; i++) world.update(dt, right);
+    expect(world.snapshot().deathKind).toBe('landingSpikes'); // 예측대로 발판 위 착지 자리에 가시가 있었다
+  });
+
+  it('is ignored by falling enemies (they use solids only)', () => {
+    const world = new World(testLevel({ solids: [flat], oneWayPlatforms: [plat], skyDrops: [{ trigger: { x: 0, y: 0, width: 2000, height: 620 }, drops: [{ x: 450, delay: 0, minX: 400, maxX: 600 }] }] }));
+    standAt(world, 100);
+    for (let i = 0; i < 120; i++) world.update(dt, idle);
+    const e = world.skyDrops[0].enemies[0].enemy;
+    expect(e && e.y + e.height).toBe(500); // 발판을 지나 바닥에 착지
+  });
+});

@@ -73,6 +73,10 @@ describe('level placement rules (every level)', () => {
     for (const [i, level] of LEVELS.entries()) expect(overlayViolations(level), `level ${i + 1}`).toEqual([]);
   });
 
+  it('keeps one-way platforms clear of solids and within a jump of the surface below', () => {
+    for (const [i, level] of LEVELS.entries()) expect(platformViolations(level), `level ${i + 1}`).toEqual([]);
+  });
+
   it('places pipe enemies, sinking pipes and rolling stones by their spec constraints (#31-#33)', () => {
     for (const [i, level] of LEVELS.entries()) expect(pipeHillTrapViolations(level), `level ${i + 1}`).toEqual([]);
   });
@@ -125,6 +129,28 @@ describe('movement terrain placement rule', () => {
       conveyors: [{ rect: { x: 980, y: 500, width: 100, height: 20 }, speed: 90 }],
       mudFloors: [{ x: 300, y: 500, width: 100, height: 20 }],
     }))).toEqual(['trampoline at 200', 'conveyor at 980']);
+  });
+});
+
+// 한쪽 통과 발판(docs/physics-spec.md): 솔리드와 겹치지 않고, 바로 아래 지형·다른 발판에서 점프로 닿는 높이에 있어야 한다.
+function platformViolations(level: Level): string[] {
+  const terrain = staticSolids(level);
+  const out: string[] = [];
+  for (const p of level.oneWayPlatforms) {
+    if (terrain.some((s) => overlaps(s, p))) out.push(`platform at ${p.x} overlaps a solid`);
+    const below = [...terrain, ...level.oneWayPlatforms].filter((s) => s !== p && s.x < p.x + p.width && s.x + s.width > p.x && s.y > p.y);
+    if (!below.some((s) => s.y - p.y < MAX_JUMP_HEIGHT)) out.push(`platform at ${p.x} is out of jump reach`);
+  }
+  return out;
+}
+
+describe('one-way platform placement rule', () => {
+  it('rejects a platform inside a solid or too high to reach', () => {
+    const ground = { x: 0, y: 500, width: 1000, height: 120 };
+    expect(platformViolations(testLevel({ solids: [ground], oneWayPlatforms: [
+      { x: 100, y: 430, width: 100, height: 12 }, { x: 300, y: 495, width: 100, height: 12 }, { x: 500, y: 400, width: 100, height: 12 },
+      { x: 700, y: 430, width: 100, height: 12 }, { x: 720, y: 360, width: 100, height: 12 },
+    ] }))).toEqual(['platform at 300 overlaps a solid', 'platform at 500 is out of jump reach']);
   });
 });
 
@@ -207,6 +233,7 @@ describe('terrain feature placement rule', () => {
 function landingPredictionViolations(level: Level): Rect[] {
   const world = new World(level);
   const solids = [...world.terrain, ...world.dynamicSolids()];
+  const surfaces = [...solids, ...level.oneWayPlatforms]; // 한쪽 통과 발판 위에서도 뛸 수 있다
   const changing: Rect[] = [
     ...level.hiddenBlocks, ...level.fallingPlatforms, ...level.vanishingGrounds, ...level.invisibleBlocks,
     ...level.dodgingPlatforms.flatMap((d) => [d.platform, { ...d.platform, ...d.to }]),
@@ -219,13 +246,13 @@ function landingPredictionViolations(level: Level): Rect[] {
   const violations: Rect[] = [];
   for (const zone of level.landingSpikeZones) {
     let lo = Infinity, hi = -Infinity;
-    for (const surface of solids) {
+    for (const surface of surfaces) {
       const y = surface.y - 32; // 그 솔리드 위에 선 플레이어(높이 32)
       if (y >= zone.y + zone.height || surface.y <= zone.y) continue; // 구역과 세로로 겹치지 않는다
       for (let x = Math.max(zone.x, surface.x) - 25; x < Math.min(zone.x + zone.width, surface.x + surface.width); x++) {
         for (const h of [-1, 0, 1]) {
           const start = { ...createPlayer(x, y), vx: h * SPEED, vy: -JUMP_SPEED };
-          const { minX, maxX } = simulateJump(start, solids, level, 1 / 60);
+          const { minX, maxX } = simulateJump(start, solids, level, 1 / 60, level.oneWayPlatforms);
           lo = Math.min(lo, minX); hi = Math.max(hi, maxX);
         }
       }

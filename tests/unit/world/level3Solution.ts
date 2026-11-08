@@ -49,7 +49,7 @@ export const HILL_PIPE_ENEMY: Step[] = [
   ...over(12900),
 ]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지
 export const RHYTHM: Step[] = [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 < 1 / 60 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }];
-export const CEILING_FAKE_SPRING: Step[] = [...over(15500), { run: 15835 }, { jump: true }]; // 천장 통로·두 번째 가짜 클리어를 멈추지 않고 지나 스프링을 넘는다
+export const CEILING_FAKE_SPRING: Step[] = [{ run: 15140 }, { jump: true }, ...over(15500), { run: 15835 }, { jump: true }]; // 천장 통로·두 번째 가짜 클리어를 멈추지 않고 지나 스프링을 넘는다
 export const FINALE: Step[] = [{ run: 16185 }, { jump: true }, { run: 16534 }, { jump: true }, { run: 16760 }]; // 도망가는 목표·구덩이·가시
 export const TAUNTING: Step[] = [...BOULDER_WALL, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE];
 export const FULL: Step[] = [...VANISH_SPIKES, ...INVISIBLE_BLOCK, ...SKY_DROPS_1, ...FAKE_CEILING_SPIKES, ...DODGE, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING];

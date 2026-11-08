@@ -185,3 +185,15 @@ export function drawWind(ctx: CanvasRenderingContext2D, zone: Rect, phase: numbe
     }
   }
 }
+// 한쪽 통과 발판: 비계의 나무 판자(위쪽 밝은 면, 아래쪽 그늘, 칸마다 이음매). 판자 칸은 발판 자신의 왼쪽 기준.
+// 공중 블록(벽돌)과 다른 색·무늬로, 아래에서 통과할 수 있는 발판임을 구분한다.
+export const PLANK_FILL = '#9a6b3c';
+export const PLANK_TOP = '#c79a62';
+const PLANK_SHADE = '#5e4024';
+export function drawPlatform(ctx: CanvasRenderingContext2D, r: Rect): void {
+  ctx.fillStyle = PLANK_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
+  ctx.fillStyle = PLANK_TOP; fillClipped(ctx, r, r.x, r.y, r.width, 3);
+  ctx.fillStyle = PLANK_SHADE;
+  fillClipped(ctx, r, r.x, r.y + r.height - 2, r.width, 2);
+  for (let x = r.x + 30; x < r.x + r.width; x += 30) fillClipped(ctx, r, x, r.y + 3, 2, r.height - 5);
+}

@@ -112,6 +112,7 @@ export interface Level {
   conveyors: readonly Conveyor[]; // 지형지물: 컨베이어 벨트
   mudFloors: readonly Rect[]; // 지형지물: 진흙 바닥(위에서 걷기·점프가 느리고 낮아짐)
   windZones: readonly WindZone[]; // 지형지물: 바람 구간
+  oneWayPlatforms: readonly Rect[]; // 지형지물: 한쪽 통과 발판(위에서만 막힘 — 아래·옆에서는 통과)
   pipeEnemies: readonly PipeEnemy[]; // #31 적이 나오는 파이프
   sinkingPipes: readonly SinkingPipe[]; // #32 가라앉는 파이프
   rollingStones: readonly RollingStone[]; // #33 굴러 내려오는 돌
@@ -252,6 +253,8 @@ export const LEVEL_1: Level = {
   mudFloors: [{ x: 4620, y: 500, width: 120, height: 20 }],
   // 바람 구간: 그림자 뒤 넓은 구덩이(9320-9480) 위. 가장자리에서 뛰면 떠올라 천천히 내려오며 건너편에 닿는다.
   windZones: [{ zone: { x: 9300, y: 250, width: 200, height: 370 }, lift: 800 }],
+  // 한쪽 통과 발판: 스프링 앞 평지(11250-11400) 위 70px. 올라가도 아래로 지나가도 된다(스프링에 튕겨 날아가는 길보다 낮다).
+  oneWayPlatforms: [{ x: 11250, y: 430, width: 150, height: 12 }],
   pipeEnemies: [{ pipe: { x: 10160, y: 440, width: 60, height: 60 }, trigger: { x: 9980, y: 300, width: 40, height: 200 }, minX: 10020, maxX: 10160 }],
   // 가라앉는 파이프: 바닥 틈(10340-10400) 위. "파이프는 안전" 표지판 뒤에 있다. 올라서면 0.3초 뒤 가라앉으니 바로 다시 뛴다.
   sinkingPipes: [{ pipe: { x: 10340, y: 440, width: 60, height: 60 }, delay: 0.3 }],
@@ -393,6 +396,8 @@ export const LEVEL_2: Level = {
   mudFloors: [{ x: 5420, y: 500, width: 100, height: 20 }],
   // 바람 구간: 언덕 너머 넓은 구덩이(13840-14000) 위.
   windZones: [{ zone: { x: 13820, y: 250, width: 200, height: 370 }, lift: 800 }],
+  // 한쪽 통과 발판: 세 번째 착지 발판 너머 평지(10620-10760) 위 70px.
+  oneWayPlatforms: [{ x: 10620, y: 430, width: 140, height: 12 }],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],
@@ -532,6 +537,9 @@ export const LEVEL_3: Level = {
   conveyors: [{ rect: { x: 12100, y: 500, width: 180, height: 20 }, speed: -90 }],
   mudFloors: [{ x: 6450, y: 500, width: 150, height: 20 }],
   windZones: [],
+  // 한쪽 통과 발판: 스프링 앞 평지(15150-15330) 위 70px(스프링에 튕겨 날아가는 길보다 낮다). 끝에서 내려와 파이프(15500) 앞에
+  // 착지할 거리를 둔다.
+  oneWayPlatforms: [{ x: 15150, y: 430, width: 180, height: 12 }],
   pipeEnemies: [{ pipe: { x: 12900, y: 440, width: 60, height: 60 }, trigger: { x: 12680, y: 300, width: 40, height: 200 }, minX: 12650, maxX: 12900 }],
   sinkingPipes: [],
   rollingStones: [],
@@ -639,6 +647,8 @@ export const LEVEL_4: Level = {
   conveyors: [],
   mudFloors: [{ x: 14180, y: 500, width: 170, height: 20 }],
   windZones: [],
+  // 한쪽 통과 발판: 진흙 너머 도망가는 발판 앞 평지(14380-14500) 위 70px. 끝에서 내려와 도망가는 발판 앞 점프 자리까지 착지할 거리를 둔다.
+  oneWayPlatforms: [{ x: 14380, y: 430, width: 120, height: 12 }],
   pipeEnemies: [],
   sinkingPipes: [],
   rollingStones: [],

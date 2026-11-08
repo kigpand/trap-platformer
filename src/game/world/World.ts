@@ -327,13 +327,13 @@ function isOnScreen(rect: Rect, playerX: number, levelWidth: number): boolean {
 // (중력 → 충돌 이동 → 레벨 가로 범위 고정)로 고정 스텝을 진행한다. 착지 상태(구덩이로 떨어지거나 상한까지 착지하지
 // 않으면 null)와, 그때까지 지나간 수평 범위(minX ~ maxX, 플레이어 폭 포함)를 돌려준다 — World의 가시 위치와
 // 배치 규칙 테스트(예측 궤적 범위 안에 상태가 바뀌는 솔리드 금지)가 같은 계산을 쓴다.
-export function simulateJump(start: Player, solids: readonly Rect[], level: Pick<Level, 'width' | 'height'>, dt: number): { landing: Player | null; minX: number; maxX: number } {
+export function simulateJump(start: Player, solids: readonly Rect[], level: Pick<Level, 'width' | 'height'>, dt: number, platforms: readonly Rect[] = []): { landing: Player | null; minX: number; maxX: number } {
   const sim: Player = { ...start };
   let minX = sim.x, maxX = sim.x + sim.width;
   for (let i = 0; i < LANDING_PREDICTION_STEPS; i++) {
     sim.vx = start.vx; // 충돌 이동은 벽에 막히면 vx를 0으로 만든다 — update처럼 매 스텝 입력 속도를 다시 넣는다
     sim.vy = Math.min(MAX_FALL_SPEED, sim.vy + GRAVITY * dt);
-    moveWithCollisions(sim, solids, sim.vx * dt, sim.vy * dt);
+    moveWithCollisions(sim, solids, sim.vx * dt, sim.vy * dt, platforms);
     sim.x = Math.max(0, Math.min(level.width - sim.width, sim.x));
     minX = Math.min(minX, sim.x); maxX = Math.max(maxX, sim.x + sim.width);
     if (sim.grounded) return { landing: sim, minX, maxX };
@@ -585,7 +585,7 @@ export class World {
     // 위에서 무언가 막 사라졌어도 다른 솔리드(예: 인접한 고정 바닥)가 여전히 받치고 있을 수 있다 —
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
     if (p.grounded) {
-      const stillSupported = [...this.terrain, ...this.dynamicSolids()].some((s) => isStandingOn(p, s));
+      const stillSupported = [...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s));
       if (!stillSupported) p.grounded = false;
     }
 
@@ -659,7 +659,7 @@ export class World {
     }
     const solids = [...this.terrain, ...this.dynamicSolids()];
     const wasAirborne = !p.grounded; // 이동 전 공중 여부 — 이번 스텝에 착지해도 "공중에서 들어온 것"으로 본다(#8)
-    moveWithCollisions(p, solids, p.vx * dt, p.vy * dt);
+    moveWithCollisions(p, solids, p.vx * dt, p.vy * dt, this.level.oneWayPlatforms);
     p.x = Math.max(0, Math.min(this.level.width - p.width, p.x));
     // #30 세 번째 착지에 무너지는 발판: 공중에서 이 발판에 착지한 스텝만 센다(옆에서 걸어 올라오면 세지 않음). 정한 횟수째 착지한
     // 스텝에 사라지고, 같은 스텝 안에서 남은 솔리드로 지지를 다시 계산한다 — 착지로 grounded=true가 된 채 두면 다음 스텝에
@@ -670,7 +670,7 @@ export class World {
         landedOn.solid = false;
         this.trapEvent('collapse', landedOn.config.rect);
         this.lastFallTrap = { cause: { rect: landedOn.config.rect, kind: 'countingPlatform' }, at: this.clock };
-        if (![...this.terrain, ...this.dynamicSolids()].some((s) => isStandingOn(p, s))) p.grounded = false;
+        if (![...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s))) p.grounded = false;
       }
     }
     // 강제 비행은 발동한 다음 스텝부터, 이동 뒤 grounded가 된 첫 스텝(착지)에서 끝난다. 천장 충돌은 grounded가 아니다.
@@ -993,7 +993,7 @@ export class World {
   // 그 자리에 놓을 가시를 돌려준다. 솔리드는 지금 상태로 고정해 본다 — 점프 동안 바뀌는 솔리드는 배치 제약으로
   // 예측 궤적이 지나가는 범위에 두지 않는다(traps-spec #23, LevelRules.test.ts).
   private predictLandingSpikes(dt: number): Rect | null {
-    const { landing } = simulateJump(this.player, [...this.terrain, ...this.dynamicSolids()], this.level, dt);
+    const { landing } = simulateJump(this.player, [...this.terrain, ...this.dynamicSolids()], this.level, dt, this.level.oneWayPlatforms);
     if (!landing) return null;
     const bottom = landing.y + landing.height;
     return { x: landing.x + landing.width / 2 - LANDING_SPIKE_WIDTH / 2, y: bottom - LANDING_SPIKE_HEIGHT, width: LANDING_SPIKE_WIDTH, height: LANDING_SPIKE_HEIGHT };

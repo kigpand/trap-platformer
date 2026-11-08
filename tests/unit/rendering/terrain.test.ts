@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasRenderer, VIEW_HEIGHT } from '../../../src/game/rendering/CanvasRenderer';
-import { BELT_FILL, drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawTrampoline, drawWind, GROUND_FILL, GROUND_TOP, MUD_FILL, PIPE_CAP, PIPE_FILL, TRAMPOLINE_MAT } from '../../../src/game/rendering/terrain';
+import { BELT_FILL, drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawPlatform, drawTrampoline, drawWind, PLANK_FILL, GROUND_FILL, GROUND_TOP, MUD_FILL, PIPE_CAP, PIPE_FILL, TRAMPOLINE_MAT } from '../../../src/game/rendering/terrain';
 import { hillColumns, type Hill } from '../../../src/game/world/level';
 import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
@@ -212,5 +212,21 @@ describe('wind zone drawing', () => {
     expect(r.fills.every((f) => f.x >= zone.x && f.y >= zone.y && f.x + f.width <= zone.x + zone.width && f.y + f.height <= zone.y + zone.height)).toBe(true);
     const at = (phase: number) => drawn((ctx) => drawWind(ctx, zone, phase, view), zone);
     expect(at(0)).not.toEqual(at(0.1));
+  });
+});
+
+describe('one-way platform drawing', () => {
+  it('paints a plank only inside its rect, unlike a brick block, and the renderer draws it', () => {
+    const r: Rect = { x: 400, y: 420, width: 200, height: 12 };
+    const rec = recorder(); drawPlatform(rec.ctx, r);
+    expect(rec.fills.every((f) => f.x >= r.x && f.y >= r.y && f.x + f.width <= r.x + r.width && f.y + f.height <= r.y + r.height)).toBe(true);
+    expect(relative(drawn((ctx) => drawPlatform(ctx, r), r), r)).not.toEqual(relative(drawn((ctx) => drawBlock(ctx, r, view), r), r));
+    const canvas = document.createElement('canvas');
+    const { ctx, fills } = recorder();
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], oneWayPlatforms: [r] }));
+    world.player.x = 100; world.player.y = 100;
+    new CanvasRenderer(canvas, () => false).render(world, { fps: 60, steps: 1 });
+    expect(pixels(fills, r).get('450,426')).toBe(PLANK_FILL);
   });
 });
