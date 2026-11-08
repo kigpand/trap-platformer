@@ -93,8 +93,13 @@ describe('LEVEL_4 (hell)', () => {
     // 1. 그대로 달리면 쏟아지는 적, 멈추면 그림자
     expect(naive(new World(LEVEL_4), [], 1)).toBe('skyDrop');
     expect(naive(new World(LEVEL_4), [{ run: 1500 }], 0)).toBe('shadow');
-    // 2. 반전된 채 →를 계속 누르면 얼음 위에서 멈췄다가 거꾸로 미끄러져 뒤쪽 구덩이로
-    expect(naive(new World(LEVEL_4), [...SHADOW_DROPS, { run: 2815 }, { jump: true }], 1)).toBe('reverseZone');
+    // 2. 반전된 채 →를 계속 누르면 얼음 위에서 멈췄다가 거꾸로 미끄러져 구역 밖으로 밀려나고, 풀리면 다시 미끄러져 들어오기를
+    //    반복할 뿐 반전을 지나가지 못한다(구역 안에서만 반전 — 2026-11-08 결정)
+    const reversed = new World(LEVEL_4);
+    playSolution(reversed, [...SHADOW_DROPS, { run: 2815 }, { jump: true }]);
+    for (let i = 0; i < 900; i++) step(reversed, 1);
+    expect(reversed.deaths).toBe(0);
+    expect(reversed.player.x).toBeLessThan(LEVEL_4.reverseZones[0].x + LEVEL_4.reverseZones[0].width);
     // 3. 박자보다 늦게 올라타 머뭇거리면 발판이 사라지고, 내려서 그대로 달리면 둘째 화살
     expect(naive(respawnAt(0), [{ run: 4998 }, { waitUntil: (w) => w.lifeTime % 1.8 > 0.15 && w.lifeTime % 1.8 < 0.2 }, { jump: true }], 0)).toBe('rhythmPlatform');
     expect(naive(respawnAt(0), RHYTHM_ARROWS.slice(0, 6), 1)).toBe('arrow');

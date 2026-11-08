@@ -185,10 +185,12 @@ describe('LEVEL_2', () => {
     playSolution(fling, [{ run: 4395 }, { jump: true }, { run: 4630 }, { jump: true }, { run: 4890 }]); // 가운데 파이프(4650)는 넘는다
     step(fling, 1, true); until(fling, 1, () => fling.deaths > 1);
     dies(fling, 'flingJump');
-    // 좌우 반전: 걸린 뒤에도 →를 누르면 방금 건넌 구덩이로 걸어 돌아간다
+    // 좌우 반전: 걸린 뒤에도 →를 누르면 구역 경계에서 들락날락할 뿐 지나가지 못한다(구역 안에서만 반전 — 2026-11-08 결정)
     const reverse = cp(5);
-    until(reverse, 1, () => reverse.deaths > 1);
-    dies(reverse, 'reverseZone');
+    const zone = LEVEL_2.reverseZones[0];
+    for (let i = 0; i < 600; i++) step(reverse, 1);
+    expect(reverse.deaths).toBe(1);
+    expect(reverse.player.x).toBeLessThan(zone.x + zone.width);
     // 무거운 신발: 구덩이 가장자리(구역 안)에서 뛰면 못 건넌다
     const heavy = cp(6);
     playSolution(heavy, [{ run: 6195 }]);

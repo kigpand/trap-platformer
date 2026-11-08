@@ -30,7 +30,7 @@ export const ARROW_HEIGHT = 6;
 const ARROW_SPEED = 360; // #26 한 스텝 6px — 플레이어와의 상대 이동량(최대 9.5px)이 폭 합(56px)보다 작아 스텝마다 겹침만 봐도 놓치지 않는다
 export const ARROW_WARNING = 0.4; // #26 경고 시작부터 나오기까지
 const RHYTHM_WARNING = 0.3; // #27 사라지기 전 깜박이는 시간
-const ICE_ACCEL = 300; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에서 멈추기까지 0.7초·약 73px
+const ICE_ACCEL = 120; // #28 얼음 위 수평 가속도(px/s²) — 210px/s에서 멈추기까지 1.75초·약 184px(2026-11-08 프로젝트 오너 결정, 예전 300)
 export const SHADOW_DELAY_STEPS = 42; // #22 그림자가 따라오기까지(0.7초)
 const LANDING_PREDICTION_STEPS = 600; // #23 궤적 예측 상한(10초) — 착지도 낙사도 없으면 솟지 않는다
 const BOULDER_SPEED = 180; // #19 굴러가는 속도(플레이어 210px/s보다 느림)
@@ -277,8 +277,8 @@ function createFakeGoals(level: Level): FakeGoalState[] {
 const FAKE_CLEAR_RELEASE = 80; // #14 깃발 영역 좌우로 이만큼 밖으로 나가면 가짜 클리어가 풀린다
 // 강제 비행(#15·#17 공통): 비행 중에는 좌우 입력 대신 vx를 넣는다. launched는 발동한 스텝 표시 — 그 스텝은 착지로 보지 않는다.
 export interface ForcedFlightState { readonly vx: number; launched: boolean }
-// #16 좌우 반전: 걸린 구역과 들어온 쪽. 들어온 쪽의 반대편으로 구역을 완전히 빠져나가야 풀린다.
-export interface ReverseState { readonly zone: Rect; readonly enteredFrom: 'left' | 'right' }
+// #16 좌우 반전: 지금 겹쳐 있는 구역. 구역을 벗어나면(어느 쪽으로든) 바로 풀리고, 다시 들어오면 다시 걸린다.
+export interface ReverseState { readonly zone: Rect }
 
 function createVanishingGrounds(level: Level): VanishingGroundState[] {
   return level.vanishingGrounds.map((rect) => ({ rect, elapsed: null, tilesGone: 0 }));
@@ -374,13 +374,13 @@ export class World {
   fakeClear: { readonly goal: FakeGoalState; readonly time: number } | null = null;
   flight: ForcedFlightState | null = null;
   reverse: ReverseState | null = null;
+  // #16 이번 목숨에 이미 걸려 본 구역 — 반전 소리는 구역마다 처음 걸릴 때 한 번만 낸다. 경계에서 →를 누르면 들락날락하며
+  // 매 몇 스텝마다 다시 걸리므로, 걸릴 때마다 내면 소리가 연달아 울린다.
+  private reverseHeard = new Set<Rect>();
   // #24 이동을 마친 위치가 무거운 신발 구역 안이면 true — 렌더러가 "⤓" 표시를 띄운다.
   heavyShoes = false;
   // #27 이번 목숨이 시작된 뒤 흐른 시뮬레이션 시간 — 박자 발판의 박자는 목숨마다 처음부터 시작한다.
   lifeTime = 0;
-  // #16 방금 풀린 구역과 풀릴 때 누르던 좌우 입력(반전 전 원래 값). 그 키를 떼거나 바꾸기 전에는 같은 구역이 다시 걸리지 않는다 —
-  // 풀린 스텝에 플레이어는 경계 바로 밖에 있어, 누르던 키로 다시 겹치자마자 반대쪽 진입으로 걸려 떨렸다(Codex 리뷰).
-  private reverseRearm: { readonly zone: Rect; readonly horizontal: -1 | 0 | 1 } | null = null;
   activeCheckpoint: { x: number; y: number } | null = null;
   deathCause: DeathCauseState | null = null;
   // 낙사형 함정(1·2번)이 마지막으로 발동한 영역과 시각(clock). 3초 안에 낙사하면 이것을 원인으로 표시한다.
@@ -510,7 +510,7 @@ export class World {
     this.fakeClear = null;
     this.flight = null;
     this.reverse = null;
-    this.reverseRearm = null;
+    this.reverseHeard.clear();
     this.heavyShoes = false;
   }
   update(dt: number, input: InputState): void {
@@ -588,7 +588,7 @@ export class World {
 
     // #16 좌우 반전은 공중에서도 걸려 있다. 강제 비행 중에는 어차피 좌우 입력을 쓰지 않는다.
     const horizontal = this.reverse ? -input.horizontal as -1 | 0 | 1 : input.horizontal;
-    // #28 얼음 바닥: 얼음 위에 서 있고 이번 스텝에 뛰지 않으면 수평 속도가 목표 속도로 300px/s²씩만 바뀐다.
+    // #28 얼음 바닥: 얼음 위에 서 있고 이번 스텝에 뛰지 않으면 수평 속도가 목표 속도로 ICE_ACCEL씩만 바뀐다.
     // 뛰는 스텝과 공중·일반 바닥에서는 평소처럼 즉시 바뀐다(docs/physics-spec.md의 함정 예외).
     const jumping = input.jumpPressed && p.grounded;
     const ice = !this.flight && !jumping && p.grounded ? this.level.iceFloors.find((t) => isStandingOn(p, t)) : undefined;
@@ -680,7 +680,7 @@ export class World {
         this.taunt = { kind: 'springFloor', remaining: TAUNT_DURATION };
       }
     }
-    this.updateReverse(input.horizontal);
+    this.updateReverse();
     this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));
     // #20 가짜 벽은 겹치면 가짜임이 드러난다. #21 미끼 보물은 닿으면 사라지며 놀리고, 3초 안의 낙사는 보석 탓으로 본다.
     for (const w of this.fakeWalls) if (!w.revealed && overlaps(p, w.rect)) w.revealed = true;
@@ -1002,22 +1002,17 @@ export class World {
     if (vx !== 0) p.facing = vx > 0 ? 1 : -1;
     this.flight = { vx, launched: true };
   }
-  // #16 이동을 마친 위치로 반전 걸림·풀림을 정한다(다음 스텝의 입력부터 적용). 처음 겹친 순간 플레이어 중심이
-  // 구역 중심보다 왼쪽이면 왼쪽에서 들어온 것으로 본다. 걸려 있는 동안에는 반전 뒤의 낙사를 이 구역 탓으로 보도록 매 스텝 기록한다.
-  private updateReverse(horizontal: -1 | 0 | 1): void {
-    const p = this.player;
-    if (this.reverseRearm && this.reverseRearm.horizontal !== horizontal) this.reverseRearm = null;
-    if (this.reverse) {
-      const { zone, enteredFrom } = this.reverse;
-      const exited = enteredFrom === 'left' ? p.x >= zone.x + zone.width : p.x + p.width <= zone.x;
-      if (exited) { this.reverse = null; this.reverseRearm = { zone, horizontal }; return; }
-    } else {
-      const zone = this.level.reverseZones.find((z) => z !== this.reverseRearm?.zone && overlaps(p, z));
-      if (!zone) return;
-      this.reverse = { zone, enteredFrom: p.x + p.width / 2 < zone.x + zone.width / 2 ? 'left' : 'right' };
-      this.trapEvent('reverse', zone);
+  // #16 이동을 마친 위치로 반전 걸림·풀림을 정한다(다음 스텝의 입력부터 적용). 구역과 겹쳐 있는 동안만 걸리고, 벗어나면(어느 쪽으로든)
+  // 풀린다 — 프로젝트 오너 결정(2026-11-08): 구역 밖에서는 반전이 남지 않는다. 겹쳐 있는 동안에는 반전 뒤의 낙사를 이 구역 탓으로 보도록
+  // 매 스텝 기록한다.
+  private updateReverse(): void {
+    const zone = this.level.reverseZones.find((z) => overlaps(this.player, z));
+    if (!zone) { this.reverse = null; return; }
+    if (this.reverse?.zone !== zone) {
+      this.reverse = { zone };
+      if (!this.reverseHeard.has(zone)) { this.reverseHeard.add(zone); this.trapEvent('reverse', zone); }
     }
-    this.lastFallTrap = { cause: { rect: this.reverse.zone, kind: 'reverseZone' }, at: this.clock };
+    this.lastFallTrap = { cause: { rect: zone, kind: 'reverseZone' }, at: this.clock };
   }
   snapshot(): GameSnapshot {
     const p = this.player;

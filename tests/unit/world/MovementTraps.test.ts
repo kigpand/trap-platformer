@@ -74,7 +74,8 @@ describe('#28 ice floor', () => {
   const ice: Rect = { x: 400, y: 500, width: 600, height: 20 };
   const L = testLevel({ solids: [flat], iceFloors: [ice] });
 
-  it('keeps sliding about 0.7s and 73px after the key is released', () => {
+  // 2026-11-08 프로젝트 오너 결정으로 더 미끄럽게(가속도 300 → 120px/s²).
+  it('keeps sliding about 1.75s and 184px after the key is released', () => {
     const world = new World(L);
     standAt(world, 450);
     world.player.vx = 210;
@@ -83,19 +84,20 @@ describe('#28 ice floor', () => {
     const from = world.player.x;
     let steps = 0;
     for (; steps < 120 && world.player.vx > 0; steps++) world.update(dt, idle);
-    expect(steps).toBe(42); // 210 / 300 = 0.7초
-    expect(world.player.x - from).toBeGreaterThan(70);
-    expect(world.player.x - from).toBeLessThan(76);
+    expect(steps).toBe(105); // 210 / 120 = 1.75초
+    expect(world.player.x - from).toBeGreaterThan(180);
+    expect(world.player.x - from).toBeLessThan(188);
   });
 
   it('also speeds up gradually from standing, and reverses gradually', () => {
     const world = new World(L);
     standAt(world, 450);
     world.update(dt, right);
-    expect(world.player.vx).toBeCloseTo(5, 5);
-    runUntil(world, right, 60);
+    expect(world.player.vx).toBeCloseTo(2, 5);
+    runUntil(world, right, 120);
+    expect(world.player.vx).toBe(210);
     world.update(dt, left);
-    expect(world.player.vx).toBeCloseTo(205, 5);
+    expect(world.player.vx).toBeCloseTo(208, 5);
   });
 
   it('switches to the instant rules on plain ground and on the jump step and in the air', () => {
@@ -120,7 +122,7 @@ describe('#28 ice floor', () => {
     standAt(world, 700);
     runUntil(world, right, 200, () => world.player.x + world.player.width >= 960);
     expect(world.player.vx).toBe(210); // 최고 속도로 끝 40px 앞에 왔다
-    runUntil(world, idle, 300, () => world.deaths > 0); // 키를 뗐지만 정지 거리(약 73px)가 남은 거리보다 길다
+    runUntil(world, idle, 300, () => world.deaths > 0); // 키를 뗐지만 정지 거리(약 184px)가 남은 거리보다 길다
     expect(world.deaths).toBe(1);
     expect(world.snapshot().deathKind).toBe('ice');
   });
@@ -129,8 +131,8 @@ describe('#28 ice floor', () => {
     const edge = testLevel({ solids: [{ x: 0, y: 500, width: 1000, height: 120 }], iceFloors: [{ x: 600, y: 500, width: 400, height: 20 }] });
     const world = new World(edge);
     standAt(world, 700);
-    runUntil(world, right, 200, () => world.player.x + world.player.width >= 900); // 끝 100px 앞에서 뗀다
-    runUntil(world, idle, 120);
+    runUntil(world, right, 200, () => world.player.x + world.player.width >= 800); // 끝 200px 앞에서 뗀다
+    runUntil(world, idle, 180);
     expect(world.deaths).toBe(0);
     expect(world.player.vx).toBe(0);
   });
