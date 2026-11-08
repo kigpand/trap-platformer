@@ -13,7 +13,7 @@ export const HILL_AFTER_DODGE: Step[] = over(3380); // 2단 언덕(단 30px — 
 export const PIPE_BEFORE_GEM: Step[] = [{ run: 4600 }]; // 트램펄린(4430)이 파이프(4500)를 넘겨 준다 — 달리기만 하면 된다
 export const PIPE_BEFORE_ICE: Step[] = over(5950); // 체크포인트 5(5800)에서 떨어져 착지한 뒤 뛸 거리를 둔다
 export const HILL_BEFORE_RHYTHM: Step[] = [...over(6950), { jump: true }]; // 단 40px — 두 번 뛰어 꼭대기로
-export const PIPE_AFTER_SHADOW: Step[] = [{ run: 9315 }, { jump: true }]; // 바람 구간: 구덩이(9320-9480) 가장자리에서 뛰면 떠올라 건너간다
+export const PIPE_AFTER_SHADOW: Step[] = [{ run: 9295 }, { jump: true }]; // 바람 구간: 구덩이(9300-9500) 가장자리에서 뛰면 떠올라 건너간다
 export const PIPE_BEFORE_SPRING: Step[] = over(11150);
 
 // 구간별 해법. 원래 구간은 보이는 것만 피하면 되므로 자동 플레이로 간다.

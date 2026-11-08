@@ -39,8 +39,8 @@ export const MIRROR: Step[] = [
   { waitUntil: (w) => !mirror(w).airborne && mirror(w).enemy.x + mirror(w).enemy.width < w.player.x - 10 }, // 적이 머리 위로 넘어갔다
   ...over(9450), { jump: true }, // 2단 언덕(단 40px — 두 번 뛰어 꼭대기로)
 ];
-export const COUNTING: Step[] = [{ run: 10115 }, { jump: true }, { run: 10400 }, { jump: true }, { run: 10610 }, { jump: true }, ...over(10800)]; // 발판(10620) 위로 올라갔다 끝에서 내려와 파이프 // 발끝까지 버티다 늦게 뛰어 두 번만 착지
-export const BOULDER: Step[] = [{ run: 12295 }, { jump: true }, ...over(13300), { jump: true }, { run: 13835 }, { jump: true }]; // 돌덩이가 멈춘 뒤 3단 언덕, 바람을 타고 넓은 구덩이(13840-14000) // 멈추지 않고 달리며 구덩이만 넘는다
+export const COUNTING: Step[] = [{ run: 10115 }, { jump: true }, { run: 10400 }, { jump: true }, { run: 10610 }, { jump: true }, ...over(10800)]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지, 발판(10620)에 올라갔다 끝에서 내려와 파이프
+export const BOULDER: Step[] = [{ run: 12295 }, { jump: true }, ...over(13300), { jump: true }, { run: 13815 }, { jump: true }]; // 돌덩이가 멈춘 뒤 3단 언덕, 바람을 타고 넓은 구덩이(13820-14020)
 export const FLEEING_GOAL: Step[] = [{ run: 14610 }, { wait: 0.4 }, { run: 14780 }, { jump: true }, { run: 15280 }];
 export const TAUNTING: Step[] = [...FLING, ...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL];
 export const AFTER_CP2: Step[] = [...INVISIBLE_BLOCK, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING];
