@@ -68,7 +68,8 @@ describe('LEVEL_4 (hell)', () => {
   it('leaves at least 6 frames of human slack on every solution jump', () => {
     // docs/game-design.md "사람 손 여유 하한": 점프마다 몇 프레임 일찍·늦게 눌러도 레벨 끝까지 사망 없이 가는지 잰다.
     // 체크포인트마다 그 구간의 점프만 재고(재시작 직후 사망 수 1을 0으로 돌려 놓고 잰다), 바꾼 뒤에는 뒤 구간까지 끝까지 확인한다.
-    // 한쪽 12프레임까지만 재 실행 시간을 묶는다(하한 6프레임 확인에는 충분하다).
+    // 하한 확인에 필요한 만큼만 잰다: 한쪽 5프레임까지, 늦게 쪽만으로 합계 6이 되면 일찍 쪽은 재지 않는다(tolerance.ts의 need —
+    // 합계 6 이상인지는 끝까지 잰 것과 같다). 바꾼 점프 뒤로는 그대로 해법 끝까지 확인한다. 예전엔 한쪽 12프레임까지 재 약 7~11초 걸렸다.
     const fresh = (index: number) => () => { const w = respawnAt(index); w.deaths = 0; return w; };
     const segments: [string, () => World, Step[], Step[]][] = [
       ['spawn', () => new World(LEVEL_4), FROM_SPAWN, FULL.slice(FROM_SPAWN.length)],
@@ -78,7 +79,7 @@ describe('LEVEL_4 (hell)', () => {
       ['checkpoint 4', fresh(3), FROM_CP4, []],
     ];
     for (const [name, make, steps, rest] of segments) {
-      const slack = jumpSlack(make, [...steps, ...rest], steps.length, 12);
+      const slack = jumpSlack(make, [...steps, ...rest], steps.length, 5, 6);
       expect(slack.length, name).toBe(steps.filter((s) => 'jump' in s || 'hop' in s).length);
       for (const s of slack) expect(s.total, `${name} step ${s.index}: ${s.early} early + ${s.late} late`).toBeGreaterThanOrEqual(6);
     }

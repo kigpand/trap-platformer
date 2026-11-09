@@ -18,4 +18,18 @@ describe('jumpSlack', () => {
     expect(first.index).toBe(2);
     expect(first.late).toBe(2); // 뒤의 세 명령까지만 보던 예전 방식은 두 번째 뛰기를 보지 않아 4로 셌다
   });
+
+  it('with need, stops early probes only once the floor is already met, so the floor check is unchanged', () => {
+    // 여유가 넉넉한 평지 점프: 늦게 쪽만으로 하한(6)을 채우면 일찍 쪽은 재지 않는다.
+    const flat = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }] });
+    const easy: Step[] = [{ run: 300 }, { jump: true }, { run: 900 }];
+    const [full] = jumpSlack(() => new World(flat), easy, 2, 5);
+    const [quick] = jumpSlack(() => new World(flat), easy, 2, 5, 6);
+    expect(full.early + full.late).toBe(10);
+    expect(quick).toMatchObject({ late: 5, early: 0, total: 6 });
+    // 여유가 빠듯한 점프(늦게 2): need가 있어도 일찍 쪽까지 끝까지 재 같은 값이 나온다.
+    const [tight] = jumpSlack(() => new World(level), steps, 3, 5);
+    const [tightNeed] = jumpSlack(() => new World(level), steps, 3, 5, 6);
+    expect(tightNeed).toEqual(tight);
+  });
 });
