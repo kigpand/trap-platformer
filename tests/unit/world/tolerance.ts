@@ -7,10 +7,13 @@ import { playSolution, type Step } from './solution';
 // - 직전이 조건 대기 등이면: 늦게만 잴 수 있다(n스텝 더 기다림). 일찍은 0으로 센다.
 // 바꾼 점프 뒤의 명령은 해법 끝까지 그대로 다시 실행한다 — 뒤의 몇 명령만 보면, 점프 시점이 밀려 한참 뒤의 시간 함정에서
 // 실패하는 경우를 여유로 셌다(Codex 리뷰). measured는 여유를 잴 점프가 있는 앞쪽 명령 수, 나머지는 끝까지 확인만 하는 명령이다.
-// limit은 한쪽으로 잴 최대 프레임 수다(실행 시간을 묶는다 — 하한 확인에는 하한보다 크기만 하면 된다).
+// limit은 한쪽으로 잴 최대 프레임 수다(실행 시간을 묶는다 — 하한 확인에는 아래 need와 함께 need − 1이면 된다).
 // 맵 확장 뒤 일회용으로 쟀던 측정(레벨 3 박자 발판이 0~1프레임만 허용함을 찾음)을 레벨 4부터 테스트로 남긴다.
 export interface JumpSlack { index: number; early: number; late: number; total: number }
-export function jumpSlack(make: () => World, steps: readonly Step[], measured = steps.length, limit = 30): JumpSlack[] {
+// need를 주면 하한 확인용으로만 잰다: 늦게 쪽을 잰 뒤 이미 합계가 need 이상이면 일찍 쪽은 재지 않는다(그때 early는 0으로 남아
+// 실제 여유보다 작게 나온다). 합계가 need 이상인지는 limit = need − 1과 함께 쓰면 끝까지 잰 것과 같다 — 한쪽이 need − 1에 닿으면
+// 그것만으로 합계가 need 이상이고, 둘 다 닿지 않으면 둘 다 정확한 값이기 때문이다. 점프 여유 표(scripts/slack.js)는 need 없이 끝까지 잰다.
+export function jumpSlack(make: () => World, steps: readonly Step[], measured = steps.length, limit = 30, need?: number): JumpSlack[] {
   const out: JumpSlack[] = [];
   const ok = (variant: Step[]): boolean => {
     const world = make();
@@ -31,7 +34,7 @@ export function jumpSlack(make: () => World, steps: readonly Step[], measured = 
     let late = 0;
     while (late < limit && ok(shifted(late + 1) ?? [])) late++;
     let early = 0;
-    while (early < limit) { const v = shifted(-(early + 1)); if (!v || !ok(v)) break; early++; }
+    while (early < limit && (need === undefined || early + late + 1 < need)) { const v = shifted(-(early + 1)); if (!v || !ok(v)) break; early++; }
     out.push({ index: i, early, late, total: early + late + 1 });
   }
   return out;
