@@ -1,4 +1,4 @@
-// 렌더링 성능 측정(docs/roadmap.md "렌더링 성능 측정"의 수치를 다시 잴 때). `pnpm perf`로 실행한다 — 먼저 프로덕션 빌드를 만든다.
+// 렌더링 성능 측정(docs/history.md "렌더링 성능 측정"의 수치를 다시 잴 때). `pnpm perf`로 실행한다 — 먼저 프로덕션 빌드를 만든다.
 // 1) 그리기만: Vite 개발 서버에서 모듈을 불러와 모든 레벨을 카메라 120px 간격으로 CanvasRenderer.render를 반복하고,
 //    CPU 감속(1·4배)별 그리기 시간과 프레임당 fillRect 최대 횟수를 출력한다(기기 픽셀 비율 2).
 // 2) 실제 게임: dist/를 Playwright가 직접 서빙해 →를 누른 채 달리며 requestAnimationFrame 299프레임 간격을 재고,
