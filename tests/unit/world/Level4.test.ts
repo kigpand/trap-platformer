@@ -4,18 +4,13 @@ import { LEVEL_4, LEVELS } from '../../../src/game/world/level';
 import { playSolution, type Step } from './solution';
 import { jumpSlack } from './tolerance';
 import { CEILING_MIRROR, CONDITIONAL_FLING_HAZARD, DODGE_INVISIBLE_SPRING, FINALE, FROM_CP1, FROM_CP2, FROM_CP3, FROM_CP4, FROM_SPAWN, FULL, HEAVY_SPIKES, HIDDEN_FALLING_AMBUSH, ICE_REVERSE_SPIKES, mirror, RHYTHM_ARROWS, SHADOW_DROPS } from './level4Solution';
+import { dt } from './fixtures';
+import { respawnFrom } from './respawn';
 
 // 레벨 4(지옥, 18,600px): 함정 30종을 셋씩 겹친 구간 아홉 개와 마지막 가짜 연속 구간(docs/game-design.md "난이도 곡선").
 // 한 함정을 피하는 방법이 다른 함정을 부르도록 묶고, 체크포인트는 두 구간마다 하나 둔다. 해법의 점프마다 6프레임 이상 여유를 둔다.
-const dt = 1 / 60;
 
-function respawnAt(index: number): World {
-  const cp = LEVEL_4.checkpoints[index];
-  const world = new World(LEVEL_4);
-  world.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
-  world.reset(true);
-  return world;
-}
+const respawnAt = (index: number): World => respawnFrom(LEVEL_4, LEVEL_4.checkpoints[index]);
 const step = (w: World, horizontal: -1 | 0 | 1, jumpPressed = false) => w.update(dt, { horizontal, jumpPressed, restartPressed: false });
 // 해법 일부를 따라간 뒤 horizontal을 누른 채(jump면 그 자리에서 한 번 뛰고) 죽을 때까지 두고, 사망 원인을 돌려준다.
 function naive(start: World, steps: Step[], horizontal: -1 | 0 | 1, jump = false): string | null {

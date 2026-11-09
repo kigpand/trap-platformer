@@ -6,28 +6,11 @@ import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
 import { cameraX, VIEW_WIDTH } from '../../../src/game/world/viewport';
 import { testLevel } from '../world/fixtures';
+import { recorder, type Fill } from './recorder';
 
-// happy-dom에는 Canvas 2D 구현이 없다. 모든 메서드 호출을 받아 주되 fillRect만 그 시점의 fillStyle과
-// 함께 기록하는 가짜 컨텍스트로, "어느 영역을 어떤 색으로 칠했는지"를 검증한다.
-interface FillCall { style: string; x: number; y: number; width: number; height: number }
-function recordingContext(): { ctx: CanvasRenderingContext2D; fills: FillCall[]; texts: string[] } {
-  const fills: FillCall[] = [];
-  const texts: string[] = [];
-  const state: Record<string | symbol, unknown> = { fillStyle: '' };
-  const ctx = new Proxy(state, {
-    get(target, key) {
-      if (key === 'fillRect') {
-        return (x: number, y: number, width: number, height: number) => { fills.push({ style: String(target.fillStyle), x, y, width, height }); };
-      }
-      if (key === 'fillText') return (text: string) => { texts.push(text); };
-      if (key in target) return target[key];
-      return () => {}; // 나머지 그리기 메서드는 결과에 영향이 없으므로 무시
-    },
-    set(target, key, value) { target[key] = value; return true; },
-  });
-  // 그리기 API 전체를 구현하지 않는 테스트용 대역이라 타입을 맞춰 넘긴다.
-  return { ctx: ctx as unknown as CanvasRenderingContext2D, fills, texts };
-}
+// fillRect·fillText를 월드 좌표 그대로 기록하는 가짜 컨텍스트로 "어느 영역을 어떤 색으로 칠했는지"를 검증한다(recorder.ts).
+type FillCall = Fill;
+const recordingContext = () => recorder({ translate: false });
 
 function render(world: World): { fills: FillCall[]; texts: string[] } {
   const canvas = document.createElement('canvas');

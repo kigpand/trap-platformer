@@ -2,13 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { STONE_SIZE, World, pipeEnemyRect, sinkingPipeRects, stoneRect, type InputState } from '../../../src/game/world/World';
 import { ENEMY_HEIGHT } from '../../../src/game/entities/Enemy';
 import type { Hill } from '../../../src/game/world/level';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, standAt, testLevel } from './fixtures';
 import { playSolution } from './solution';
 
 // 지형지물 함정 31~33번(docs/traps-spec.md "지형지물 함정").
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const ground = { x: 0, y: 500, width: 2000, height: 120 };
 function steps(world: World, n: number, input: InputState = idle): void { for (let i = 0; i < n; i++) world.update(dt, input); }
 

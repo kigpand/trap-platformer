@@ -1,19 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { World, vanishingTile, type InputState } from '../../../src/game/world/World';
-import { standAt, testLevel } from './fixtures';
+import { World, vanishingTile } from '../../../src/game/world/World';
+import { dt, idle, left, right, runUntil, standAt, testLevel } from './fixtures';
 import type { Rect } from '../../../src/game/physics/AABB';
 
 // 지형 함정 3종(docs/traps-spec.md 6·7·9번)을 함정 하나만 둔 작은 시험용 레벨에서 검증한다.
 // 실제 레벨 배치와 해법 입력 완주는 레벨 연장(roadmap 함정 확장 5번)에서 검증한다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 
 const level = testLevel;
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#6 vanishing ground (chain collapse)', () => {
   // 바닥(0-300) → 사라지는 땅(300-700, 40px 칸 10개, 아래는 구덩이) → 바닥(700-2000)

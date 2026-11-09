@@ -2,15 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { hillColumns, staticSolids, type Hill } from '../../../src/game/world/level';
 import { overlaps } from '../../../src/game/physics/AABB';
-import { testLevel } from './fixtures';
+import { dt, right, testLevel } from './fixtures';
 import { playSolution } from './solution';
 
 // 지형지물(파이프·계단식 언덕): 충돌은 일반 솔리드와 같다(docs/physics-spec.md "충돌 동작 규약").
 const ground = { x: 0, y: 500, width: 2000, height: 120 };
 const pipe = { x: 400, y: 440, width: 60, height: 60 };
 const hill: Hill = { x: 400, y: 500, steps: 3, stepWidth: 60, stepHeight: 40, topWidth: 120 };
-const dt = 1 / 60;
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 
 describe('hill columns', () => {
   it('splits a hill into touching, non-overlapping columns that stand on its ground', () => {

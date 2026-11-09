@@ -3,19 +3,14 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_3, LEVELS } from '../../../src/game/world/level';
 import { playSolution, type Step } from './solution';
 import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, HILL_PIPE_ENEMY, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
+import { dt } from './fixtures';
+import { respawnFrom } from './respawn';
 
 // 레벨 3(어려움, 16,800px): 새 함정 8종을 명세 기본 크기로 쉴 틈 없이 이어 붙인다(함정 확장 릴리스 6번).
 // 원래 구간이 없어 처음부터 끝까지 해법 입력으로 간다. 맵 3배 확장: 예전 마지막 구간(도망가는 목표)을 끝으로 옮기고,
 // 그 사이에 약올리는 함정·함정 추가 17종(14~30번)을 둘씩 섞어 둔다.
-const dt = 1 / 60;
 
-function respawnAt(index: number): World {
-  const cp = LEVEL_3.checkpoints[index];
-  const world = new World(LEVEL_3);
-  world.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
-  world.reset(true);
-  return world;
-}
+const respawnAt = (index: number): World => respawnFrom(LEVEL_3, LEVEL_3.checkpoints[index]);
 
 describe('LEVEL_3 (hard)', () => {
   it('comes after levels 1-2, is longer than them, and uses all eight new trap kinds at the spec sizes', () => {

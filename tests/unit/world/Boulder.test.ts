@@ -1,19 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { BOULDER_SIZE, World, type InputState } from '../../../src/game/world/World';
+import { BOULDER_SIZE, World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, runUntil, standAt, testLevel } from './fixtures';
 
 // #19 따라오는 돌덩이(docs/traps-spec.md). 평평한 바닥에서 트리거(600-640)에 들어오면 시작 x 380(오른쪽 끝 440 = 트리거 − 160)에
 // 나타나 1900까지 굴러간다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const trigger: Rect = { x: 600, y: 300, width: 40, height: 200 };
 const boulder = { trigger, startX: 380, endX: 1900, y: 500 - BOULDER_SIZE };
 const L = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], boulders: [boulder] });
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 function enterTrigger(world: World): void {
   standAt(world, 500);
   runUntil(world, right, 60, () => world.boulders[0].phase !== 'idle');

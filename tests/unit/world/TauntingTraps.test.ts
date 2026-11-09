@@ -1,18 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { World, type InputState } from '../../../src/game/world/World';
+import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, left, right, runUntil, standAt, testLevel } from './fixtures';
 
 // 약올리는 함정 중 강제 비행과 좌우 반전(docs/traps-spec.md 15·16·17번). 함정 하나만 둔 시험용 레벨에서
 // 트리거·동작·해법과 강제 비행 종료 시점, 반전 구역 경계의 입력 떨림 여부를 확인한다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('forced flight (common to #15 and #17)', () => {
   it('does not end on the launch step even when it starts on the ground, but on the first landing after', () => {

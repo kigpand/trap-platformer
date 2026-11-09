@@ -1,18 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { SHADOW_DELAY_STEPS, World, type InputState } from '../../../src/game/world/World';
+import { SHADOW_DELAY_STEPS, World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, left, right, runUntil, standAt, testLevel } from './fixtures';
 
 // #22 따라 하는 그림자(docs/traps-spec.md): 트리거한 스텝(0번째)부터 위치를 기록하고, 120번째 스텝부터 120스텝 전 위치를 재생한다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 const trigger: Rect = { x: 400, y: 300, width: 40, height: 200 };
 const L = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], shadows: [{ trigger, endX: 1200 }] });
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#22 mimic shadow', () => {
   it('waits for the trigger', () => {

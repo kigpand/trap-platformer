@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { MUD_JUMP_SPEED, MUD_SPEED, WIND_MAX_FALL, World, type InputState } from '../../../src/game/world/World';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, left, right, standAt, testLevel } from './fixtures';
 import { playSolution } from './solution';
 
 // 움직임을 바꾸는 지형지물(함정 아님): 트램펄린·컨베이어 벨트·진흙 바닥. 셋 다 바닥 윗면에 겹쳐 둔다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
 const feet = (w: World) => w.player.y + w.player.height;
 function apex(world: World, input: InputState = idle): number {
