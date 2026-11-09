@@ -1,18 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { World, type InputState } from '../../../src/game/world/World';
+import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, runUntil, standAt, testLevel } from './fixtures';
 
 // #23 착지 예측 가시(docs/traps-spec.md): 구역 안에서 뛰면, 지금 입력을 유지했을 때 떨어질 자리에 가시가 솟는다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
 const zone: Rect = { x: 500, y: 300, width: 60, height: 200 };
 const L = testLevel({ solids: [flat], landingSpikeZones: [zone] });
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 const centerOf = (r: Rect): number => r.x + r.width / 2;
 
 describe('#23 landing spikes', () => {

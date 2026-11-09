@@ -2,12 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVELS, type SkyDropGroup } from '../../../src/game/world/level';
 import { ENEMY_WIDTH } from '../../../src/game/entities/Enemy';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, standAt, testLevel } from './fixtures';
 import { playSolution, type Step } from './solution';
 
 // #13 하늘에서 쏟아지는 적(docs/traps-spec.md). 함정 하나만 둔 시험용 레벨에서 확인한다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 const ground = { x: 0, y: 500, width: 2000, height: 120 };
 const group: SkyDropGroup = {
   trigger: { x: 400, y: 400, width: 40, height: 100 },

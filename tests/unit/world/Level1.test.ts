@@ -3,6 +3,7 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_1 } from '../../../src/game/world/level';
 import { playSolution, recordInputs } from './solution';
 import { ceiling, dodge, DODGE, FAKE_CLEAR_AND_GEM, fakeFlag, FULL, HILL_BEFORE_RHYTHM, ICE, PIPE_BEFORE_GEM, PIPE_BEFORE_ICE, PIPE_BEFORE_SPRING, pipeEnemy, RHYTHM, SHADOW, SPIKES, SPRING_AND_GOAL, TAUNTING, TERRAIN, TO_FAKE_FLAG, VANISHING_AND_CEILING } from './level1Solution';
+import { respawnFrom } from './respawn';
 
 const IDLE = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 
@@ -13,12 +14,7 @@ const IDLE = { horizontal: 0 as const, jumpPressed: false, restartPressed: false
 // 지형지물(2026-11-07): 그림자 뒤 체크포인트 7과 스프링 사이에 파이프 → 적이 나오는 파이프 → 가라앉는 파이프 → 언덕과 굴러 내려오는 돌.
 // 완료 기준: 해법 입력으로 스폰과 모든 체크포인트에서 사망 없이 목표까지.
 const [cp1, cp2, cp3, cp4, cp5, cp6, cp7] = LEVEL_1.checkpoints;
-function respawnAt(cp: typeof cp1): World {
-  const world = new World(LEVEL_1);
-  world.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
-  world.reset(true); // 게임의 사망 재시작 경로로 체크포인트에서 시작한다
-  return world;
-}
+const respawnAt = (cp: typeof cp1): World => respawnFrom(LEVEL_1, cp); // 게임의 사망 재시작 경로로 체크포인트에서 시작한다
 
 describe('LEVEL_1 (easy, extended)', () => {
   it('is about three times its old 4000px and introduces the taunting traps one by one', () => {

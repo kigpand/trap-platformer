@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ARROW_WARNING, World, type InputState } from '../../../src/game/world/World';
+import { ARROW_WARNING, World } from '../../../src/game/world/World';
 import type { Arrow } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, runUntil, standAt, testLevel } from './fixtures';
 
 // #26 화살 발사대(docs/traps-spec.md). 평평한 바닥, 트리거(400-440). 화살은 오른쪽 화면 밖(1300)에서 왼쪽으로 날아온다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 const trigger: Rect = { x: 400, y: 300, width: 40, height: 200 };
 const low: Arrow = { y: 484, delay: 0, fromX: 1300, toX: 200 }; // 바닥 위 10~16px — 서 있으면 맞고 뛰면 넘는다
 const high: Arrow = { y: 450, delay: 0, fromX: 1300, toX: 200 }; // 아랫면 456 — 서 있는 머리(468) 위로 지나간다
 const level = (arrows: Arrow[]) => testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }], arrowTraps: [{ trigger, arrows }] });
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#26 arrow launcher', () => {
   it('warns from its delay, appears at fromX 0.4s later, flies 6px a step and vanishes at toX', () => {

@@ -4,10 +4,11 @@ import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { runToGoal } from './autopilot';
 import { playSolution, type Step } from './solution';
 import { AFTER_CP2, ARROWS, BOULDER, COUNTING, DODGE, FLEEING_GOAL, FULL, HEAVY, LANDING_SPIKES, mirror, MIRROR, REVERSE, SPIKES_AND_FAKE, TAUNTING, VANISHING_CEILING_ENEMY } from './level2Solution';
+import { dt } from './fixtures';
+import { respawnFrom } from './respawn';
 
 // 레벨 2 배치 검증(docs/roadmap.md "새 맵 추가" 릴리스 3번). 처음 작성 당시엔 진행 흐름(4번) 전이라 게임 화면에서 고를 수 없어,
 // World에 LEVEL_2를 직접 넘겨 확인한다.
-const dt = 1 / 60;
 const noInput = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 const [groundA, groundB] = LEVEL_2.solids;
 const platform = LEVEL_2.fallingPlatforms[0];
@@ -27,12 +28,7 @@ function standOn(world: World, x: number, groundY: number): void {
 // 착지 예측 가시 → 화살 → 따라 뛰는 적 → 세 번째 착지 발판 → 따라오는 돌덩이를 하나씩 둔다.
 const cpGoal = LEVEL_2.checkpoints[LEVEL_2.checkpoints.length - 1]; // 도망가는 목표 앞
 
-function respawnAt(cp: (typeof LEVEL_2.checkpoints)[number]): World {
-  const world = new World(LEVEL_2);
-  world.activeCheckpoint = { x: cp.respawnX, y: cp.respawnY };
-  world.reset(true);
-  return world;
-}
+const respawnAt = (cp: (typeof LEVEL_2.checkpoints)[number]): World => respawnFrom(LEVEL_2, cp);
 
 describe('LEVEL_2', () => {
   it('uses at least three trap kinds plus a patrol enemy, in a different combination from level 1', () => {

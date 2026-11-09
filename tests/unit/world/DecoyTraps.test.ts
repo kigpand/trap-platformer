@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { gemRect, World, type InputState } from '../../../src/game/world/World';
+import { gemRect, World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, runUntil, standAt, testLevel } from './fixtures';
 
 // 미끼 함정(docs/traps-spec.md 20·21번): 가짜 벽과 미끼 보물.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#20 fake wall', () => {
   // 최대 점프(81.375px)보다 높은 벽 — 넘을 수 없어 보이지만 그대로 걸어 지나간다.

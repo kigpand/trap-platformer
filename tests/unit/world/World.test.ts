@@ -3,6 +3,7 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { shouldJump } from './autopilot';
 import { playSolution } from './solution';
+import { dt } from './fixtures';
 
 // 이 파일의 테스트는 레벨 1의 배치를 검증한다. 레벨 객체 도입 전의 이름을 그대로 써서 테스트 본문은 바꾸지 않는다.
 const {
@@ -10,7 +11,6 @@ const {
   fallingPlatforms: FALLING_PLATFORMS, goal: GOAL, hazards: HAZARDS, hiddenBlocks: HIDDEN_BLOCKS, solids: SOLIDS,
 } = LEVEL_1;
 const noInput = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const dt = 1 / 60;
 
 describe('World trap and goal rules', () => {
   it('updates facing on horizontal input and keeps it while idle', () => {

@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { rhythmPhase, World, type InputState } from '../../../src/game/world/World';
+import { rhythmPhase, World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, runUntil, standAt, testLevel } from './fixtures';
 
 // 시간에 따라 움직이는 솔리드(docs/traps-spec.md 25·27번).
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#25 descending ceiling', () => {
   // 통로(600-900) 위 블록의 아랫면 340 — 서 있는 플레이어 머리(468)까지 128px, 60px/s로 약 2.13초.

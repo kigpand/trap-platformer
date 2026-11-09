@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { World, type DeathCauseKind } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { DEATH_NAMES, rankDeaths, TAUNTS } from '../../../src/game/rendering/taunts';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, standAt, testLevel } from './fixtures';
 
 // 놀리는 사망 메시지(docs/game-design.md): 원인 종류가 사망마다 정확히 붙고, 2초 동안만 띄운다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 function dieUntil(world: World, steps = 240): void {
   const before = world.deaths;
   for (let i = 0; i < steps && world.deaths === before; i++) world.update(dt, idle);
@@ -43,8 +41,7 @@ describe('death cause kinds and taunts', () => {
   // 나머지 사망 경로(코덱스 리뷰: 원인 종류 테스트가 사망 경로 대부분을 검증하지 않았다). 함정 하나만 둔 시험용 레벨에서
   // 실제로 그 함정에 죽게 해, 원인 종류와 놀리는 문구가 맞게 붙는지 확인한다.
   const ground = { x: 0, y: 500, width: 2000, height: 120 };
-  const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-  it.each<[DeathCauseKind, () => World, (w: World) => void]>([
+    it.each<[DeathCauseKind, () => World, (w: World) => void]>([
     ['ambush', () => new World(testLevel({ solids: [ground], ambushes: [{ trigger: { x: 300, y: 400, width: 40, height: 100 }, minX: 400, maxX: 500, y: 472 }] })),
       (w) => { standAt(w, 310); for (let i = 0; i < 30 && !w.ambushes[0].enemy; i++) w.update(dt, idle); const e = w.ambushes[0].enemy!; w.player.x = e.x; w.player.y = e.y; }],
     ['conditional', () => new World(testLevel({ solids: [ground], conditionalTraps: [{ zone: { x: 300, y: 440, width: 50, height: 80 } }] })),

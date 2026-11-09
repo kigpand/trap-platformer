@@ -1,17 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { World, type InputState } from '../../../src/game/world/World';
+import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, runUntil, standAt, testLevel } from './fixtures';
 
 // 속임수 함정 4종(docs/traps-spec.md 8·10·11·12번). 함정마다 "처음엔 당한다 → 원인이 표시된다 →
 // 알고 나면 실제 입력으로 피할 수 있다"를 함정 하나만 둔 시험용 레벨에서 확인한다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const jumpRight = { ...right, jumpPressed: true };
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#8 dodging platform', () => {
   // 발판(0-300) → 구덩이 → 건너편(560-). 도망가는 발판은 330에서 420으로 미끄러진다. 트리거는 출발 발판 끝 위 공중.

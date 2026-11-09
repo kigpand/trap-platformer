@@ -2,12 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { World, type TrapEvent, type InputState } from '../../../src/game/world/World';
 import type { Level } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, standAt, testLevel } from './fixtures';
 
 // 함정 효과음 이벤트(docs/game-design.md "소리" 표): 발동한 스텝에 위치와 함께 정확히 한 번 나온다.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const flat: Rect = { x: 0, y: 500, width: 2000, height: 120 };
 
 // 입력을 하나씩 넣으며 스텝마다 나온 함정 이벤트를 모은다.

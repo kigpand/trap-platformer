@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { World, type InputState } from '../../../src/game/world/World';
+import { World } from '../../../src/game/world/World';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, left, right, runUntil, standAt, testLevel } from './fixtures';
 
 // #14 가짜 클리어(docs/traps-spec.md). 바닥(0-800) → 가짜 깃발이 선 꺼지는 바닥(800-1100, 아래는 구덩이) → 진짜 목표까지 이어진 바닥.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
-const left = { horizontal: -1 as const, jumpPressed: false, restartPressed: false };
 const flag: Rect = { x: 940, y: 440, width: 40, height: 60 };
 const floor: Rect = { x: 800, y: 500, width: 300, height: 120 };
 const goal: Rect = { x: 1900, y: 440, width: 40, height: 60 };
@@ -15,9 +11,6 @@ const L = testLevel({
   solids: [{ x: 0, y: 500, width: 800, height: 120 }, { x: 1100, y: 500, width: 900, height: 120 }],
   goal, fakeGoals: [{ flag, floor: [floor] }],
 });
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 function touchFlag(world: World): void {
   standAt(world, 880);
   world.runTime = 12.34;

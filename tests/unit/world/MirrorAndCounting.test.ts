@@ -1,17 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { World, type InputState } from '../../../src/game/world/World';
+import { World } from '../../../src/game/world/World';
 import type { MirrorEnemy } from '../../../src/game/world/level';
 import type { Rect } from '../../../src/game/physics/AABB';
-import { standAt, testLevel } from './fixtures';
+import { dt, idle, right, runUntil, standAt, testLevel } from './fixtures';
 
 // docs/traps-spec.md 29번 따라 뛰는 적, 30번 세 번째 착지에 무너지는 발판.
-const dt = 1 / 60;
-const idle = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
-const right = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
 const flat = { x: 0, y: 500, width: 2000, height: 120 };
-function runUntil(world: World, input: InputState, steps: number, stop: () => boolean = () => false): void {
-  for (let i = 0; i < steps && !stop(); i++) world.update(dt, input);
-}
 
 describe('#29 mirror-jump enemy', () => {
   // 순찰 600-1100, 높이 472(바닥 위). 적은 600에서 오른쪽으로 120px/s.
