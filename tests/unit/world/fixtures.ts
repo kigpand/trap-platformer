@@ -1,5 +1,3 @@
-// 이 파일은 game 모듈을 타입으로만 가져온다(levelData 제외). level 모듈을 통째로 mock하는 테스트(FakeClearController.test.ts)가
-// mock을 만드는 도중에 이 파일을 불러오므로, World·level을 런타임에 불러오면 만들어지는 중인 mock을 기다리며 멈춘다.
 import type { Level } from '../../../src/game/world/level';
 import { defineLevel } from '../../../src/game/world/levelData';
 import type { InputState, World } from '../../../src/game/world/World';

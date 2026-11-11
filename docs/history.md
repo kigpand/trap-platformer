@@ -179,6 +179,7 @@
 
 ## 완료된 백로그 작업
 백로그에서 끝낸 작업(최근 것이 위).
+- [x] 컨트롤러가 레벨 목록을 받게(2026-11-11) — `FakeClearController.test.ts`가 시험용 레벨을 쓰려고 level 모듈을 통째로 mock해, mock을 만드는 도중에 game 모듈을 불러오는 도우미를 쓰면 테스트가 멈췄다(레벨 필드 기본값·테스트 도우미 작업에서 두 번). `GameController`가 네 번째 인자로 레벨 목록을 받게 하고(기본값 `LEVELS`) 테스트는 시험용 레벨을 넘긴다. 이제 테스트에 level 모듈 mock이 없어, `fixtures.ts`·`respawn.ts`·`levelData.ts`에 적어 둔 "mock 때문에 따로 둔다" 주석을 지웠다.
 
 - [x] 레벨 4 여유 테스트 시간(2026-11-09, 개발 환경 점검 6번) — 단위 테스트 전체 시간의 대부분(혼자 돌 때 약 7초, 전체와 함께 약 11초)을 쓰던 "모든 점프 6프레임 여유" 테스트를 약 2초로 줄였다. 한쪽 12프레임까지 재던 것을 하한 확인에 필요한 만큼만 잰다 — 한쪽 5프레임까지, 늦게 쪽만으로 합계 6이 되면 일찍 쪽은 재지 않는다(`jumpSlack`의 `need`). 합계가 6 이상인지는 끝까지 잰 것과 같고(한쪽이 5에 닿으면 그것만으로 6, 둘 다 못 닿으면 둘 다 정확한 값), 바꾼 점프 뒤로 해법 끝까지 확인하는 범위와 60초 제한은 그대로다. `.claude/rules/levels.md`의 "측정 범위를 줄이지 않는다"를 "해법 끝까지 확인하는 범위"로 분명히 했다. `pnpm slack` 표는 그대로 끝까지 잰다.
 - [x] 테스트 도우미 중복(2026-11-09, 개발 환경 점검 5번) — 테스트 22개 파일이 각자 두던 `dt`·`idle`·`right`·`left`와 12개 파일의 `runUntil`을 `fixtures.ts`로, 레벨 테스트 네 개의 `respawnAt`을 `respawn.ts`의 `respawnFrom(level, checkpoint)`로 모았다. `CanvasRenderer.test.ts`가 따로 두던 가짜 컨텍스트는 `recorder({ translate: false })`(월드 좌표 그대로 기록, `fillText` 글자도 기록)로 합쳤다. 테스트 수는 그대로(506개). `respawnFrom`을 `fixtures.ts`에 두었더니 level 모듈을 mock하는 테스트가 다시 멈춰(4번과 같은 원인) `fixtures.ts`는 game 모듈을 타입으로만 가져오게 하고 파일 머리에 이유를 적었다.
