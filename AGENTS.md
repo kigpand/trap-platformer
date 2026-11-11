@@ -16,7 +16,8 @@ React + TypeScript + Canvas 2D로 독자적인 브라우저 기반 2D 횡스크�
 - `docs/game-design.md`: 플레이어 관점의 규칙과 범위
 - `docs/architecture.md`: 모듈 경계
 - `docs/physics-spec.md`: 충돌 및 물리 동작 규약
-- `docs/roadmap.md`: 마일스톤과 대기 과제
+- `docs/roadmap.md`: 진행 중인 일과 대기 과제
+- `docs/history.md`: 끝난 마일스톤·릴리스·백로그 작업의 기록
 - `docs/traps-spec.md`: 함정과 적 동작 규약
 - `docs/decisions/`: 주요 아키텍처 결정
 - `.claude/rules/*.md`: 영역별 구현 지침(물리·렌더링·레벨 배치·입력). 파일 머리의 `paths`에 해당하는 코드를 바꿀 때는 Claude 외의 에이전트도 함께 읽습니다.

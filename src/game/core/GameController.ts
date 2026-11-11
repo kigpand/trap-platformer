@@ -22,7 +22,7 @@ const MUTED_STORAGE_KEY = 'trap-runner:muted';
 const VOLUME_STORAGE_KEY = 'trap-runner:volume';
 const DEFAULT_VOLUME = 0.8;
 // 레벨별 최고 기록 저장 키. 맵 3배 확장으로 길어진 레벨은 예전(짧은 맵) 기록을 깰 수 없어 v2 키로 새로 시작한다
-// (docs/roadmap.md 약올리는 함정 5번). 예전 키('trap-runner:best', 'trap-runner:best:2'·':3')는 더 읽지 않는다.
+// (docs/history.md 약올리는 함정 5번). 예전 키('trap-runner:best', 'trap-runner:best:2'·':3')는 더 읽지 않는다.
 const bestStorageKey = (levelIndex: number): string => `trap-runner:best:v2:${levelIndex + 1}`;
 // 음소거 설정은 새로고침 후에도 유지한다. 시크릿 모드·저장소 차단 등으로 localStorage
 // 접근이 예외를 던질 수 있으므로, 실패하면 기본값(소리 켬)으로 동작하고 저장은 건너뛴다.

@@ -68,7 +68,7 @@ export interface SinkingPipe { pipe: Rect; delay: number }
 // 굴러 내려오는 돌(#33): trigger에 처음 들어오면 (x, y)(왼쪽 위, 언덕 꼭대기 위)에 돌이 나타나 왼쪽으로 굴러 계단을 내려오고, x가 endX 이하가 되면 사라진다.
 export interface RollingStone { trigger: Rect; x: number; y: number; endX: number }
 // 레벨 하나의 배치 전체. World는 이 객체를 받아 시뮬레이션하고 렌더러는 world.level을 그린다 —
-// 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/roadmap.md "새 맵 추가" 릴리스 2번).
+// 레벨을 늘릴 때 전역 상수를 바꾸지 않고 객체를 하나 더 만들면 된다(docs/history.md "새 맵 추가" 릴리스 2번).
 export interface Level {
   width: number;
   height: number;
@@ -84,7 +84,7 @@ export interface Level {
   ambushes: readonly AmbushEnemy[];
   conditionalTraps: readonly ConditionalTrap[];
   checkpoints: readonly Checkpoint[];
-  // 함정 확장(docs/traps-spec.md 6~13번). 레벨 1·2는 연장 전까지 비워 둔다(docs/roadmap.md 함정 확장 5번).
+  // 함정 확장(docs/traps-spec.md 6~13번). 레벨 1·2는 연장 전까지 비워 둔다(docs/history.md 함정 확장 5번).
   vanishingGrounds: readonly Rect[]; // #6 사라지는 땅: 40px 칸으로 나뉘어 연쇄 붕괴하는 바닥 구간
   invisibleBlocks: readonly Rect[]; // #7 투명 블록
   fallingCeilings: readonly FallingCeiling[]; // #9 떨어지는 천장

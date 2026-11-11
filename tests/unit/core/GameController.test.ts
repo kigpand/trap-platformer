@@ -270,7 +270,7 @@ describe('GameController level progression', () => {
   });
 
   it('plays level 4 after level 3, and only level 4 ends the run with the completion screen', () => {
-    // 레벨 4 추가(docs/roadmap.md "레벨 4"): 레벨 3 클리어는 더 이상 완료 화면이 아니고, 레벨 4 기록은 v2:4 키에 저장한다.
+    // 레벨 4 추가(docs/history.md "레벨 4"): 레벨 3 클리어는 더 이상 완료 화면이 아니고, 레벨 4 기록은 v2:4 키에 저장한다.
     const { controller, clearCurrentLevel, last } = setup();
     expect(last().levelCount).toBe(4);
     for (let i = 1; i < 3; i++) { clearCurrentLevel(); controller.nextLevel(); }

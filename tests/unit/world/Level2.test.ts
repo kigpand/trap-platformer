@@ -7,7 +7,7 @@ import { AFTER_CP2, ARROWS, BOULDER, COUNTING, DODGE, FLEEING_GOAL, FULL, HEAVY,
 import { dt } from './fixtures';
 import { respawnFrom } from './respawn';
 
-// 레벨 2 배치 검증(docs/roadmap.md "새 맵 추가" 릴리스 3번). 처음 작성 당시엔 진행 흐름(4번) 전이라 게임 화면에서 고를 수 없어,
+// 레벨 2 배치 검증(docs/history.md "새 맵 추가" 릴리스 3번). 처음 작성 당시엔 진행 흐름(4번) 전이라 게임 화면에서 고를 수 없어,
 // World에 LEVEL_2를 직접 넘겨 확인한다.
 const noInput = { horizontal: 0 as const, jumpPressed: false, restartPressed: false };
 const [groundA, groundB] = LEVEL_2.solids;
