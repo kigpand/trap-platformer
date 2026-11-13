@@ -1,5 +1,5 @@
 import type { World } from '../../../src/game/world/World';
-import type { Step } from './solution';
+import { stoneOnGroundNear, type Step } from './solution';
 
 // 레벨 2 해법 입력(구간별). Level2.test.ts와 점프 여유 표(scripts/slack.js)가 함께 쓴다.
 export const mirror = (w: World) => w.mirrorEnemies[0];
@@ -46,8 +46,15 @@ export const COUNTING: Step[] = [
   { waitUntil: (w) => { const pe = pipeEnemy(w); return pe.phase === 'patrolling' && !!pe.enemy && pe.enemy.vx < 0 && pe.enemy.x < 10660; } },
   ...over(10800), // 적이 왼쪽으로 지나간 사이 발판 끝에서 내려와 파이프를 넘는다
 ]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지, 발판(10620)에 올라갔다 끝에서 내려와 파이프
-export const BOULDER: Step[] = [{ run: 12295 }, { jump: true }, ...over(13300), { jump: true }, { run: 13815 }, { jump: true }]; // 돌덩이가 멈춘 뒤 3단 언덕, 바람을 타고 넓은 구덩이(13820-14020)
+export const BOULDER: Step[] = [{ run: 12295 }, { jump: true }];
+// 돌덩이가 멈춘 뒤 3단 언덕: 두 번째 단에 오르면 꼭대기에 돌이 나타난다. 언덕 아래로 물러나 바닥까지 굴러온 돌을 제자리에서 넘고
+// 다시 올라, 바람을 타고 넓은 구덩이(13820-14020)를 건넌다(단 위에서 넘으면 돌이 아래 단으로 떨어지는 순간과 겹친다).
+export const STONE_WIND: Step[] = [
+  ...over(13300), { leftUntil: (w) => w.player.x + w.player.width <= 13180 },
+  { waitUntil: (w) => stoneOnGroundNear(w) }, { hop: true },
+  ...over(13300), { jump: true }, { run: 13815 }, { jump: true },
+];
 export const FLEEING_GOAL: Step[] = [{ run: 14610 }, { wait: 0.4 }, { run: 14780 }, { jump: true }, { run: 15280 }];
-export const TAUNTING: Step[] = [...FLING, ...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL];
+export const TAUNTING: Step[] = [...FLING, ...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL];
 export const AFTER_CP2: Step[] = [...INVISIBLE_BLOCK, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING];
 export const FULL: Step[] = [...ORIGINAL, ...AFTER_CP2];

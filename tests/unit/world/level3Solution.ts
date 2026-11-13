@@ -1,5 +1,5 @@
 import type { World } from '../../../src/game/world/World';
-import { jumpSkyDropHeadOn, type Step } from './solution';
+import { jumpSkyDropHeadOn, stoneOnGroundNear, type Step } from './solution';
 
 // 레벨 3 해법 입력(구간별). Level3.test.ts와 점프 여유 표(scripts/slack.js)가 함께 쓴다.
 // 맵 곳곳의 평범한 파이프·언덕은 앞에서 뛰어 넘거나 오른다(해당 구간에 붙여 체크포인트 해법에도 들어간다).
@@ -26,7 +26,7 @@ export const mirror = (w: World) => w.mirrorEnemies[0];
 export const arrowNear = (i: number) => (w: World) => { const a = w.arrowTraps[0].arrows[i]; return a.phase === 'flying' && a.x <= w.player.x + w.player.width + 40; };
 export const BOULDER_WALL: Step[] = [{ run: 4985 }, { jump: true }, { run: 6295 }, { jump: true }]; // 돌덩이를 달고 가짜 벽을 그대로 지나 구덩이
 export const ICE_FLING: Step[] = [...over(6650), { run: 6865 }, { jump: true }, { run: 7375 }, { jump: true }]; // 뒤쪽 구덩이, 얼음 끝 날려버리는 점프 구역 앞에서 뛴다
-export const SHADOW_REVERSE: Step[] = [{ runUntil: (w) => w.reverse !== null }, { leftUntil: (w) => w.reverse === null }, { run: 8295 }, { jump: true }];
+export const SHADOW_REVERSE: Step[] = [{ runUntil: (w) => w.reverse !== null }, { leftUntil: (w) => w.reverse === null }, { run: 8295 }, { jump: true }, { run: 8845 }, { jump: true }]; // 그림자 뒤 바람 구덩이
 export const ARROWS_HEAVY: Step[] = [
   { run: 9330 }, { waitUntil: arrowNear(0) }, { hop: true }, // 낮은 화살
   { waitUntil: (w) => w.arrowTraps[0].arrows[1].phase === 'gone' }, // 높은 화살은 서서
@@ -42,6 +42,9 @@ export const MIRROR_SPIKES: Step[] = [
 export const COUNTING: Step[] = [{ run: 11615 }, { jump: true }, { run: 11900 }, { jump: true }];
 // 3단 언덕(단 30px)을 두 번 뛰어 오르고 내려와, 적이 나오는 파이프 앞에서 기다렸다 내려온 적을 넘고 파이프를 넘는다.
 export const HILL_PIPE_ENEMY: Step[] = [
+  // 두 번째 단에 오르면 꼭대기에 돌이 나타난다 — 언덕 아래로 물러나 바닥까지 굴러온 돌을 제자리에서 넘고 다시 오른다.
+  ...over(12300), { leftUntil: (w) => w.player.x + w.player.width <= 12180 },
+  { waitUntil: (w) => stoneOnGroundNear(w) }, { hop: true },
   ...over(12300), { jump: true },
   { run: 12700 },
   { waitUntil: (w) => { const pe = w.pipeEnemies[0]; return pe.phase === 'patrolling' && !!pe.enemy && pe.enemy.vx < 0 && pe.enemy.x - (w.player.x + w.player.width) < 40; } },

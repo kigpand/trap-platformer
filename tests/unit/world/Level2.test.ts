@@ -3,7 +3,7 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { runToGoal } from './autopilot';
 import { playSolution, type Step } from './solution';
-import { AFTER_CP2, ARROWS, BOULDER, COUNTING, DODGE, FLEEING_GOAL, FULL, HEAVY, LANDING_SPIKES, mirror, MIRROR, REVERSE, SPIKES_AND_FAKE, TAUNTING, VANISHING_CEILING_ENEMY } from './level2Solution';
+import { AFTER_CP2, ARROWS, BOULDER, COUNTING, STONE_WIND, DODGE, FLEEING_GOAL, FULL, HEAVY, LANDING_SPIKES, mirror, MIRROR, REVERSE, SPIKES_AND_FAKE, TAUNTING, VANISHING_CEILING_ENEMY } from './level2Solution';
 import { dt } from './fixtures';
 import { respawnFrom } from './respawn';
 
@@ -65,14 +65,15 @@ describe('LEVEL_2', () => {
     ['checkpoint 3 (before the spikes and fake checkpoint)', 2, [{ wait: 0.6 }, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING]],
     ['checkpoint 4 (before the falling ceiling)', 3, [{ wait: 0.6 }, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING]],
     ['checkpoint 5 (before the fling jump)', 4, TAUNTING],
-    ['checkpoint 6 (before the reverse zone)', 5, [...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 7 (before the heavy shoes)', 6, [...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 8 (before the landing spikes)', 7, [...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 9 (before the arrows)', 8, [...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 10 (before the mirror enemy)', 9, [...MIRROR, ...COUNTING, ...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 11 (before the third-landing platform)', 10, [...COUNTING, ...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 12 (before the boulder)', 11, [...BOULDER, ...FLEEING_GOAL]],
-    ['checkpoint 13 (before the fleeing goal)', 12, FLEEING_GOAL],
+    ['checkpoint 6 (before the reverse zone)', 5, [...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 7 (before the heavy shoes)', 6, [...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 8 (before the landing spikes)', 7, [...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 9 (before the arrows)', 8, [...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 10 (before the mirror enemy)', 9, [...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 11 (before the third-landing platform)', 10, [...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 12 (before the boulder)', 11, [...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 13 (before the hill with the rolling stone)', 12, [...STONE_WIND, ...FLEEING_GOAL]],
+    ['checkpoint 14 (before the fleeing goal)', 13, FLEEING_GOAL],
   ] as const)('can be finished from %s with no further deaths', (_, index, steps) => {
     const world = respawnAt(LEVEL_2.checkpoints[index]);
     expect(playSolution(world, steps)).toBe(steps.length);
@@ -232,6 +233,11 @@ describe('LEVEL_2', () => {
     playSolution(boulder, [{ run: 11760 }]);
     until(boulder, 0, () => boulder.deaths > 1);
     dies(boulder, 'boulder');
+    // 굴러 내려오는 돌(#33): 3단 언덕을 오르다 그대로 →를 누르고 있으면 굴러 내려오는 돌에 닿는다
+    const stone = cp(12);
+    playSolution(stone, STONE_WIND.slice(0, 2)); // 두 번째 단에 오른 뒤 그대로 →
+    until(stone, 1, () => stone.deaths > 1);
+    dies(stone, 'rollingStone');
   });
 
   it('flings back far enough to land in the pit behind, from anywhere in the fling zone', () => {

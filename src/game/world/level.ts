@@ -340,6 +340,8 @@ export const LEVEL_2: Level = defineLevel({
     { zone: { x: 8650, y: 360, width: 40, height: 140 }, respawnX: 8650, respawnY: 350 },
     { zone: { x: 9950, y: 360, width: 40, height: 140 }, respawnX: 9950, respawnY: 350 },
     { zone: { x: 11300, y: 360, width: 40, height: 140 }, respawnX: 11300, respawnY: 350 },
+    // 돌덩이가 멈춘 뒤(13000), 굴러 내려오는 돌이 있는 언덕(13300) 앞. 돌에 죽어도 돌덩이 구간을 다시 하지 않는다.
+    { zone: { x: 13100, y: 360, width: 40, height: 140 }, respawnX: 13100, respawnY: 350 },
     { zone: { x: 14200, y: 360, width: 40, height: 140 }, respawnX: 14200, respawnY: 350 },
   ],
   // 레벨 2(보통): 새 함정 7종을 모두 쓰고, 레벨 1보다 타이밍을 좁힌다(docs/game-design.md "난이도 곡선").
@@ -377,6 +379,9 @@ export const LEVEL_2: Level = defineLevel({
   mudFloors: [{ x: 5420, y: 500, width: 100, height: 20 }],
   // 바람 구간: 언덕 너머 넓은 구덩이(13820-14020) 위.
   windZones: [{ zone: { x: 13800, y: 250, width: 240, height: 370 }, lift: 800 }],
+  // 굴러 내려오는 돌: 3단 언덕 두 번째 단(13350-13400)에 오르면 꼭대기(13400-13520) 오른쪽(13480)에 나타나 굴러 내려오고 13150에서 사라진다.
+  // 꼭대기는 좁아(120px) 거기서 발동하면 뛰어오른 플레이어가 나타난 돌 위로 떨어지므로, 한 단 아래에서 돌을 보고 넘게 한다.
+  rollingStones: [{ trigger: { x: 13350, y: 340, width: 50, height: 100 }, x: 13480, y: 380, endX: 13150 }],
   // 한쪽 통과 발판: 세 번째 착지 발판 너머 평지(10620-10760) 위 70px.
   oneWayPlatforms: [{ x: 10620, y: 430, width: 140, height: 12 }],
   // 적이 나오는 파이프: 세 번째 착지 발판을 건너 트리거(10560)를 밟으면 파이프(10800)에서 적이 나와 발판 아래(10600~10800)를
@@ -417,7 +422,8 @@ export const LEVEL_3: Level = defineLevel({
     { x: 6690, y: 500, width: 180, height: 120 }, // 6870-6990: 날려버리는 점프가 떨어뜨리는 뒤쪽 구덩이
     { x: 6990, y: 500, width: 410, height: 120 }, // 얼음(7000-7380) 끝 20px이 날려버리는 점프 구역, 7400-7480 구덩이
     { x: 7480, y: 500, width: 820, height: 120 }, // 그림자 안에 좌우 반전, 8300-8380 구덩이
-    { x: 8380, y: 500, width: 1620, height: 120 }, // 화살 세 발, 끝 20px(9980-10000)이 무거운 신발 구역, 10000-10100 구덩이
+    { x: 8380, y: 500, width: 470, height: 120 }, // 8850-9050: 그림자가 끝난 뒤 바람 구간이 있는 넓은 구덩이(200px — 바람 없이는 못 건넘)
+    { x: 9050, y: 500, width: 950, height: 120 }, // 화살 세 발, 끝 20px(9980-10000)이 무거운 신발 구역, 10000-10100 구덩이
     { x: 10100, y: 500, width: 1500, height: 120 }, // 따라 뛰는 적 → 착지 예측 가시(턱 11300), 11600-11660 구덩이
     { x: 11300, y: 460, width: 40, height: 40 }, // 착지 예측 가시 앞 턱
     { x: 11740, y: 470, width: 10, height: 30 }, // 세 번째 착지 발판 위 장애물 두 개
@@ -454,6 +460,8 @@ export const LEVEL_3: Level = defineLevel({
     { zone: { x: 9240, y: 360, width: 40, height: 140 }, respawnX: 9240, respawnY: 350 },
     { zone: { x: 10150, y: 360, width: 40, height: 140 }, respawnX: 10150, respawnY: 350 },
     { zone: { x: 11450, y: 360, width: 40, height: 140 }, respawnX: 11450, respawnY: 350 },
+    // 세 번째 착지 발판 너머, 굴러 내려오는 돌이 있는 언덕(12300) 앞. 돌에 죽어도 세 번째 착지 발판을 다시 하지 않는다.
+    { zone: { x: 12060, y: 360, width: 40, height: 140 }, respawnX: 12060, respawnY: 350 },
     { zone: { x: 13300, y: 360, width: 40, height: 140 }, respawnX: 13300, respawnY: 350 },
     { zone: { x: 13950, y: 360, width: 40, height: 140 }, respawnX: 13950, respawnY: 350 },
     { zone: { x: 15050, y: 360, width: 40, height: 140 }, respawnX: 15050, respawnY: 350 },
@@ -514,6 +522,11 @@ export const LEVEL_3: Level = defineLevel({
   trampolines: [{ tile: { x: 13100, y: 500, width: 40, height: 20 }, speed: 720 }],
   conveyors: [{ rect: { x: 12100, y: 500, width: 180, height: 20 }, speed: -90 }],
   mudFloors: [{ x: 6450, y: 500, width: 150, height: 20 }],
+  // 바람 구간: 그림자가 끝난(8800) 뒤 넓은 구덩이(8850-9050) 위. 화살 트리거(9300)보다 앞이라 화살과 겹치지 않는다.
+  windZones: [{ zone: { x: 8830, y: 250, width: 240, height: 370 }, lift: 800 }],
+  // 굴러 내려오는 돌: 3단 언덕 두 번째 단(12350-12400)에 오르면 꼭대기(12400-12550)오른쪽(12500)에 나타나 굴러 내려오고 거꾸로 미는 벨트를 지나 12060에서 사라진다
+  // (레벨 2와 같이 한 단 아래에서 발동 — 꼭대기에서 발동하면 뛰어오른 플레이어가 나타난 돌 위로 떨어진다).
+  rollingStones: [{ trigger: { x: 12350, y: 340, width: 50, height: 100 }, x: 12500, y: 380, endX: 12060 }],
   // 한쪽 통과 발판: 스프링 앞 구덩이(15600-15800) 위 70px. 위쪽으로만 갈 수 있는 길이다 — 구덩이 앞에서 뛰어 발판에 올라서고,
   // 발판 위에서 그대로 뛰어 스프링(15850)을 넘는다. 스프링에 튕겨 뒤로 날아갈 때는 발판을 아래에서 통과한다.
   oneWayPlatforms: [{ x: 15590, y: 430, width: 230, height: 12 }],

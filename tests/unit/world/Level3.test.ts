@@ -51,10 +51,11 @@ describe('LEVEL_3 (hard)', () => {
     ['checkpoint 8 (arrows and heavy shoes)', 7, [...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
     ['checkpoint 9 (mirror enemy and landing spikes)', 8, [...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
     ['checkpoint 10 (third-landing platform)', 9, [...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 11 (rhythm platforms)', 10, [...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 12 (ceiling, second fake clear, spring)', 11, [...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 13 (spring)', 12, [...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 14 (fleeing goal)', 13, FINALE],
+    ['checkpoint 11 (hill with the rolling stone, pipe enemy)', 10, [...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 12 (rhythm platforms)', 11, [...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 13 (ceiling, second fake clear, spring)', 12, [...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 14 (spring)', 13, [...CEILING_FAKE_SPRING, ...FINALE]],
+    ['checkpoint 15 (fleeing goal)', 14, FINALE],
   ] as const)('can be finished from %s with no further deaths', (_, index, steps) => {
     const world = respawnAt(index);
     expect(playSolution(world, steps)).toBe(steps.length);
@@ -101,7 +102,7 @@ describe('LEVEL_3 (hard)', () => {
   });
 
   it('still bounces the spring back onto flat ground (passing up through the platform)', () => {
-    const world = respawnAt(12);
+    const world = respawnAt(13);
     playSolution(world, [...CEILING_FAKE_SPRING.slice(0, 2), { run: 15900 }]); // 발판에서 내려와 그대로 스프링으로
     for (let i = 0; i < 300 && (world.flight !== null || !world.player.grounded); i++) world.update(dt, { horizontal: 0, jumpPressed: false, restartPressed: false });
     expect(world.springFloors[0].bounced).toBe(true);
@@ -141,15 +142,20 @@ describe('LEVEL_3 (hard)', () => {
     step(sign, 1, true); until(sign, 1, () => sign.deaths > 1);
     dies(sign, 'landingSpikes');
     // 박자 발판: 박자를 보지 않고 늦게 올라타 머뭇거리면 사라진다
-    const rhythm = respawnAt(10);
+    const rhythm = respawnAt(11);
     playSolution(rhythm, [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 > 0.15 && w.lifeTime % 1.8 < 0.2 }, { jump: true }]);
     until(rhythm, 0, () => rhythm.deaths > 1);
     dies(rhythm, 'rhythmPlatform');
     // 적이 나오는 파이프: 언덕을 내려와 멈추지 않고 파이프로 달려가면 내려오는 적에 닿는다
     const pipe = respawnAt(9);
-    playSolution(pipe, [...COUNTING, ...HILL_PIPE_ENEMY.slice(0, 3)]);
+    playSolution(pipe, [...COUNTING, ...HILL_PIPE_ENEMY.slice(0, 8)]);
     until(pipe, 1, () => pipe.deaths > 1);
     dies(pipe, 'pipeEnemy');
+    // 굴러 내려오는 돌(#33): 언덕을 오르다 그대로 →를 누르고 있으면 굴러 내려오는 돌에 닿는다
+    const stone = respawnAt(10);
+    playSolution(stone, HILL_PIPE_ENEMY.slice(0, 2)); // 두 번째 단에 오른 뒤 그대로 →
+    until(stone, 1, () => stone.deaths > 1);
+    dies(stone, 'rollingStone');
     // 가라앉는 파이프(#32): 얼음 앞 파이프 위에 올라서 머뭇거리면 아래 틈으로 떨어진다
     const sink = respawnAt(5);
     const sp = LEVEL_3.sinkingPipes[0].pipe;
@@ -160,7 +166,7 @@ describe('LEVEL_3 (hard)', () => {
     until(sink, 0, () => sink.deaths > 1);
     dies(sink, 'sinkingPipe');
     // 두 번째 가짜 클리어: "진짜 끝!" 깃발에서 다음 레벨을 누르면 떨어진다
-    const fake = respawnAt(11);
+    const fake = respawnAt(12);
     playSolution(fake, [{ run: LEVEL_3.fakeGoals[0].flag.x + 10 }]);
     expect(fake.snapshot().cleared).toBe(true);
     fake.collapseFakeFloor();
@@ -182,12 +188,12 @@ describe('LEVEL_3 (hard)', () => {
   it('leaves human slack on the rhythm platforms: up to 9 frames after each landing, while ignoring the beat still fails', () => {
     // 플레이테스트 측정: 박자 발판이 1.0초만 켜져 있을 때는 착지 뒤 0~1프레임 안에 다시 뛰어야 해 사실상 프레임 단위 입력이 필요했다.
     for (let d = 0; d <= 9; d++) {
-      const world = respawnAt(10);
+      const world = respawnAt(11);
       const steps: Step[] = [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 < 1 / 60 }, { jump: true }, { wait: d / 60 }, { jump: true }, { wait: d / 60 }, { jump: true }, { wait: d / 60 }, { jump: true }];
       expect(playSolution(world, steps), `${d} frames after each landing`).toBe(steps.length);
       expect(world.deaths).toBe(1);
     }
-    const offBeat = respawnAt(10);
+    const offBeat = respawnAt(11);
     const naive: Step[] = [{ run: 13398 }, { waitUntil: (w) => Math.abs(w.lifeTime % 1.8 - 0.9) < 0.5 / 60 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }];
     playSolution(offBeat, naive);
     expect(offBeat.deaths).toBe(2); // 박자를 무시하고 뛰면 여전히 떨어진다
