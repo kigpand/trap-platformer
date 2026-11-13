@@ -17,6 +17,7 @@ React + TypeScript + Canvas 2D로 만든 **독자적인 2D 함정 플랫포머**
 - `pnpm test:e2e`
 - `pnpm verify` (`pnpm check`와 `pnpm test:e2e`를 한 번에)
 - `pnpm slack` (선택 — 레벨별 해법 점프의 일찍·늦게 여유 프레임 표, `pnpm slack 2 3`처럼 레벨을 고를 수 있음)
+- `pnpm coverage` (선택 — 단위 테스트 커버리지 요약, 자세한 표는 `coverage/index.html`)
 - `pnpm perf` (선택 — 렌더링 그리기 시간·프레임 손실 측정, `docs/history.md` "렌더링 성능 측정" 참고)
 - `pnpm shots` (선택 — 그래픽을 바꾼 뒤 이 README의 스크린샷 `docs/assets/screenshot.jpg`와 링크 미리보기 `public/og-image.png`를 레벨 1 스폰 화면으로 다시 생성)
 
