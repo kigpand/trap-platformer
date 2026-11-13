@@ -3,7 +3,7 @@ import { InputManager, type TouchAction } from './InputManager';
 import { SoundPlayer } from '../audio/SoundPlayer';
 import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type DeathCauseKind, type DeathStatKind, type GameSnapshot } from '../world/World';
-import { LEVELS } from '../world/level';
+import { LEVELS, type Level } from '../world/level';
 import { isInView, isWithinHearing } from '../world/viewport';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
@@ -65,16 +65,16 @@ export function mergeBest(best: BestRecord | null, run: BestRecord): { best: Bes
 }
 export class GameController {
   private levelIndex = 0;
-  private world = new World(LEVELS[0]);
+  private world: World;
   private readonly renderer: CanvasRenderer;
   private readonly input = new InputManager(window);
   private readonly sound = new SoundPlayer(window);
   private readonly loop: GameLoop;
   private lastSnapshot = '';
   private paused = false;
-  private bests: (BestRecord | null)[] = LEVELS.map((_, i) => loadBest(i));
+  private bests: (BestRecord | null)[];
   // 이번 판에서 떠나온(클리어한) 레벨의 원인별 사망 수. 지금 레벨은 World 스냅샷에서 바로 읽는다(publishSnapshot).
-  private levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[] = LEVELS.map(() => null);
+  private levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
   private newRecord = false;
   // #14 가짜 클리어 중 보여 줄 "진짜였다면"의 기록 화면(저장하지 않는다). world.fakeClear가 있을 때만 쓴다.
   private fakePreview: { best: BestRecord; improved: boolean } | null = null;
@@ -82,7 +82,13 @@ export class GameController {
     canvas: HTMLCanvasElement,
     private readonly onSnapshot: (snapshot: HudSnapshot) => void,
     onError: (error: unknown) => void,
+    // 진행할 레벨 목록. 게임은 LEVELS를 쓰고, 테스트는 시험용 레벨을 넘긴다 — 예전에는 테스트가 level 모듈을 통째로 mock해야 했고,
+    // mock을 만드는 도중에 game 모듈을 불러오면 멈췄다(두 번 발생).
+    private readonly levels: readonly Level[] = LEVELS,
   ) {
+    this.world = new World(levels[0]);
+    this.bests = levels.map((_, i) => loadBest(i));
+    this.levelDeaths = levels.map(() => null);
     this.renderer = new CanvasRenderer(canvas);
     this.sound.muted = loadMuted();
     this.sound.volume = loadVolume();
@@ -132,7 +138,7 @@ export class GameController {
     const levelDeaths = this.levelDeaths.map((d, j) => (j === this.levelIndex ? (world.cleared ? world.runDeathsByKind : null) : d));
     const snapshot: HudSnapshot = {
       ...world, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
-      level: this.levelIndex + 1, levelCount: LEVELS.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
+      level: this.levelIndex + 1, levelCount: this.levels.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
       levelDeaths,
     };
     const serialized = JSON.stringify(snapshot);
@@ -153,7 +159,7 @@ export class GameController {
   // 다른 탭이 최고 기록을 저장하면 이 탭의 BEST 표시·완료 화면에도 바로 합친다(storage 이벤트는 다른 탭에서 바뀔 때만 온다).
   // 클리어할 때처럼 시간과 사망 수를 따로 합쳐, 이 탭이 가진 더 좋은 값은 그대로 남는다. 깨진 값이나 다른 키는 무시한다.
   private onStorage = (event: StorageEvent): void => {
-    const i = LEVELS.findIndex((_, j) => bestStorageKey(j) === event.key);
+    const i = this.levels.findIndex((_, j) => bestStorageKey(j) === event.key);
     if (i < 0) return;
     const stored = loadBest(i);
     if (!stored) return;
@@ -190,9 +196,9 @@ export class GameController {
     if (this.world.collapseFakeFloor()) { this.paused = false; this.renderer.shakeScreen(); return; }
     if (!this.world.cleared) return;
     this.levelDeaths[this.levelIndex] = this.world.snapshot().runDeathsByKind;
-    this.levelIndex = (this.levelIndex + 1) % LEVELS.length;
-    if (this.levelIndex === 0) this.levelDeaths = LEVELS.map(() => null); // 완료 화면에서 레벨 1로 돌아가면 새 판
-    this.world = new World(LEVELS[this.levelIndex]);
+    this.levelIndex = (this.levelIndex + 1) % this.levels.length;
+    if (this.levelIndex === 0) this.levelDeaths = this.levels.map(() => null); // 완료 화면에서 레벨 1로 돌아가면 새 판
+    this.world = new World(this.levels[this.levelIndex]);
     this.newRecord = false;
     this.paused = false;
   }
