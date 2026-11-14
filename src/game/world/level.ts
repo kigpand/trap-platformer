@@ -587,7 +587,7 @@ export const LEVEL_4: Level = defineLevel({
   pipes: [
     { x: 10, y: 460, width: 40, height: 40 }, // 스폰 뒤 왼쪽 끝(첫 화면)
     { x: 12300, y: 460, width: 40, height: 40 }, // 돌덩이가 멈춘 뒤(12200), 체크포인트 3 앞
-    { x: 14100, y: 450, width: 50, height: 50 }, // 기습 적 너머, 도망가는 발판 앞
+    { x: 14100, y: 450, width: 50, height: 50 }, // 기습 적 너머, 도망가는 발판 앞 — 적이 나오는 파이프(#31)
     { x: 15400, y: 450, width: 60, height: 50 }, // 스프링 너머
   ],
   hills: [
@@ -635,12 +635,19 @@ export const LEVEL_4: Level = defineLevel({
   // 트램펄린은 체크포인트 앞에 두지 않는다 — 튕겨 넘으면 체크포인트를 건너뛸 수 있다.
   trampolines: [{ tile: { x: 15500, y: 500, width: 40, height: 20 }, speed: 720 }],
   mudFloors: [{ x: 14180, y: 500, width: 170, height: 20 }],
+  // 컨베이어 벨트: 스프링 너머 파이프(15400) 앞 평지를 앞으로 민다(2026-11-14).
+  conveyors: [{ rect: { x: 15150, y: 500, width: 200, height: 20 }, speed: 90 }],
   // 바람 구간: 5구간(무거운 신발·착지 예측 가시) 뒤 넓은 구덩이(9500-9700) 위. 돌덩이가 나타나는 자리(10260)보다 앞이다.
   windZones: [{ zone: { x: 9480, y: 250, width: 240, height: 370 }, lift: 800 }],
   // 한쪽 통과 발판: 진흙 너머 도망가는 발판 앞 평지(14380-14500) 위 70px. 끝에서 내려와 도망가는 발판 앞 점프 자리까지 착지할 거리를 둔다.
   oneWayPlatforms: [{ x: 14380, y: 430, width: 120, height: 12 }],
   // 가라앉는 파이프: 2구간 뒤 언덕을 내려온 곳의 파이프(4350, 높이 50)가 사실은 가라앉는다. 아래는 50px 틈.
   sinkingPipes: [{ pipe: { x: 4350, y: 450, width: 50, height: 50 }, delay: 0.3 }],
+  // 적이 나오는 파이프: 기습 적을 넘은 뒤 트리거(13900)를 지나면 파이프(14100)에서 적이 나와 13940~14100을 왕복한다(2026-11-14).
+  pipeEnemies: [{ pipe: { x: 14100, y: 450, width: 50, height: 50 }, trigger: { x: 13900, y: 300, width: 40, height: 200 }, minX: 13940, maxX: 14100 }],
+  // 굴러 내려오는 돌: 떨어지는 천장 너머 3단 언덕의 두 번째 단(8050-8100)에 오르면 꼭대기(8100-8200) 오른쪽(8160)에 나타나
+  // 굴러 내려오고 7700에서 사라진다(레벨 2·3과 같이 한 단 아래에서 발동, 언덕 아래로 물러나 바닥에서 넘는다).
+  rollingStones: [{ trigger: { x: 8050, y: 340, width: 50, height: 100 }, x: 8160, y: 380, endX: 7700 }],
   iceFloors: [{ x: 2920, y: 500, width: 580, height: 20 }],
   arrowTraps: [{ trigger: { x: 5070, y: 300, width: 40, height: 200 }, arrows: [
     { y: 484, delay: 0.75, fromX: 5900, toX: 4900 },

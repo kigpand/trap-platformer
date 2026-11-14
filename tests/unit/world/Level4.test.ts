@@ -112,6 +112,8 @@ describe('LEVEL_4 (hell)', () => {
     expect(naive(respawnAt(0), [...toCorridor, { runUntil: (w) => mirror(w).enemy.x - (w.player.x + w.player.width) <= 20 }], 1, true)).toBe('mirrorEnemy');
     expect(naive(respawnAt(0), [...toCorridor, { run: 6700 }], 0)).toBe('descendingCeiling');
     expect(naive(respawnAt(0), [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 5)], 1)).toBe('fallingCeiling');
+    // 4-5 사이: 3단 언덕의 두 번째 단에 올라 그대로 →를 누르고 있으면 꼭대기에서 굴러 내려오는 돌(#33)
+    expect(naive(respawnAt(0), [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 13)], 1)).toBe('rollingStone');
     // 5. 표지판 말대로 구덩이 가장자리(구역 안)에서 뛰면 착지 지점에 가시
     expect(naive(respawnAt(1), [{ run: 9195 }], 1, true)).toBe('landingSpikes');
     // 6. 가짜 벽 앞에서 멈추면 돌덩이, 장애물마다 바로 앞에서 뛰면 세 번째 착지에 발판이 무너진다
@@ -121,6 +123,8 @@ describe('LEVEL_4 (hell)', () => {
     expect(naive(respawnAt(2), [], 1)).toBe('hiddenBlock');
     expect(naive(respawnAt(2), HIDDEN_FALLING_AMBUSH.slice(0, 4), 0)).toBe('fallingPlatform');
     expect(naive(respawnAt(2), HIDDEN_FALLING_AMBUSH.slice(0, 5), 1)).toBe('ambush');
+    // 7-8 사이: 기습 적을 넘어 그대로 파이프로 달려가면 파이프에서 나온 적(#31)
+    expect(naive(respawnAt(2), HIDDEN_FALLING_AMBUSH.slice(0, 9), 1)).toBe('pipeEnemy');
     // 8. 가장자리에서 뛰면 투명 블록에 머리를 찧고, 더 일찍 뛰면 발판이 비켜선다
     const toDodge = HIDDEN_FALLING_AMBUSH;
     expect(naive(respawnAt(2), [...toDodge, { run: 14700 }], 1, true)).toBe('invisibleBlock');

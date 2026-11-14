@@ -1,5 +1,5 @@
 import type { World } from '../../../src/game/world/World';
-import type { Step } from './solution';
+import { stoneOnGroundNear, type Step } from './solution';
 
 // 레벨 4 해법 입력(구간별). Level4.test.ts와 점프 여유 표(scripts/slack.js)가 함께 쓴다.
 export const mirror = (w: World) => w.mirrorEnemies[0];
@@ -27,7 +27,9 @@ export const CEILING_MIRROR: Step[] = [
   { runUntil: (w) => mirror(w).enemy.x - (w.player.x + w.player.width) <= 50 }, { hop: true },
   { waitUntil: (w) => !mirror(w).airborne && mirror(w).enemy.x + mirror(w).enemy.width < w.player.x - 10 },
   { run: 7565 }, { right: 4 }, { left: 20 }, { wait: 1 }, { run: 7560 }, { jump: true },
-  ...over(8000), { jump: true }, // 3단 언덕(단 30px — 두 번 뛰어 꼭대기로)
+  // 3단 언덕(단 30px): 두 번째 단에 오르면 꼭대기에 돌이 나타난다 — 언덕 아래로 물러나 바닥까지 굴러온 돌을 넘고 다시 두 번 뛰어 오른다.
+  ...over(8000), { leftUntil: (w) => w.player.x + w.player.width <= 7880 }, { waitUntil: (w) => stoneOnGroundNear(w) }, { hop: true },
+  ...over(8000), { jump: true },
 ];
 // 5. "여기서 점프!" 표지판 = 무거운 신발 구역 = 착지 예측 가시 구역: 구역 앞에서 보통 점프로 넘는다.
 export const HEAVY_SPIKES: Step[] = [{ run: 9135 }, { jump: true }, { run: 9495 }, { jump: true }]; // 이어서 바람을 타고 넓은 구덩이(9500-9700)
@@ -38,6 +40,10 @@ export const HIDDEN_FALLING_AMBUSH: Step[] = [
   { run: 12860 }, { jump: true }, { run: 13050 }, { jump: true }, { jump: true },
   { run: 13470 }, { waitUntil: (w) => { const e = ambusher(w); return !!e && e.vx < 0 && e.x >= 13760 - 28 - 40; } },
   { runUntil: (w) => { const e = ambusher(w); return !!e && e.x - (w.player.x + w.player.width) <= 45; } }, { jump: true },
+  // 적이 나오는 파이프: 트리거를 지나 기다렸다 내려온 적을 마주 넘고, 파이프를 넘는다.
+  { run: 13950 },
+  { waitUntil: (w) => { const pe = w.pipeEnemies[0]; return pe.phase === 'patrolling' && !!pe.enemy && pe.enemy.vx < 0 && pe.enemy.x - (w.player.x + w.player.width) < 40; } },
+  { jump: true },
   ...over(14100), { run: 14378 }, { jump: true }, // 파이프를 넘고, 진흙 너머 발판(14380)에 올라갔다 끝에서 내려온다
 ];
 // 8. 도망가는 발판이 투명 블록 아래로 비켜선다: 가장자리보다 일찍 뛰어 비켜선 발판에 내리고, 스프링 앞 좁은 땅에 내려 스프링을 넘는다.

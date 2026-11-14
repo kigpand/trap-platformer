@@ -3,10 +3,11 @@ import { shouldJump } from './autopilot';
 
 // 트롤 함정은 "보이는 것을 피하는" 자동 플레이로 깰 수 없어, 레벨마다 해법을 실제 입력 명령으로 적는다
 // (docs/traps-spec.md 공통 규칙의 "해법 입력"). 텔레포트 없이 입력만 넣으며, 사망하면 그 자리에서 멈춘다.
-// 굴러 내려오는 돌(#33)이 바닥에 내려와 굴러 오고 있고, 플레이어 앞 40px 안에 들어왔다 — 제자리에서 넘을 때.
+// 굴러 내려오는 돌(#33)이 바닥에 내려와 굴러 오고 있고, 플레이어 앞 33px 안에 들어왔다 — 제자리에서 넘을 때.
+// 제자리 점프는 약 41프레임 떠 있고 돌은 그동안 100px 굴러 오므로, 앞 약 34px보다 가까울 때 뛰어야 내려올 때 돌이 지나가 있다 — 그 끝(33px)에서 뛰어, 늦게 쪽 여유로 창 전체를 잰다.
 export const stoneOnGroundNear = (w: World, ground = 500): boolean => {
   const st = w.rollingStones[0];
-  return st.phase === 'rolling' && st.vy === 0 && st.y + 30 === ground && st.x - (w.player.x + w.player.width) < 40;
+  return st.phase === 'rolling' && st.vy === 0 && st.y + 30 === ground && st.x - (w.player.x + w.player.width) < 33;
 };
 export type Step =
   | { auto: number } // 오른쪽 끝이 x에 닿을 때까지 자동 플레이(보이는 함정·적 회피)로 간다
