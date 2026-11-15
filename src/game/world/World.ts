@@ -731,7 +731,21 @@ export class World implements LifeState {
     return wasAirborne;
   }
   // 5. 이동을 마친 위치로 함정·적을 갱신한다. 깔림 판정은 사망 판정(7)에서 쓰도록 돌려준다.
+  // 순서가 동작의 일부다(같은 스텝 안에서 앞 함정의 결과를 뒤 함정이 본다) — 나눈 메서드를 원래 순서대로 부른다.
   private updateTraps(dt: number, wasAirborne: boolean): { crushedBy: FallingCeilingState | null; squashedBy: DescendingCeilingState | null } {
+    this.updateZoneTraps();
+    this.updateEnemies(dt);
+    this.updateMovingTargets(dt, wasAirborne);
+    this.updateSkyDrops(dt);
+    this.updateBoulders(dt);
+    this.updateTerrainTraps(dt);
+    this.updateArrows(dt);
+    const crushed = this.updateCeilings(dt);
+    this.updateAmbushes(dt);
+    return crushed;
+  }
+  // 5-1. 위치로 정해지는 함정: 좌우 반전·무거운 신발·가짜 벽·착지 예측 가시 무장·그림자·미끼 보물.
+  private updateZoneTraps(): void {
     const p = this.player;
     this.updateReverse();
     this.heavyShoes = this.level.heavyZones.some((h) => overlaps(p, h.zone));
@@ -762,7 +776,9 @@ export class World implements LifeState {
       this.taunt = { kind: 'baitGemPickup', remaining: TAUNT_DURATION };
       this.lastFallTrap = { cause: { rect: gemRect(g.config), kind: 'baitGem' }, at: this.clock };
     }
-
+  }
+  // 5-2. 왕복 적과 따라 뛰는 적.
+  private updateEnemies(dt: number): void {
     for (const e of this.enemies) updateEnemy(e, dt);
     for (const m of this.mirrorEnemies) {
       updateEnemy(m.enemy, dt); // 뛰는 동안에도 왕복은 그대로
@@ -771,7 +787,10 @@ export class World implements LifeState {
       m.enemy.y += m.vy * dt;
       if (m.enemy.y >= m.config.y) { m.enemy.y = m.config.y; m.vy = 0; m.airborne = false; } // 원래 높이로 착지
     }
-
+  }
+  // 5-3. 움직이는 대상: 도망가는 발판·솟아오르는 가시·도망가는 목표.
+  private updateMovingTargets(dt: number, wasAirborne: boolean): void {
+    const p = this.player;
     // #8 도망가는 발판: 공중에서 트리거에 들어오면 한 번만 미끄러진다. 3초 안의 낙사는 발판의 원래 위치를 원인으로 본다.
     // 공중 여부는 이동 전·후 둘 중 하나라도 공중이면 참이다 — 이동 뒤 grounded만 보면 착지하는 바로 그 스텝에
     // 처음 트리거에 들어온 경우를 놓친다(Codex 리뷰).
@@ -808,7 +827,10 @@ export class World implements LifeState {
         g.rect = { ...g.move.to, x: g.move.from.x + (g.move.to.x - g.move.from.x) * k, y: g.move.from.y + (g.move.to.y - g.move.from.y) * k };
       }
     }
-
+  }
+  // 5-4. 하늘에서 쏟아지는 적(#13).
+  private updateSkyDrops(dt: number): void {
+    const p = this.player;
     // #13 하늘에서 쏟아지는 적: 트리거 스텝부터 시간을 세고(다른 함정과 같이 그 스텝도 포함), 적마다 delay가 지나면
     // 경고, 경고 SKY_DROP_WARNING초 뒤 화면 맨 위 바깥(y = -적 높이)에서 생성해 떨어뜨린다. 착지 판정은 플레이어와 같은 솔리드 목록을 쓴다.
     for (const g of this.skyDrops) {
@@ -836,7 +858,10 @@ export class World implements LifeState {
         } else if (se.phase === 'patrolling') updateEnemy(e, dt);
       }
     }
-
+  }
+  // 5-5. 따라오는 돌덩이(#19).
+  private updateBoulders(dt: number): void {
+    const p = this.player;
     // #19 따라오는 돌덩이: 트리거에 들어온 스텝에 시작 x에 나타나고(그 스텝은 움직이지 않음), 다음 스텝부터 굴러간다.
     // 지형을 따라 오르내리지 않고 솔리드도 아니다.
     for (const b of this.boulders) {
@@ -850,7 +875,10 @@ export class World implements LifeState {
       b.x += BOULDER_SPEED * dt;
       if (b.x + BOULDER_SIZE >= b.config.endX - 1e-6) b.phase = 'gone';
     }
-
+  }
+  // 5-6. 지형지물 함정: 적이 나오는 파이프(#31)·굴러 내려오는 돌(#33).
+  private updateTerrainTraps(dt: number): void {
+    const p = this.player;
     // #31 적이 나오는 파이프: 경고 → 올라옴 → 왼쪽으로 걸어 내려섬(13번처럼 착지 판정에만 솔리드를 씀) → 왕복.
     for (const pe of this.pipeEnemies) {
       const pipe = pe.config.pipe;
@@ -905,7 +933,10 @@ export class World implements LifeState {
       if (ground) { st.y = ground.y - STONE_SIZE; st.vy = 0; }
       if (st.x <= st.config.endX + 1e-6 || st.y > this.level.height + 100) st.phase = 'gone';
     }
-
+  }
+  // 5-7. 화살 발사대(#26).
+  private updateArrows(dt: number): void {
+    const p = this.player;
     // #26 화살 발사대: 하늘에서 쏟아지는 적(#13)처럼 트리거 스텝부터 시간을 세고, 화살마다 경고 → 생성 → 비행.
     for (const t of this.arrowTraps) {
       if (t.elapsed === null) {
@@ -922,7 +953,10 @@ export class World implements LifeState {
         if ((dir >= 0 && a.x >= a.arrow.toX - 1e-6) || (dir < 0 && a.x <= a.arrow.toX + 1e-6)) a.phase = 'gone';
       }
     }
-
+  }
+  // 5-8. 내려오는 천장(#25)·떨어지는 천장(#9). 깔림 판정을 돌려준다.
+  private updateCeilings(dt: number): { crushedBy: FallingCeilingState | null; squashedBy: DescendingCeilingState | null } {
+    const p = this.player;
     // #25 내려오는 천장: 트리거 스텝부터 일정 속도로 내려와, 플레이어와 겹치면 깔린다(9번처럼 이동 뒤 확인).
     let squashedBy: DescendingCeilingState | null = null;
     for (const c of this.descendingCeilings) {
@@ -953,7 +987,11 @@ export class World implements LifeState {
       if (ground) { c.y = ground.y - c.config.block.height; c.vy = 0; c.phase = 'landed'; this.trapEvent('slam', ceilingRect(c)); }
       else if (c.y > this.level.height + 100) c.phase = 'gone';
     }
-
+    return { crushedBy, squashedBy };
+  }
+  // 5-9. 갑자기 출현하는 적(#3)과 조건부 함정(#5)의 머문 시간.
+  private updateAmbushes(dt: number): void {
+    const p = this.player;
     for (const amb of this.ambushes) {
       if (amb.enemy) { updateEnemy(amb.enemy, dt); continue; }
       if (amb.warningTimer === null && overlaps(p, amb.config.trigger)) {
@@ -970,7 +1008,6 @@ export class World implements LifeState {
     }
 
     for (const ct of this.conditionalTraps) ct.dwellTime = overlaps(p, ct.zone) ? ct.dwellTime + dt : 0;
-    return { crushedBy, squashedBy };
   }
   // 6. 체크포인트 저장(가짜 체크포인트에 닿은 스텝은 저장하지 않음).
   private saveCheckpoints(): void {
