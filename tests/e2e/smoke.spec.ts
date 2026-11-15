@@ -216,6 +216,18 @@ test('the mute setting survives a page reload', async ({ page }) => {
   await expect(sound).toHaveText('SOUND ON');
 });
 
+test('the volume setting survives a page reload', async ({ page }) => {
+  await page.goto('/');
+  const slider = page.getByRole('slider');
+  const label = page.locator('label.volume');
+  await expect(label).toContainText('음량 80%');
+  await slider.fill('35');
+  await expect(label).toContainText('음량 35%');
+  await page.reload();
+  await expect(label).toContainText('음량 35%');
+  await expect(slider).toHaveValue('35');
+});
+
 test('the game still runs and mute still toggles when localStorage is blocked', async ({ page }) => {
   // 시크릿 모드·사이트 데이터 차단 환경에서는 localStorage 접근 자체가 예외를 던진다.
   await page.addInitScript(() => {
