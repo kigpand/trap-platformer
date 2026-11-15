@@ -371,3 +371,44 @@ describe('GameController level progression', () => {
     controller.dispose();
   });
 });
+
+describe('GameController volume setting', () => {
+  afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
+  // 컨트롤러를 만들고, 음소거를 두 번 바꿔(제자리) 지금 음량이 담긴 스냅샷을 받는다.
+  function create(): { controller: GameController; volume: () => number } {
+    let last: HudSnapshot | null = null;
+    const controller = new GameController(document.createElement('canvas'), (s) => { last = s; }, (e) => { throw e; });
+    const volume = (): number => { controller.toggleMute(); controller.toggleMute(); return (last as HudSnapshot | null)?.volume ?? NaN; };
+    return { controller, volume };
+  }
+
+  it('saves the volume and restores it in the next session', () => {
+    const first = create();
+    first.controller.setVolume(0.35);
+    expect(localStorage.getItem('trap-runner:volume')).toBe('0.35');
+    first.controller.dispose();
+    const next = create();
+    expect(next.volume()).toBe(0.35);
+    next.controller.dispose();
+  });
+
+  it('falls back to the default volume when the stored value is missing, broken or out of range', () => {
+    for (const raw of [null, 'loud', '-0.1', '1.5']) {
+      localStorage.clear();
+      if (raw !== null) localStorage.setItem('trap-runner:volume', raw);
+      const { controller, volume } = create();
+      expect(volume(), String(raw)).toBe(0.8);
+      controller.dispose();
+    }
+  });
+
+  it('still changes the volume when localStorage is blocked', () => {
+    const blocked = (): never => { throw new DOMException('blocked', 'SecurityError'); };
+    vi.stubGlobal('localStorage', { getItem: blocked, setItem: blocked, removeItem: blocked, clear: () => {} });
+    const { controller, volume } = create();
+    expect(volume()).toBe(0.8);
+    expect(() => controller.setVolume(0.2)).not.toThrow();
+    expect(volume()).toBe(0.2);
+    controller.dispose();
+  });
+});
