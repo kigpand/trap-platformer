@@ -111,15 +111,19 @@ describe('random play on every level (seeded)', () => {
             hold = Math.floor(between(r, 5, 60));
           }
           world.update(dt, { ...input, jumpPressed: r() < 0.08, restartPressed: false });
+          // 스텝마다 expect를 다섯 번 부르면(모두 약 27만 번) 느린 러너에서 기본 5초 제한을 넘었다(2026-11-18 배포 실패) —
+          // 평범한 조건으로 확인하고, 어긋난 스텝에서만 expect로 원인을 보고한다.
           const p = world.player;
-          const where = `level ${i + 1} from ${name}, step ${step} at ${p.x},${p.y}`;
-          expect(finite(p), where).toBe(true);
-          expect(p.x, where).toBeGreaterThanOrEqual(0);
-          expect(p.x + p.width, where).toBeLessThanOrEqual(level.width);
           const inside = world.terrain.find((s) => overlaps(p, s));
-          expect(inside, `${where}: inside ${JSON.stringify(inside)}`).toBeUndefined();
+          if (!finite(p) || p.x < 0 || p.x + p.width > level.width || inside) {
+            const where = `level ${i + 1} from ${name}, step ${step} at ${p.x},${p.y}`;
+            expect(finite(p), where).toBe(true);
+            expect(p.x, where).toBeGreaterThanOrEqual(0);
+            expect(p.x + p.width, where).toBeLessThanOrEqual(level.width);
+            expect(inside, `${where}: inside ${JSON.stringify(inside)}`).toBeUndefined();
+          }
         }
       }
     }
-  });
+  }, 60_000); // 레벨 네 개를 체크포인트마다 다시 돈다 — 기본 5초는 느린 러너(Playwright 컨테이너)에서 넘었다
 });
