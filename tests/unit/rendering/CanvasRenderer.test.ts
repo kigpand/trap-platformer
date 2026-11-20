@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEBRIS_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_MARK_FILL, DEBRIS_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -349,6 +349,27 @@ describe('CanvasRenderer mirror enemy and third-landing platform', () => {
     world.mirrorEnemies[0].enemy.y = 350;
     const e = world.mirrorEnemies[0].enemy;
     expect(renderFills(world).some((f) => f.x >= e.x && f.x < e.x + e.width && f.y >= 350 && f.y < 378)).toBe(true);
+  });
+});
+
+describe('CanvasRenderer death marks', () => {
+  it('draws an 8px pixel cross with its feet on the mark, a count only for repeats, and nothing off screen', () => {
+    const world = new World(testLevel({ width: 4000, solids: [{ x: 0, y: 500, width: 4000, height: 120 }] }));
+    world.deathMarks = [{ x: 300, y: 500, count: 1 }, { x: 400, y: 500, count: 3 }, { x: 3000, y: 500, count: 2 }];
+    const { fills, texts } = render(world);
+    const marks = fills.filter((f) => f.style === DEATH_MARK_FILL);
+    const near = marks.filter((f) => f.x >= 296 && f.x + f.width <= 304);
+    expect(near).toHaveLength(8);
+    expect(Math.min(...near.map((f) => f.y))).toBe(492);
+    expect(Math.max(...near.map((f) => f.y + f.height))).toBe(500);
+    expect(near.some((f) => f.x === 296 && f.y === 492) && near.some((f) => f.x === 302 && f.y === 492)).toBe(true); // 두 대각선의 위 끝
+    expect(marks.some((f) => f.x >= 2996)).toBe(false); // 화면 밖
+    expect(texts).toContain('×3');
+    expect(texts.some((t) => t === '×1' || t === '×2')).toBe(false);
+  });
+
+  it('draws no marks before any death', () => {
+    expect(renderFills(new World(LEVEL_1)).some((f) => f.style === DEATH_MARK_FILL)).toBe(false);
   });
 });
 

@@ -11,6 +11,7 @@ const HIDDEN_BLOCK_DELAY = 0.1; // docs/traps-spec.md #1 유예 시간
 const AMBUSH_WARNING_DELAY = 0.3; // docs/traps-spec.md #3 경고 시간
 const CONDITIONAL_DWELL_THRESHOLD = 1.0; // docs/traps-spec.md #5 "영역 내 1초 이상 체류"
 const DEATH_CAUSE_DURATION = 2.0; // docs/traps-spec.md "사망 원인 표시": 화면에 보이는 동안 2초 강조
+const DEATH_MARK_MERGE = 16; // px — 가로·세로 모두 이 안이면 같은 자리의 사망으로 합친다
 const FALL_CAUSE_WINDOW = 3.0; // 낙사형 함정은 사망 직전 3초 안에 마지막으로 발동한 함정을 원인으로 본다
 const TAUNT_DURATION = 2.0; // docs/game-design.md "놀리는 사망 메시지": 재시작 직후 2초
 const VANISH_TILE = 40; // docs/traps-spec.md #6 칸 너비
@@ -306,6 +307,8 @@ export type TauntKind = DeathCauseKind | 'springFloor' | 'baitGemPickup';
 // 당한 함정 통계의 종류: 사망 원인 + 원인 없는 낙사.
 export type DeathStatKind = DeathCauseKind | 'fall';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
+// 이번 런의 사망 표식: 발밑 가운데 위치와 그 자리에서 죽은 횟수.
+export interface DeathMark { readonly x: number; readonly y: number; count: number }
 export interface DeathCauseState { readonly rect: Rect; readonly kind: DeathCauseKind; remaining: number }
 
 function union(a: Rect, b: Rect): Rect {
@@ -461,6 +464,11 @@ export class World implements LifeState {
   runDeaths = 0;
   private runDeathsByKind: Partial<Record<DeathStatKind, number>> = {};
   private runComplete = false;
+  // 이번 런의 사망 위치(docs/game-design.md "기록"): 발밑 가운데. 가까운 자리(DEATH_MARK_MERGE 안)의 사망은 한 표식으로 합쳐 센다.
+  // 런과 함께 수동 재시작(R)으로 비우고, 다음 레벨은 새 World라 비어서 시작한다. 렌더러가 읽기만 한다.
+  deathMarks: DeathMark[] = [];
+  // 마지막으로 땅에 서 있던 발밑 높이 — 구덩이 낙사의 표식은 화면 아래가 아니라 떨어진 바닥 높이에 둔다.
+  private lastFootY = 0;
   private events: WorldEvent[] = [];
   private trapEvents: TrapEvent[] = [];
   // 움직이지 않는 지형(바닥·블록·파이프·언덕 기둥). 레벨마다 한 번 만든다.
@@ -469,6 +477,7 @@ export class World implements LifeState {
   // 할당되기 전에 실행되기 때문이다.
   constructor(readonly level: Level) {
     this.player = createPlayer(level.spawn.x, level.spawn.y);
+    this.lastFootY = level.spawn.y + this.player.height;
     this.terrain = staticSolids(level);
     // 목숨마다 새로 만드는 상태(필드 선언의 !는 여기서 채우기 때문 — createLifeState가 LifeState 전체를 돌려준다).
     Object.assign(this, createLifeState(level));
@@ -509,10 +518,12 @@ export class World implements LifeState {
         this.runDeaths++;
         const kind = cause?.kind ?? 'fall';
         this.runDeathsByKind[kind] = (this.runDeathsByKind[kind] ?? 0) + 1;
+        this.addDeathMark();
       }
     } else {
       this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
       this.runTime = 0; this.runDeaths = 0; this.runDeathsByKind = {}; this.runComplete = false;
+      this.deathMarks = [];
     }
     this.deathCause = cause ? { rect: cause.rect, kind: cause.kind, remaining: DEATH_CAUSE_DURATION } : null; // 이전 표시는 항상 새 사망(또는 R)으로 대체된다
     this.taunt = cause ? { kind: cause.kind, remaining: TAUNT_DURATION } : null;
@@ -520,6 +531,7 @@ export class World implements LifeState {
     this.lastFallTrap = null;
     const spawn = countDeath && this.activeCheckpoint ? this.activeCheckpoint : this.level.spawn;
     this.player = createPlayer(spawn.x, spawn.y);
+    this.lastFootY = spawn.y + this.player.height;
     this.cleared = false;
     Object.assign(this, createLifeState(this.level));
     this.lifeTime = 0;
@@ -528,6 +540,15 @@ export class World implements LifeState {
     this.reverse = null;
     this.reverseHeard.clear();
     this.heavyShoes = false;
+  }
+  // 사망한 자리(발밑 가운데)를 표식으로 남긴다. 구덩이에 빠졌으면 떨어진 x에, 마지막으로 서 있던 바닥 높이로 둔다.
+  private addDeathMark(): void {
+    const p = this.player;
+    const x = p.x + p.width / 2;
+    const y = p.y > this.level.height ? this.lastFootY : p.y + p.height;
+    const near = this.deathMarks.find((m) => Math.abs(m.x - x) <= DEATH_MARK_MERGE && Math.abs(m.y - y) <= DEATH_MARK_MERGE);
+    if (near) near.count++;
+    else this.deathMarks.push({ x, y, count: 1 });
   }
   // 고정 스텝 하나. 단계의 순서가 동작의 일부다(각 단계 주석 참고) — 단계를 옮기거나 합치면 테스트·해법 여유가 바뀔 수 있다.
   update(dt: number, input: InputState): void {
@@ -1025,6 +1046,7 @@ export class World implements LifeState {
   // 7. 사망 판정(먼저 걸린 원인 하나로 재시작), 가짜 클리어·클리어, 낙사.
   private resolveOutcome(crushedBy: FallingCeilingState | null, squashedBy: DescendingCeilingState | null): void {
     const p = this.player;
+    if (p.grounded) this.lastFootY = p.y + p.height;
     if (crushedBy) { this.reset(true, { rect: crushedBy.config.block, kind: 'fallingCeiling' }); return; }
     if (squashedBy) { this.reset(true, { rect: union(squashedBy.config.block, squashedBy.config.trigger), kind: 'descendingCeiling' }); return; }
     const hazard = this.level.hazards.find((h) => overlaps(p, h));
