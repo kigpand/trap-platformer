@@ -66,6 +66,9 @@ const DEBRIS_LIFE = 0.6; // 초
 const MAX_DEBRIS = 60; // 한꺼번에 많이 무너져도 그리기 양이 늘지 않게
 const DEBRIS_SIZE = 6;
 export const DEBRIS_FILL = '#4d6343';
+// 이번 런의 사망 표식(docs/game-design.md "기록"): 발밑에 놓는 8px 픽셀 ×, 같은 자리에서 여러 번 죽었으면 위에 횟수.
+export const DEATH_MARK_FILL = 'rgba(226,232,240,0.7)';
+const DEATH_MARK_SIZE = 8;
 interface Debris { x: number; y: number; vx: number; vy: number; life: number }
 // 운영체제의 "동작 줄이기"를 켠 사용자에게는 화면을 흔들지 않는다.
 const prefersReducedMotion = (): boolean => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -450,6 +453,18 @@ export class CanvasRenderer {
     }
     ctx.fillStyle = DEBRIS_FILL;
     for (const d of this.debris) ctx.fillRect(d.x - DEBRIS_SIZE / 2, d.y, DEBRIS_SIZE, DEBRIS_SIZE);
+    // 사망 표식은 플레이어보다 먼저 그려, 다시 시작한 자리와 겹쳐도 플레이어가 위에 보인다.
+    ctx.fillStyle = DEATH_MARK_FILL; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
+    for (const m of world.deathMarks) {
+      const left = m.x - DEATH_MARK_SIZE / 2, top = m.y - DEATH_MARK_SIZE;
+      if (left > cam + VIEW_WIDTH || left + DEATH_MARK_SIZE < cam) continue;
+      for (let i = 0; i < DEATH_MARK_SIZE; i += 2) {
+        ctx.fillRect(left + i, top + i, 2, 2);
+        ctx.fillRect(left + DEATH_MARK_SIZE - 2 - i, top + i, 2, 2);
+      }
+      if (m.count > 1) ctx.fillText(`×${m.count}`, m.x, top - 3);
+    }
+    ctx.textAlign = 'left';
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
