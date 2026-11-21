@@ -38,6 +38,27 @@ describe('App announcements', () => {
     expect(status()).toContain('벌써 끝난 줄 알았지?');
     await act(async () => { root.unmount(); });
   });
+
+  // 클리어 뒤에도 플레이어는 움직일 수 있어 스냅샷이 계속 온다. 일시정지·재개 알림 뒤의 이동이 클리어 알림을 되살려 다시 읽히면 안 된다.
+  it('does not repeat the clear announcement when the player moves after pausing and resuming on the clear screen', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const status = (): string => container.querySelector('[role="status"]')?.textContent ?? '';
+    // World.snapshot()처럼 스냅샷마다 runDeathsByKind를 새 객체로 만든다.
+    const cleared = (extra: Partial<HudSnapshot> = {}): HudSnapshot => ({ ...base, cleared: true, runDeathsByKind: {}, ...extra });
+    await act(async () => { push(cleared()); });
+    expect(status()).toContain('레벨 1 클리어!');
+    await act(async () => { push(cleared({ paused: true })); });
+    expect(status()).toContain('일시정지됨');
+    await act(async () => { push(cleared()); });
+    expect(status()).toBe('게임 재개');
+    await act(async () => { push(cleared({ x: 40 })); });
+    expect(status()).toBe('게임 재개');
+    await act(async () => { root.unmount(); });
+  });
 });
 
 describe('App death stats on the clear screen', () => {
