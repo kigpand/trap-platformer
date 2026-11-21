@@ -37,7 +37,10 @@ export default function App() {
       setAnnouncement(`레벨 ${snapshot.level} 시작`);
       return;
     }
+    // 클리어 알림은 클리어되는 순간 한 번만 낸다. 클리어 뒤에도 플레이어가 움직여 스냅샷이 계속 오는데(runDeathsByKind는 매번 새 객체라
+    // 이 effect도 매번 돈다), 다시 내면 사이에 온 일시정지·재개 알림을 덮어써 같은 클리어 문장이 또 읽힌다.
     if (snapshot.cleared) {
+      if (prevCleared.current) return;
       prevCleared.current = true;
       const record = snapshot.newRecord ? ' — 최고 기록 갱신!' : '';
       const next = snapshot.level === snapshot.levelCount ? ' 모든 레벨을 클리어했습니다.' : ' 다음 레벨 버튼이나 N 키로 계속합니다.';
