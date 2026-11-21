@@ -55,7 +55,7 @@ describe('App announcements', () => {
     expect(status()).toContain('일시정지됨');
     await act(async () => { push(cleared()); });
     expect(status()).toBe('게임 재개');
-    await act(async () => { push(cleared({ x: 40 })); });
+    await act(async () => { push(cleared({ debugPlayer: { x: 40, y: 0, grounded: true } })); }); // B를 켜 두면 이동만으로도 스냅샷이 새로 온다
     expect(status()).toBe('게임 재개');
     await act(async () => { root.unmount(); });
   });
