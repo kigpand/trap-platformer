@@ -1,13 +1,31 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+// POSITION·GROUNDED는 B(충돌 박스 표시)를 켰을 때만 HUD에 보인다. 키 리스너가 붙기 전에 누른 B는 사라지므로
+// 보일 때까지 다시 누른다(이미 보이면 누르지 않아 도로 꺼지지 않는다). 컨트롤러를 새로 만들면 다시 꺼진다.
+async function showDebugHud(page: Page): Promise<void> {
+  const position = page.locator('.hud span', { hasText: 'POSITION' });
+  await expect(async () => {
+    if (!(await position.isVisible())) await page.keyboard.press('KeyB');
+    await expect(position).toBeVisible({ timeout: 500 });
+  }).toPass();
+}
 test('canvas game mounts and displays HUD', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'TRAP RUNNER' })).toBeVisible();
   await expect(page.getByLabel('2D 횡스크롤 게임 화면')).toBeVisible();
-  await expect(page.getByText('POSITION')).toBeVisible();
+  await expect(page.locator('.hud span', { hasText: 'LEVEL' })).toBeVisible();
+  // 위치·착지 상태는 디버그 정보라 평소에는 보이지 않고, B를 누르면 나타났다가 다시 누르면 사라진다.
+  await expect(page.locator('.hud span', { hasText: 'POSITION' })).toHaveCount(0);
+  await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveCount(0);
+  await showDebugHud(page);
+  await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toBeVisible();
+  await page.keyboard.press('KeyB');
+  await expect(page.locator('.hud span', { hasText: 'POSITION' })).toHaveCount(0);
 });
 
 test('P pauses and resumes the simulation', async ({ page }) => {
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   await expect(position).toBeVisible(); // GameController가 마운트되어 입력 리스너가 붙을 때까지 대기
   await page.keyboard.down('ArrowRight');
@@ -40,6 +58,7 @@ test('R still restarts the run while paused', async ({ page }) => {
   // 스폰(Y 350)은 공중이라 시작 직후의 좌표는 낙하 중 값이다. 그 값을 기준으로 저장하면 재시작 후
   // 정확히 같은 낙하 프레임을 잡아야만 통과해 부하가 걸리면 실패했다 — 착지를 기다린 뒤 X만 비교한다.
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
   await expect(grounded).toHaveText('GROUNDED YES');
@@ -63,6 +82,7 @@ test('R restarts the run back to spawn', async ({ page }) => {
   // Y가 안정될 때까지(착지) 기다린 뒤 X만 스폰 값으로 돌아왔는지 확인한다.
   // ("65, 350" 문자열이 다시 나타나길 기다리면 착지 전의 한 프레임만 우연히 잡아야 해서 깨지기 쉽다.)
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
   await expect(position).toBeVisible(); // GameController가 마운트되어 입력 리스너가 붙을 때까지 대기
@@ -83,6 +103,7 @@ test('the on-screen pause/restart buttons work the same as the keyboard shortcut
   // 가상 D-패드 등 이동 조작의 터치 지원은 추가 목표로 미루지만, 정지/재시작 버튼은
   // 이번 접근성 작업의 범위다.
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   const pauseButton = page.getByRole('button', { name: '일시정지/재개 (P)' });
   const restartButton = page.getByRole('button', { name: '재시작 (R)' });
@@ -111,6 +132,7 @@ test('Space activates a focused button instead of being swallowed as a jump', as
   // preventDefault()를 호출해서, 키보드 사용자가 버튼을 Space로 "누를" 수 없었다.
   // 버튼 포커스 중에도 방향키는 게임으로 전달되므로, 위치 변화로 정지 여부를 구분할 수 있다.
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   const pauseButton = page.getByRole('button', { name: '일시정지/재개 (P)' });
   await expect(position).toBeVisible();
@@ -134,6 +156,7 @@ test('Space activates a focused button instead of being swallowed as a jump', as
 test('movement keys still work after clicking an on-screen button with the mouse', async ({ page }) => {
   // 클릭 후 포커스가 버튼에 남아도 방향키 입력이 게임에 전달되어야 한다.
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   await expect(position).toBeVisible();
   await page.getByRole('button', { name: '재시작 (R)' }).click();
@@ -178,7 +201,7 @@ test('pause and mute state are shown in the HUD and on the buttons', async ({ pa
 test('a crash inside the game loop shows a recovery screen instead of a frozen page, and restart recovers', async ({ page }) => {
   // RAF 콜백 안의 예외는 이전에는 아무 안내 없이 게임을 멈춘 채 남겼다.
   await page.goto('/');
-  await expect(page.locator('.hud span', { hasText: 'POSITION' })).toBeVisible();
+  await showDebugHud(page);
   // 테스트 전용 훅 없이 실제 그리기 단계에서 예외를 일으킨다.
   await page.evaluate(() => {
     const proto = CanvasRenderingContext2D.prototype as CanvasRenderingContext2D & { __fillRect?: typeof CanvasRenderingContext2D.prototype.fillRect };
@@ -194,7 +217,7 @@ test('a crash inside the game loop shows a recovery screen instead of a frozen p
   });
   await alert.getByRole('button', { name: '다시 시작' }).click();
   const position = page.locator('.hud span', { hasText: 'POSITION' });
-  await expect(position).toBeVisible();
+  await showDebugHud(page); // 새 컨트롤러는 디버그 보기가 꺼진 채 시작한다
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(300);
   await page.keyboard.up('ArrowRight');
@@ -299,6 +322,7 @@ test.describe('on a touch device', () => {
 
   test('holding the on-screen right button moves the player, and releasing stops it', async ({ page }) => {
     await page.goto('/');
+    await showDebugHud(page);
     const position = page.locator('.hud span', { hasText: 'POSITION' });
     const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
     await expect(grounded).toHaveText('GROUNDED YES');
@@ -313,6 +337,7 @@ test.describe('on a touch device', () => {
   test('lifting one of two fingers on the same move button keeps moving until the last finger lifts', async ({ page }) => {
     // 코덱스 리뷰: 포인터를 구분하지 않고 해제해서, ▶를 두 손가락으로 누른 뒤 하나만 떼도 이동이 멈췄다.
     await page.goto('/');
+    await showDebugHud(page);
     const position = page.locator('.hud span', { hasText: 'POSITION' });
     await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
     const box = await page.getByRole('button', { name: '오른쪽으로 이동' }).boundingBox();
@@ -336,6 +361,7 @@ test.describe('on a touch device', () => {
 
   test('tapping the on-screen jump button jumps', async ({ page }) => {
     await page.goto('/');
+    await showDebugHud(page);
     const grounded = page.locator('.hud span', { hasText: 'GROUNDED' });
     await expect(grounded).toHaveText('GROUNDED YES');
     await holdTouch(page, '점프', 50);
@@ -377,6 +403,7 @@ test('the volume slider setting survives a reload, and a broken stored value fal
 test('arrow keys still move the player after adjusting the volume slider with the mouse', async ({ page }) => {
   // 슬라이더에 포커스가 남으면 방향키가 음량을 바꾸고 이동 입력은 무시된다.
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
   await page.getByRole('slider', { name: /음량/ }).click();
@@ -401,6 +428,7 @@ test('shows the current level, and keeps the next-level control hidden and N ign
 test('a trap death announces the taunting message to screen readers', async ({ page }) => {
   // 스폰에서 오른쪽으로 걸으면 숨겨진 블록이 무너져 떨어진다(원인: 숨겨진 블록).
   await page.goto('/');
+  await showDebugHud(page);
   await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
   await page.keyboard.down('ArrowRight');
   await expect(page.locator('.hud span', { hasText: 'FALLS' })).toHaveText('FALLS 1', { timeout: 5000 });
@@ -417,6 +445,7 @@ test('a connected gamepad moves the player and Start pauses', async ({ page }) =
     Object.defineProperty(navigator, 'getGamepads', { value: () => [{ index: 0, axes: [0, 0], buttons: buttons() }] });
   });
   await page.goto('/');
+  await showDebugHud(page);
   const position = page.locator('.hud span', { hasText: 'POSITION' });
   const status = page.locator('.hud span', { hasText: 'STATUS' });
   await expect(page.locator('.hud span', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');

@@ -11,7 +11,10 @@ export interface BestRecord { time: number; deaths: number }
 // level은 1부터 센다. best는 현재 레벨의 최고 기록, bests는 레벨 순서대로 모든 레벨의 기록(완료 화면용).
 // newRecord는 마지막 클리어가 기록을 하나라도 갱신했는지(수동 재시작·레벨 전환 시 해제).
 // levelDeaths는 이번 판(레벨 1부터 이어서 한 판)에서 레벨마다 원인별 사망 수 — 클리어한 레벨만 있고 나머지는 null(완료 화면용).
-export interface HudSnapshot extends GameSnapshot {
+// debugPlayer는 B(충돌 박스 표시)를 켰을 때만 채우는 플레이어 위치·착지 상태. 꺼져 있으면 null이라 달리는 동안
+// 좌표가 바뀌어도 스냅샷이 그대로여서 HUD가 매 스텝 다시 렌더링되지 않는다.
+export interface HudSnapshot extends Omit<GameSnapshot, 'x' | 'y' | 'grounded'> {
+  debugPlayer: { x: number; y: number; grounded: boolean } | null;
   paused: boolean; muted: boolean; volume: number;
   level: number; levelCount: number; best: BestRecord | null; bests: (BestRecord | null)[]; newRecord: boolean;
   levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
@@ -133,11 +136,11 @@ export class GameController {
     // 가짜 클리어 중에는 진짜 클리어였다면 보였을 기록(최고 기록·NEW RECORD!)을 그대로 보여 준다.
     const preview = this.world.fakeClear ? this.fakePreview : null;
     const bests = preview ? this.bests.map((b, j) => (j === this.levelIndex ? preview.best : b)) : this.bests;
-    const world = this.world.snapshot();
+    const { x, y, grounded, ...world } = this.world.snapshot();
     // 지금 레벨은 클리어 화면(진짜·가짜 클리어 모두)일 때만 채운다 — 가짜 클리어의 완료 화면도 진짜처럼 보여야 한다.
     const levelDeaths = this.levelDeaths.map((d, j) => (j === this.levelIndex ? (world.cleared ? world.runDeathsByKind : null) : d));
     const snapshot: HudSnapshot = {
-      ...world, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
+      ...world, debugPlayer: this.renderer.debug ? { x, y, grounded } : null, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
       level: this.levelIndex + 1, levelCount: this.levels.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
       levelDeaths,
     };
