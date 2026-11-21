@@ -64,7 +64,7 @@ test('a fake clear looks real, and "next level" drops the floor instead of advan
   await page.goto('/');
   const hud = (label: string) => page.locator('.hud span', { hasText: label });
   await expect(hud('LEVEL')).toHaveText(/^LEVEL 1 \//);
-  await expect(hud('POSITION')).toHaveText('POSITION 65, 350'); // 아직 한 스텝도 돌지 않았다
+  await expect(hud('TIME')).toHaveText('TIME 0.0s'); // 아직 한 스텝도 돌지 않았다
 
   await replay(page, inputs, 1008); // 1000에서 멈춘 시계의 첫 requestAnimationFrame은 1008
 

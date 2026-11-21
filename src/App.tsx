@@ -13,7 +13,7 @@ function topKiller(byKind: Parameters<typeof rankDeaths>[0]): string {
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
-    x: 65, y: 350, grounded: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+    debugPlayer: null, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
     paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false, levelDeaths: [],
   });
   const [announcement, setAnnouncement] = useState('');
@@ -127,8 +127,12 @@ export default function App() {
       </div>
       <section className="hud" aria-label="게임 상태">
         <span>LEVEL <b>{snapshot.level} / {snapshot.levelCount}</b></span>
-        <span>POSITION <b>{snapshot.x}, {snapshot.y}</b></span>
-        <span>GROUNDED <b>{snapshot.grounded ? 'YES' : 'NO'}</b></span>
+        {snapshot.debugPlayer && (
+          <>
+            <span>POSITION <b>{snapshot.debugPlayer.x}, {snapshot.debugPlayer.y}</b></span>
+            <span>GROUNDED <b>{snapshot.debugPlayer.grounded ? 'YES' : 'NO'}</b></span>
+          </>
+        )}
         <span>FALLS <b>{snapshot.deaths}</b></span>
         <span>CHECKPOINT <b>{snapshot.checkpoint ? 'SAVED' : 'NONE'}</b></span>
         <span>STATUS <b>{snapshot.paused ? 'PAUSED' : snapshot.cleared ? (snapshot.newRecord ? 'NEW RECORD!' : 'CLEAR!') : 'PLAYING'}</b></span>

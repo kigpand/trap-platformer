@@ -202,6 +202,39 @@ describe('GameController tab visibility', () => {
 });
 
 
+describe('GameController debug HUD', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  it('leaves the player position out of the HUD snapshot unless B is on, so running alone does not republish it', () => {
+    const callbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { callbacks.push(cb); return callbacks.length; });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    // 시간은 그대로 두고 좌표만 매 스텝 바뀌는 "달리는 중"을 흉내 낸다.
+    let x = 0;
+    vi.spyOn(World.prototype, 'snapshot').mockImplementation(() => ({
+      x: x++, y: 468, grounded: true, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+    }));
+    const snapshots: HudSnapshot[] = [];
+    const controller = new GameController(document.createElement('canvas'), (s) => snapshots.push(s), (e) => { throw e; });
+    controller.start();
+    let frame = 0;
+    const step = (): void => { frame++; for (const cb of callbacks.splice(0)) cb(frame * 20); };
+    for (let i = 0; i < 5; i++) step();
+    expect(snapshots).toHaveLength(1);
+    expect(snapshots[0].debugPlayer).toBeNull();
+    expect(snapshots[0]).not.toHaveProperty('x');
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB' }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyB' }));
+    step();
+    const shown = snapshots.length;
+    expect(snapshots[shown - 1].debugPlayer).toMatchObject({ y: 468, grounded: true });
+    step();
+    expect(snapshots).toHaveLength(shown + 1); // 켜 두면 좌표가 바뀔 때마다 다시 알린다
+    controller.dispose();
+  });
+});
+
 describe('GameController level progression', () => {
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 

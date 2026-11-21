@@ -15,7 +15,7 @@ vi.mock('../../src/components/GameCanvas', () => ({
 const { default: App } = await import('../../src/App');
 
 const base: HudSnapshot = {
-  x: 0, y: 0, grounded: true, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+  debugPlayer: null, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
   paused: false, muted: false, volume: 0.8, level: 1, levelCount: 3, best: null, bests: [null, null, null], newRecord: false, levelDeaths: [null, null, null],
 };
 
@@ -31,7 +31,7 @@ describe('App announcements', () => {
     const status = (): string => container.querySelector('[role="status"]')?.textContent ?? '';
     await act(async () => { push({ ...base, cleared: true, newRecord: true }); });
     expect(status()).toContain('레벨 1 클리어!');
-    await act(async () => { push({ ...base, x: 200 }); });
+    await act(async () => { push({ ...base, time: 6 }); });
     expect(status()).toBe('다시 진행 중');
     await act(async () => { push({ ...base, deaths: 1, runDeaths: 1, deathKind: 'fakeClear' }); });
     expect(status()).toContain('사망 1번째');
@@ -84,6 +84,26 @@ describe('App death stats on the clear screen', () => {
     expect(items[0]).toContain('가장 많이 당한 함정 가짜 안전지대 ×2');
     expect(items[1]).toContain('당한 함정 없음');
     expect(items[2]).toContain('가장 많이 당한 함정 따라 하는 그림자 ×1');
+    await act(async () => { root.unmount(); });
+  });
+});
+
+describe('App debug HUD', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  it('shows POSITION and GROUNDED only while the B debug view sends the player state', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const hud = (): string => container.querySelector('.hud')?.textContent ?? '';
+    await act(async () => { push(base); });
+    expect(hud()).not.toContain('POSITION');
+    expect(hud()).not.toContain('GROUNDED');
+    await act(async () => { push({ ...base, debugPlayer: { x: 120, y: 468, grounded: false } }); });
+    expect(hud()).toContain('POSITION 120, 468');
+    expect(hud()).toContain('GROUNDED NO');
     await act(async () => { root.unmount(); });
   });
 });
