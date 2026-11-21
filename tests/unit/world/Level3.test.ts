@@ -5,6 +5,7 @@ import { playSolution, type Step } from './solution';
 import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, HILL_PIPE_ENEMY, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
 import { dt } from './fixtures';
 import { respawnFrom } from './respawn';
+import { jumpSlack } from './tolerance';
 
 // 레벨 3(어려움, 16,800px): 새 함정 8종을 명세 기본 크기로 쉴 틈 없이 이어 붙인다(함정 확장 릴리스 6번).
 // 원래 구간이 없어 처음부터 끝까지 해법 입력으로 간다. 맵 3배 확장: 예전 마지막 구간(도망가는 목표)을 끝으로 옮기고,
@@ -198,4 +199,22 @@ describe('LEVEL_3 (hard)', () => {
     playSolution(offBeat, naive);
     expect(offBeat.deaths).toBe(2); // 박자를 무시하고 뛰면 여전히 떨어진다
   });
+
+  it('leaves at least 6 frames of human slack on every solution jump, except the pinned tight ones', () => {
+    // docs/game-design.md "사람 손 여유 하한": 레벨 4와 같은 방식으로 잰다(한쪽 5프레임까지, 합계 6이면 멈춤 — Level4.test.ts).
+    // 예외(2026-11-21, 프로젝트 오너 결정): 하한에 못 미치는 점프는 배치를 바꾸지 않고 지금 여유로 고정해, 이보다 줄면 실패한다.
+    // 바로 앞 "x까지 달리기"의 x로 점프를 가리킨다. 2258: 높이 60px 가짜 체크포인트(원래 의도한 어려움),
+    // 11615: 세 번째 착지 발판의 늦게 뛰기(바닥 끝을 25px까지만 내밀 수 있어 더 넓히기 어렵다).
+    const pinned = new Map([[2258, 3], [11615, 5]]);
+    const slack = jumpSlack(() => new World(LEVEL_3), FULL, FULL.length, 5, 6);
+    expect(slack.length).toBe(FULL.filter((s) => 'jump' in s || 'hop' in s).length);
+    const seen = new Set<number>();
+    for (const s of slack) {
+      const prev = FULL[s.index - 1];
+      const floor = 'run' in prev ? pinned.get(prev.run) : undefined;
+      if (floor !== undefined && 'run' in prev) seen.add(prev.run);
+      expect(s.total, `step ${s.index}: ${s.early} early + ${s.late} late`).toBeGreaterThanOrEqual(floor ?? 6);
+    }
+    expect([...seen]).toEqual([...pinned.keys()]); // 예외 목록이 해법에서 사라진 점프를 가리키지 않는다
+  }, 60_000); // 변형마다 레벨 끝까지 다시 돌린다(Level4.test.ts와 같은 이유)
 });
