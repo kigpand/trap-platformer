@@ -51,5 +51,16 @@ describe('wind pits in the levels', () => {
       for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(1 / 60, run);
       expect(world.deaths, `jump from x ${x}`).toBe(1);
     }
+    // 코요테 타임(docs/physics-spec.md): 가장자리를 걸어서 벗어난 뒤 공중 0~5스텝째에 뛰어도 못 건넌다.
+    for (let air = 0; air < 6; air++) {
+      const world = new World(calm);
+      world.player.x = edge - 40; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+      for (let i = 0; i < 60 && world.player.grounded; i++) world.update(1 / 60, run);
+      for (let i = 0; i < air; i++) world.update(1 / 60, run);
+      world.update(1 / 60, { ...run, jumpPressed: true });
+      expect(world.drainEvents(), `coyote jump at air step ${air}`).toContain('jump');
+      for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(1 / 60, run);
+      expect(world.deaths, `coyote jump at air step ${air}`).toBe(1);
+    }
   });
 });

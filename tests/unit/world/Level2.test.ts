@@ -253,11 +253,12 @@ describe('LEVEL_2', () => {
     }
   });
 
-  it('leaves at least 6 frames of human slack on every solution jump, except the pinned tight one', () => {
+  it('leaves at least 6 frames of human slack on every solution jump', () => {
     // docs/game-design.md "사람 손 여유 하한": 레벨 4와 같은 방식으로 잰다(한쪽 5프레임까지, 합계 6이면 멈춤 — Level4.test.ts).
     // 예외(2026-11-21, 프로젝트 오너 결정): 하한에 못 미치는 점프는 배치를 바꾸지 않고 지금 여유로 고정해, 이보다 줄면 실패한다.
-    // 바로 앞 "x까지 달리기"의 x로 점프를 가리킨다. 세 번째 착지 발판의 늦게 뛰기는 바닥 끝을 25px까지만 내밀 수 있어 더 넓히기 어렵다.
-    const pinned = new Map([[10115, 5]]);
+    // 바로 앞 "x까지 달리기"의 x로 점프를 가리킨다. 세 번째 착지 발판의 늦게 뛰기(run 10115, 5)를 고정했다가, 코요테 타임(2026-11-23)으로
+    // 11이 되어 하한을 넘으므로 예외에서 뺐다. 지금 레벨 2에는 예외가 없다.
+    const pinned = new Map<number, number>();
     const slack = jumpSlack(() => new World(LEVEL_2), FULL, FULL.length, 5, 6);
     expect(slack.length).toBe(FULL.filter((s) => 'jump' in s || 'hop' in s).length);
     const seen = new Set<number>();

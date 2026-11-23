@@ -40,6 +40,8 @@ export const MUD_SPEED = 105; // 진흙 위 걷기 속도(평소 210의 절반)
 export const MUD_JUMP_SPEED = 360; // 진흙 위 점프 초기 속도(평소 480 — 최고 약 48px)
 // 점프 입력 버퍼: 바닥에 없을 때 누른 점프는 그 뒤 이만큼의 스텝 안에 바닥에 서면 그 스텝에 실행된다(docs/physics-spec.md "점프 입력 버퍼").
 export const JUMP_BUFFER_STEPS = 6;
+// 코요테 타임: 스스로 움직여 바닥을 벗어난 뒤 이만큼의 스텝 동안은 공중이어도 점프할 수 있다(docs/physics-spec.md "코요테 타임").
+export const COYOTE_STEPS = 6;
 const PIPE_ENEMY_WARNING = 0.3; // #31 경고 시간(#3과 같음)
 const PIPE_ENEMY_RISE = 0.3; // #31 입구에서 다 올라오기까지
 const SINK_SPEED = 150; // #32 가라앉는 속도
@@ -451,6 +453,11 @@ export class World implements LifeState {
   heavyShoes = false;
   // 점프 입력 버퍼에 남은 스텝 수(0이면 없음). 목숨이 바뀌면 비운다.
   private jumpBuffer = 0;
+  // 코요테 타임에 남은 스텝 수. 바닥에 서서 끝난 스텝마다 채우고, 점프·트램펄린·발밑이 사라짐에서는 0으로 비운다
+  // (스프링·날려버리는 점프의 강제 비행 중에는 applyInput이 코요테 점프를 막고, 비행은 착지로만 끝난다).
+  private coyote = 0;
+  // 마지막으로 바닥에 서서 끝난 스텝의 자리와 그곳이 진흙이었는지. 코요테 점프는 이 자리에서 뛴 것으로 판정한다.
+  private lastGround: { readonly rect: Rect; readonly mud: boolean } | null = null;
   // #27 이번 목숨이 시작된 뒤 흐른 시뮬레이션 시간 — 박자 발판의 박자는 목숨마다 처음부터 시작한다.
   lifeTime = 0;
   activeCheckpoint: { x: number; y: number } | null = null;
@@ -545,6 +552,8 @@ export class World implements LifeState {
     this.reverseHeard.clear();
     this.heavyShoes = false;
     this.jumpBuffer = 0;
+    this.coyote = 0;
+    this.lastGround = null;
   }
   // 사망한 자리(발밑 가운데)를 표식으로 남긴다. 구덩이에 빠졌으면 떨어진 x에, 마지막으로 서 있던 바닥 높이로 둔다.
   private addDeathMark(): void {
@@ -638,7 +647,7 @@ export class World implements LifeState {
     // 붕괴된 함정 "하나"만 보고 판단하지 않고, 남아있는 솔리드 전체를 기준으로 다시 확인한다.
     if (p.grounded) {
       const stillSupported = [...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s));
-      if (!stillSupported) p.grounded = false;
+      if (!stillSupported) { p.grounded = false; this.coyote = 0; } // 발밑이 사라진 것은 코요테 타임을 주지 않는다
     }
   }
   // 3. 좌우 입력(반전·얼음·진흙·벨트)과 점프(날려버리는 점프·무거운 신발·착지 예측 가시·따라 뛰는 적)를 반영한다.
@@ -651,7 +660,7 @@ export class World implements LifeState {
     // 점프 입력 버퍼: 누른 스텝에 바닥에 없으면 기억해 두었다가 JUMP_BUFFER_STEPS 안에 바닥에 서는 스텝에 뛴다.
     // 버퍼로 뛴 점프는 그 스텝에 직접 누른 점프와 똑같다(날려버리는 점프·무거운 신발·착지 예측 가시·따라 뛰는 적 포함).
     if (input.jumpPressed) this.jumpBuffer = JUMP_BUFFER_STEPS + 1;
-    const jumping = this.jumpBuffer > 0 && p.grounded;
+    const jumping = this.jumpBuffer > 0 && (p.grounded || (this.coyote > 0 && !this.flight));
     this.jumpBuffer = jumping ? 0 : Math.max(0, this.jumpBuffer - 1);
     const ice = !this.flight && !jumping && p.grounded ? this.level.iceFloors.find((t) => isStandingOn(p, t)) : undefined;
     // 지형지물: 진흙 위에서는 걷기가 느리고(뛰는 스텝 포함 — 진흙에서 뛰어오르는 첫 걸음도 무겁다), 컨베이어 위에서는 벨트 속도가 더해진다
@@ -669,19 +678,23 @@ export class World implements LifeState {
       if (horizontal !== 0) p.facing = horizontal;
     }
     if (jumping) {
+      // 코요테 점프(공중에서 뜀)는 마지막으로 서 있던 자리에서 뛴 것으로 본다 — 가장자리 구역 함정(#15·#23·#24)과 진흙 점프를
+      // 가장자리를 지나친 뒤 늦게 뛰어 피하지 못하게(2026-11-23 프로젝트 오너 결정).
+      const at: Rect = p.grounded || !this.lastGround ? p : this.lastGround.rect;
+      const jumpMud = p.grounded ? mud : this.lastGround?.mud === true;
       // #15 날려버리는 점프: 구역 안에서 바닥에 선 채 뛰면 보통 점프 대신 강제 비행.
-      const fling = this.level.flingZones.find((f) => overlaps(p, f.zone));
+      const fling = this.level.flingZones.find((f) => overlaps(at, f.zone));
       if (fling) {
         this.launch(fling.vx, fling.vy);
         this.trapEvent('fling', fling.zone);
         this.lastFallTrap = { cause: { rect: fling.zone, kind: 'flingJump' }, at: this.clock };
       } else {
         // #24 무거운 신발: 구역 안에서 뛰면 낮고 짧은 점프. 떨어지면 3초 규칙으로 구역 탓.
-        const heavy = this.level.heavyZones.find((h) => overlaps(p, h.zone));
+        const heavy = this.level.heavyZones.find((h) => overlaps(at, h.zone));
         if (heavy) this.lastFallTrap = { cause: { rect: heavy.zone, kind: 'heavyShoes' }, at: this.clock };
-        p.vy = -(heavy ? heavy.jumpSpeed : mud ? MUD_JUMP_SPEED : JUMP_SPEED); p.grounded = false;
+        p.vy = -(heavy ? heavy.jumpSpeed : jumpMud ? MUD_JUMP_SPEED : JUMP_SPEED); p.grounded = false; this.coyote = 0;
         // #23 착지 예측 가시: 이 점프가 지금 입력을 유지한 채 떨어질 자리에 즉시 가시를 솟게 한다.
-        const ls = this.landingSpikes.find((s) => !s.fired && overlaps(p, s.zone));
+        const ls = this.landingSpikes.find((s) => !s.fired && overlaps(at, s.zone));
         if (ls) {
           ls.fired = true; ls.spikes = this.predictLandingSpikes(dt);
           if (ls.spikes) this.trapEvent('spikes', ls.spikes);
@@ -733,7 +746,7 @@ export class World implements LifeState {
         landedOn.solid = false;
         this.trapEvent('collapse', landedOn.config.rect);
         this.lastFallTrap = { cause: { rect: landedOn.config.rect, kind: 'countingPlatform' }, at: this.clock };
-        if (![...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s))) p.grounded = false;
+        if (![...this.terrain, ...this.dynamicSolids(), ...this.level.oneWayPlatforms].some((s) => isStandingOn(p, s))) { p.grounded = false; this.coyote = 0; }
       }
     }
     // 강제 비행은 발동한 다음 스텝부터, 이동 뒤 grounded가 된 첫 스텝(착지)에서 끝난다. 천장 충돌은 grounded가 아니다.
@@ -756,8 +769,13 @@ export class World implements LifeState {
     // 공중 좌우 조작은 평소대로이고, 숨겨 두지 않으므로 놀리는 문구도 없다.
     if (!this.flight) {
       const tramp = this.level.trampolines.find((t) => isStandingOn(p, t.tile));
-      if (tramp) { p.vy = -tramp.speed; p.grounded = false; this.trapEvent('spring', tramp.tile); }
+      if (tramp) { p.vy = -tramp.speed; p.grounded = false; this.coyote = 0; this.trapEvent('spring', tramp.tile); }
     }
+    // 코요테 타임: 바닥에 서서 끝난 스텝에 채운다(+1 — 바닥을 벗어나는 스텝 자체는 세지 않고, 그 뒤 COYOTE_STEPS 스텝 동안 뛸 수 있게).
+    if (p.grounded) {
+      this.coyote = COYOTE_STEPS + 1;
+      this.lastGround = { rect: { x: p.x, y: p.y, width: p.width, height: p.height }, mud: this.level.mudFloors.some((t) => isStandingOn(p, t)) };
+    } else if (this.coyote > 0) this.coyote--;
     return wasAirborne;
   }
   // 5. 이동을 마친 위치로 함정·적을 갱신한다. 깔림 판정은 사망 판정(7)에서 쓰도록 돌려준다.
