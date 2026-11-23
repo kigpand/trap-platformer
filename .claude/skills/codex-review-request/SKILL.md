@@ -10,7 +10,7 @@ Codex 리뷰(AGENTS.md "작업 흐름" 3번)에 넘길 인계 파일을 만듭�
 요청 파일은 Codex가 **같은 작업 트리**를 읽을 때만 전달됩니다. 별도 worktree·새 clone·클라우드 작업에서 리뷰한다면 같은 내용을 Codex에 직접 붙여 넣도록 오너에게 알립니다.
 
 1. 범위 확정: 기준 브랜치와 대상 커밋을 정합니다. 현재 체크아웃(`HEAD`)은 대상과 다를 수 있으므로 쓰지 않습니다.
-   - 브랜치 이름: 기준 브랜치 = `master`, 대상 = `git rev-parse <브랜치>`(로컬에 없으면 먼저 `git fetch origin <브랜치> master`)
+   - 브랜치 이름: 기준 브랜치 = `master`. 로컬 브랜치가 있으면(`git rev-parse --verify -q refs/heads/<브랜치>`) 대상 = `git rev-parse <브랜치>`. 없으면 `git fetch origin <브랜치> master` 뒤 대상 = `git rev-parse origin/<브랜치>` — fetch는 로컬 브랜치를 만들지 않아 `<브랜치>`만으로는 해석되지 않습니다.
    - 인자 없음: 현재 브랜치를 브랜치 이름으로 받은 것처럼 처리
    - 기준 커밋 = `git merge-base origin/<기준 브랜치> <대상>`(원격이 없으면 로컬 브랜치). 이 둘로 짧은 해시, `git diff --stat <기준>...<대상>`, `git log --oneline <기준>..<대상>`을 모읍니다.
    - 커밋하지 않은 변경은 범위에 들어가지 않는다고 적습니다.
