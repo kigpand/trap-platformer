@@ -59,3 +59,33 @@ describe('death marks', () => {
     expect(world.deathMarks).toEqual([]);
   });
 });
+
+// 누적 사망 기록(core/deathLogStore.ts)은 World가 마지막으로 센 사망의 자리와 원인(lastDeath)을 읽어 쌓는다.
+describe('last counted death', () => {
+  it('gives the mark position and the cause of a counted death', () => {
+    const world = new World(LEVEL_1);
+    dieOnHazard(world);
+    const [mark] = world.deathMarks;
+    expect(world.lastDeath).toEqual({ x: mark.x, y: mark.y, kind: 'hazard' });
+  });
+
+  it('records a pit fall without a cause as a plain fall', () => {
+    const level = testLevel({ solids: [{ x: 0, y: 500, width: 300, height: 120 }, { x: 700, y: 500, width: 1300, height: 120 }] });
+    const world = new World(level);
+    runUntil(world, right, 600, () => world.runDeaths > 0);
+    expect(world.lastDeath?.kind).toBe('fall');
+    expect(world.lastDeath?.y).toBe(500);
+  });
+
+  it('is null after a manual restart and after a death that the cleared run does not count', () => {
+    const world = new World(LEVEL_1);
+    dieOnHazard(world);
+    world.update(dt, { ...idle, restartPressed: true });
+    expect(world.lastDeath).toBeNull();
+    world.player.x = LEVEL_1.goal.x; world.player.y = LEVEL_1.goal.y;
+    world.update(dt, idle);
+    dieOnHazard(world);
+    expect(world.deaths).toBe(2);
+    expect(world.lastDeath).toBeNull();
+  });
+});

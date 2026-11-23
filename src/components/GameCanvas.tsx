@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { GameController, type HudSnapshot } from '../game/core/GameController';
 import type { TouchAction } from '../game/core/InputManager';
-export interface GameHandle { restart(): void; nextLevel(): void; togglePause(): void; toggleMute(): void; setVolume(volume: number): void; setTouch(action: TouchAction, pressed: boolean): void }
+export interface GameHandle { restart(): void; nextLevel(): void; clearDeathLog(): void; togglePause(): void; toggleMute(): void; setVolume(volume: number): void; setTouch(action: TouchAction, pressed: boolean): void }
 export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: HudSnapshot) => void }>(
   function GameCanvas({ onSnapshot }, ref) {
     const canvas = useRef<HTMLCanvasElement>(null);
@@ -20,6 +20,7 @@ export const GameCanvas = forwardRef<GameHandle, { onSnapshot: (s: HudSnapshot) 
     useImperativeHandle(ref, () => ({
       restart: () => controller.current?.restart(),
       nextLevel: () => controller.current?.nextLevel(),
+      clearDeathLog: () => controller.current?.clearDeathLog(),
       togglePause: () => controller.current?.togglePause(),
       toggleMute: () => controller.current?.toggleMute(),
       setVolume: (volume) => controller.current?.setVolume(volume),

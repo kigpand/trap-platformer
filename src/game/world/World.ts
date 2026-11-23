@@ -313,6 +313,15 @@ export type DeathStatKind = DeathCauseKind | 'fall';
 export interface DeathCause { readonly rect: Rect; readonly kind: DeathCauseKind }
 // 이번 런의 사망 표식: 발밑 가운데 위치와 그 자리에서 죽은 횟수.
 export interface DeathMark { readonly x: number; readonly y: number; count: number }
+// 사망 자리를 표식 목록에 더한다: 가로·세로 DEATH_MARK_MERGE 안의 표식이 있으면 그 횟수를 늘린다. 이번 런 표식과
+// 누적 사망 기록(core/deathLogStore.ts)이 같은 규칙을 쓴다. 새 자리이고 목록이 limit개에 닿았으면 더하지 않고 false를 돌려준다.
+export function addDeathMarkAt(marks: DeathMark[], x: number, y: number, limit = Infinity): boolean {
+  const near = marks.find((m) => Math.abs(m.x - x) <= DEATH_MARK_MERGE && Math.abs(m.y - y) <= DEATH_MARK_MERGE);
+  if (near) { near.count++; return true; }
+  if (marks.length >= limit) return false;
+  marks.push({ x, y, count: 1 });
+  return true;
+}
 export interface DeathCauseState { readonly rect: Rect; readonly kind: DeathCauseKind; remaining: number }
 
 function union(a: Rect, b: Rect): Rect {
@@ -478,6 +487,9 @@ export class World implements LifeState {
   // 이번 런의 사망 위치(docs/game-design.md "기록"): 발밑 가운데. 가까운 자리(DEATH_MARK_MERGE 안)의 사망은 한 표식으로 합쳐 센다.
   // 런과 함께 수동 재시작(R)으로 비우고, 다음 레벨은 새 World라 비어서 시작한다. 렌더러가 읽기만 한다.
   deathMarks: DeathMark[] = [];
+  // 마지막으로 센 사망(이번 런 사망 수에 들어간 것)의 자리와 원인. 컨트롤러가 'death' 이벤트에서 읽어 누적 기록에 더한다.
+  // 세지 않는 사망(클리어 뒤)이나 수동 재시작(R)이면 null.
+  lastDeath: { readonly x: number; readonly y: number; readonly kind: DeathStatKind } | null = null;
   // 마지막으로 땅에 서 있던 발밑 높이 — 구덩이 낙사의 표식은 화면 아래가 아니라 떨어진 바닥 높이에 둔다.
   private lastFootY = 0;
   private events: WorldEvent[] = [];
@@ -523,13 +535,14 @@ export class World implements LifeState {
   private trapEvent(kind: TrapEventKind, rect: Rect): void { this.trapEvents.push({ kind, rect }); }
   // cause: 이 사망의 원인(영역과 종류, 없으면 표시하지 않음). 수동 재시작(R)은 원인 없이 부른다.
   reset(countDeath = false, cause: DeathCause | null = null): void {
+    this.lastDeath = null;
     if (countDeath) {
       this.deaths++; this.events.push('death');
       if (!this.runComplete) {
         this.runDeaths++;
         const kind = cause?.kind ?? 'fall';
         this.runDeathsByKind[kind] = (this.runDeathsByKind[kind] ?? 0) + 1;
-        this.addDeathMark();
+        this.lastDeath = { ...this.addDeathMark(), kind };
       }
     } else {
       this.activeCheckpoint = null; // 수동 재시작(R)은 체크포인트 진행도도 초기화한다
@@ -556,13 +569,12 @@ export class World implements LifeState {
     this.lastGround = null;
   }
   // 사망한 자리(발밑 가운데)를 표식으로 남긴다. 구덩이에 빠졌으면 떨어진 x에, 마지막으로 서 있던 바닥 높이로 둔다.
-  private addDeathMark(): void {
+  private addDeathMark(): { x: number; y: number } {
     const p = this.player;
     const x = p.x + p.width / 2;
     const y = p.y > this.level.height ? this.lastFootY : p.y + p.height;
-    const near = this.deathMarks.find((m) => Math.abs(m.x - x) <= DEATH_MARK_MERGE && Math.abs(m.y - y) <= DEATH_MARK_MERGE);
-    if (near) near.count++;
-    else this.deathMarks.push({ x, y, count: 1 });
+    addDeathMarkAt(this.deathMarks, x, y);
+    return { x, y };
   }
   // 고정 스텝 하나. 단계의 순서가 동작의 일부다(각 단계 주석 참고) — 단계를 옮기거나 합치면 테스트·해법 여유가 바뀔 수 있다.
   update(dt: number, input: InputState): void {

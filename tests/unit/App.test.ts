@@ -15,7 +15,7 @@ vi.mock('../../src/components/GameCanvas', () => ({
 const { default: App } = await import('../../src/App');
 
 const base: HudSnapshot = {
-  debugPlayer: null, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+  debugPlayer: null, debugDeaths: null, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
   paused: false, muted: false, volume: 0.8, level: 1, levelCount: 3, best: null, bests: [null, null, null], newRecord: false, levelDeaths: [null, null, null],
 };
 
@@ -125,6 +125,24 @@ describe('App debug HUD', () => {
     await act(async () => { push({ ...base, debugPlayer: { x: 120, y: 468, grounded: false } }); });
     expect(hud()).toContain('POSITION 120, 468');
     expect(hud()).toContain('GROUNDED NO');
+    await act(async () => { root.unmount(); });
+  });
+
+  it('shows the cumulative death log panel only while the B debug view sends it, most-hit first', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const panel = (): Element | null => container.querySelector('[aria-label="누적 사망 기록"]');
+    await act(async () => { push(base); });
+    expect(panel()).toBeNull();
+    await act(async () => { push({ ...base, debugDeaths: { total: 0, kinds: {} } }); });
+    expect(panel()?.textContent).toContain('아직 기록이 없어요.');
+    await act(async () => { push({ ...base, level: 2, debugDeaths: { total: 7, kinds: { fall: 2, arrow: 5 } } }); });
+    expect(panel()?.querySelector('h2')?.textContent).toBe('누적 사망 기록 — 레벨 2, 7회');
+    expect([...(panel()?.querySelectorAll('li') ?? [])].map((li) => li.textContent)).toEqual(['화살 발사대 ×5', '그냥 떨어짐 ×2']);
+    expect(panel()?.querySelector('button')?.textContent).toContain('누적 사망 기록 지우기');
     await act(async () => { root.unmount(); });
   });
 });

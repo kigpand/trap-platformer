@@ -5,7 +5,7 @@ import { hillColumns } from '../world/level';
 import {
   drawPixelSprite, ENEMY_WALK_1, ENEMY_WALK_2, PLAYER_IDLE, PLAYER_JUMP, PLAYER_WALK_1, PLAYER_WALK_2,
 } from './Sprites';
-import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type World } from '../world/World';
+import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type DeathMark, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
 import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawPlatform, drawTrampoline, drawWind } from './terrain';
@@ -16,6 +16,20 @@ import { TAUNTS } from './taunts';
 export const VIEW_HEIGHT = 540;
 const WALK_CYCLE_MS = 160; // 걷기 2프레임 전환 주기 — 렌더링 전용 타이밍(시뮬레이션 상태 아님)
 
+// 사망 표식: 발밑 가운데 위의 작은 픽셀 ×, 두 번 이상이면 위에 횟수. 화면에 걸치는 것만 그린다. labelGap은 ×와 횟수 글자 사이 —
+// 누적 기록(B)의 횟수는 같은 자리의 이번 런 횟수와 겹치지 않게 더 위에 쓴다.
+function drawDeathMarks(ctx: CanvasRenderingContext2D, marks: readonly DeathMark[], fill: string, cam: number, labelGap: number): void {
+  ctx.fillStyle = fill;
+  for (const m of marks) {
+    const left = m.x - DEATH_MARK_SIZE / 2, top = m.y - DEATH_MARK_SIZE;
+    if (left > cam + VIEW_WIDTH || left + DEATH_MARK_SIZE < cam) continue;
+    for (let i = 0; i < DEATH_MARK_SIZE; i += 2) {
+      ctx.fillRect(left + i, top + i, 2, 2);
+      ctx.fillRect(left + DEATH_MARK_SIZE - 2 - i, top + i, 2, 2);
+    }
+    if (m.count > 1) ctx.fillText(`×${m.count}`, m.x, top - labelGap);
+  }
+}
 function playerFrame(p: Player) {
   if (!p.grounded) return PLAYER_JUMP;
   if (p.vx === 0) return PLAYER_IDLE;
@@ -68,6 +82,8 @@ const DEBRIS_SIZE = 6;
 export const DEBRIS_FILL = '#4d6343';
 // 이번 런의 사망 표식(docs/game-design.md "기록"): 발밑에 놓는 8px 픽셀 ×, 같은 자리에서 여러 번 죽었으면 위에 횟수.
 export const DEATH_MARK_FILL = 'rgba(226,232,240,0.7)';
+// 누적 사망 기록의 표식(B를 켰을 때만) — 이번 런 표식(회백색)과 구분되는 하늘색.
+export const LOGGED_DEATH_FILL = 'rgba(103,232,249,0.8)';
 const DEATH_MARK_SIZE = 8;
 interface Debris { x: number; y: number; vx: number; vy: number; life: number }
 // 운영체제의 "동작 줄이기"를 켠 사용자에게는 화면을 흔들지 않는다.
@@ -75,6 +91,8 @@ const prefersReducedMotion = (): boolean => window.matchMedia?.('(prefers-reduce
 
 export class CanvasRenderer {
   debug = false;
+  // 누적 사망 기록의 표식(컨트롤러가 지금 레벨 것으로 넣어 준다). 그리기만 하고 바꾸지 않는다.
+  loggedDeaths: readonly DeathMark[] = [];
   private shake = 0; // 남은 흔들림 시간(초)
   private debris: Debris[] = [];
   constructor(private readonly canvas: HTMLCanvasElement, private readonly reducedMotion: () => boolean = prefersReducedMotion) {}
@@ -453,17 +471,11 @@ export class CanvasRenderer {
     }
     ctx.fillStyle = DEBRIS_FILL;
     for (const d of this.debris) ctx.fillRect(d.x - DEBRIS_SIZE / 2, d.y, DEBRIS_SIZE, DEBRIS_SIZE);
-    // 사망 표식은 플레이어보다 먼저 그려, 다시 시작한 자리와 겹쳐도 플레이어가 위에 보인다.
-    ctx.fillStyle = DEATH_MARK_FILL; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
-    for (const m of world.deathMarks) {
-      const left = m.x - DEATH_MARK_SIZE / 2, top = m.y - DEATH_MARK_SIZE;
-      if (left > cam + VIEW_WIDTH || left + DEATH_MARK_SIZE < cam) continue;
-      for (let i = 0; i < DEATH_MARK_SIZE; i += 2) {
-        ctx.fillRect(left + i, top + i, 2, 2);
-        ctx.fillRect(left + DEATH_MARK_SIZE - 2 - i, top + i, 2, 2);
-      }
-      if (m.count > 1) ctx.fillText(`×${m.count}`, m.x, top - 3);
-    }
+    // 사망 표식은 플레이어보다 먼저 그려, 다시 시작한 자리와 겹쳐도 플레이어가 위에 보인다. 누적 기록(B)은 이번 런 표식 아래에
+    // 깔리도록 먼저 그린다 — 같은 자리면 이번 런 표식이 위에 보인다.
+    ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
+    if (this.debug) drawDeathMarks(ctx, this.loggedDeaths, LOGGED_DEATH_FILL, cam, 14);
+    drawDeathMarks(ctx, world.deathMarks, DEATH_MARK_FILL, cam, 3);
     ctx.textAlign = 'left';
     const p = world.player;
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);

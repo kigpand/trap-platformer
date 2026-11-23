@@ -461,3 +461,30 @@ test('a connected gamepad moves the player and Start pauses', async ({ page }) =
   await expect(status).toHaveText('STATUS PAUSED');
   await setPad('start', false);
 });
+
+// 누적 사망 기록(docs/game-design.md "기록"): 실제로 죽은 사망이 새로고침 뒤에도 남고, B를 켰을 때만 보이며, 버튼으로 지운다.
+test('the cumulative death log survives a reload, shows only with B, and clears from its button', async ({ page }) => {
+  await page.goto('/');
+  const falls = page.locator('.hud span', { hasText: 'FALLS' });
+  const panel = page.getByLabel('누적 사망 기록');
+  const title = panel.locator('h2');
+  await expect(panel).toHaveCount(0);
+  await showDebugHud(page); // 입력 리스너가 붙을 때까지 기다리는 역할도 한다
+  await expect(title).toHaveText('누적 사망 기록 — 레벨 1, 0회');
+  await page.keyboard.down('ArrowRight'); // 첫 함정(숨겨진 블록)으로 달려 들어가 죽는다
+  await expect(falls).not.toHaveText('FALLS 0', { timeout: 10_000 });
+  await page.keyboard.up('ArrowRight');
+  await expect(title).toHaveText(/누적 사망 기록 — 레벨 1, [1-9]\d*회/); // 플레이 중에도 바로 쌓인다
+  const logged = await title.textContent();
+  await page.reload();
+  await expect(falls).toHaveText('FALLS 0'); // 이번 런은 새로 시작
+  await expect(panel).toHaveCount(0); // 새로고침하면 B가 꺼진 채 시작한다
+  await showDebugHud(page);
+  await expect(title).toHaveText(logged ?? '');
+  await expect(panel.locator('li').first()).toContainText('숨겨진 블록');
+  await panel.getByRole('button', { name: '누적 사망 기록 지우기 (모든 레벨)' }).click();
+  await expect(title).toHaveText('누적 사망 기록 — 레벨 1, 0회');
+  await page.reload();
+  await showDebugHud(page);
+  await expect(title).toHaveText('누적 사망 기록 — 레벨 1, 0회');
+});
