@@ -98,6 +98,18 @@ describe('LEVEL_3 (hard)', () => {
       for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
       expect(world.deaths, `jump from x ${x}`).toBe(1);
     }
+    // 코요테 타임: 가장자리를 걸어서 벗어난 뒤 공중 0~5스텝째에 뛰어도 떨어진다.
+    const run = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+    for (let air = 0; air < 6; air++) {
+      const world = new World(calm);
+      world.player.x = 15600 - 40; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+      for (let i = 0; i < 60 && world.player.grounded; i++) world.update(dt, run);
+      for (let i = 0; i < air; i++) world.update(dt, run);
+      world.update(dt, { ...run, jumpPressed: true });
+      expect(world.drainEvents(), `coyote jump at air step ${air}`).toContain('jump');
+      for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(dt, run);
+      expect(world.deaths, `coyote jump at air step ${air}`).toBe(1);
+    }
     expect(plat.x).toBeLessThan(15600);
     expect(plat.x + plat.width).toBeGreaterThan(15800);
   });
@@ -200,12 +212,12 @@ describe('LEVEL_3 (hard)', () => {
     expect(offBeat.deaths).toBe(2); // 박자를 무시하고 뛰면 여전히 떨어진다
   });
 
-  it('leaves at least 6 frames of human slack on every solution jump, except the pinned tight ones', () => {
+  it('leaves at least 6 frames of human slack on every solution jump, except the pinned tight one', () => {
     // docs/game-design.md "사람 손 여유 하한": 레벨 4와 같은 방식으로 잰다(한쪽 5프레임까지, 합계 6이면 멈춤 — Level4.test.ts).
     // 예외(2026-11-21, 프로젝트 오너 결정): 하한에 못 미치는 점프는 배치를 바꾸지 않고 지금 여유로 고정해, 이보다 줄면 실패한다.
-    // 바로 앞 "x까지 달리기"의 x로 점프를 가리킨다. 2258: 높이 60px 가짜 체크포인트(원래 의도한 어려움),
-    // 11615: 세 번째 착지 발판의 늦게 뛰기(바닥 끝을 25px까지만 내밀 수 있어 더 넓히기 어렵다).
-    const pinned = new Map([[2258, 3], [11615, 5]]);
+    // 바로 앞 "x까지 달리기"의 x로 점프를 가리킨다. 2258: 높이 60px 가짜 체크포인트(원래 의도한 어려움).
+    // 세 번째 착지 발판의 늦게 뛰기(run 11615, 5)는 코요테 타임(2026-11-23)으로 11이 되어 예외에서 뺐다.
+    const pinned = new Map([[2258, 3]]);
     const slack = jumpSlack(() => new World(LEVEL_3), FULL, FULL.length, 5, 6);
     expect(slack.length).toBe(FULL.filter((s) => 'jump' in s || 'hop' in s).length);
     const seen = new Set<number>();
