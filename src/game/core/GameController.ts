@@ -140,7 +140,7 @@ export class GameController {
       if (!this.paused) this.renderer.stepEffects(dt);
       this.sound.updateMusic(!this.paused); // 일시정지(탭 숨김 포함) 중에는 배경 음악도 멈춘다
       this.publishSnapshot();
-    }, (metrics) => this.renderer.render(this.world, metrics, this.paused), onError);
+    }, (metrics) => this.renderer.render(this.world, metrics), onError);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     window.addEventListener('storage', this.onStorage);
   }

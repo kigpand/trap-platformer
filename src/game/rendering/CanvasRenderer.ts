@@ -9,7 +9,7 @@ import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, cei
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
 import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawPlatform, drawTrampoline, drawWind } from './terrain';
-import { drawFlag, drawGoal, drawSign, drawSpikes, GOAL_FILL } from './props';
+import { drawFlag, drawGoal, drawSign, drawSpikes } from './props';
 export { GOAL_FILL, SPIKE_FILL } from './props';
 import { TAUNTS } from './taunts';
 
@@ -118,7 +118,7 @@ export class CanvasRenderer {
     const k = this.shake / SHAKE_DURATION;
     return { x: Math.round(SHAKE_AMPLITUDE * k * Math.sin(this.shake * 120)), y: Math.round(SHAKE_AMPLITUDE * k * Math.cos(this.shake * 97)) };
   }
-  render(world: World, metrics: RenderMetrics, paused = false): void {
+  render(world: World, metrics: RenderMetrics): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
     // 정수 배율(1 또는 2)로 그리고 화면 크기는 CSS가 맞춘다. 정수가 아닌 배율(1.25·1.5)이나 소수 카메라 위치에서는 맞닿은 두 사각형의
@@ -488,11 +488,12 @@ export class CanvasRenderer {
       ctx.textAlign = 'left';
     }
     ctx.restore();
-    ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
-    ctx.fillText(`WORLD HEIGHT ${level.height}   |   ${this.debug ? 'COLLIDERS ON' : 'PRESS B FOR COLLIDERS'}`, 20, 28);
+    // 개발자용 문구는 B(디버그)를 켰을 때만, 위쪽 HUD(React 오버레이)에 가리지 않게 왼쪽 아래에 쓴다.
     if (this.debug) {
       const vx = p.vx.toFixed(0), vy = p.vy.toFixed(0);
-      ctx.fillText(`FPS ${metrics.fps.toFixed(0)}   |   STEPS/FRAME ${metrics.steps}   |   VX ${vx}   |   VY ${vy}`, 20, 48);
+      ctx.fillStyle = '#d5dee7'; ctx.font = '14px system-ui';
+      ctx.fillText(`WORLD HEIGHT ${level.height}   |   COLLIDERS ON`, 20, VIEW_HEIGHT - 36);
+      ctx.fillText(`FPS ${metrics.fps.toFixed(0)}   |   STEPS/FRAME ${metrics.steps}   |   VX ${vx}   |   VY ${vy}`, 20, VIEW_HEIGHT - 16);
     }
     // 놀리는 사망 메시지: 함정에 당한 직후 2초 동안 캔버스 위쪽 가운데에 띄운다.
     if (world.taunt) {
@@ -501,18 +502,6 @@ export class CanvasRenderer {
       ctx.fillStyle = TAUNT_COLOR; ctx.fillText(TAUNTS[world.taunt.kind], VIEW_WIDTH / 2, 124);
       ctx.textAlign = 'left';
     }
-    if (world.cleared || world.fakeClear) { // 가짜 클리어(#14)도 똑같이 띄운다
-      ctx.fillStyle = GOAL_FILL; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('LEVEL CLEAR', VIEW_WIDTH / 2, 80);
-      ctx.textAlign = 'left';
-    }
-    if (paused) {
-      ctx.fillStyle = 'rgba(16,23,41,0.7)'; ctx.fillRect(0, 0, VIEW_WIDTH, VIEW_HEIGHT);
-      ctx.fillStyle = '#d5dee7'; ctx.font = 'bold 28px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText('PAUSED', VIEW_WIDTH / 2, VIEW_HEIGHT / 2);
-      ctx.font = '14px system-ui';
-      ctx.fillText('P 또는 일시정지/재개 버튼으로 재개', VIEW_WIDTH / 2, VIEW_HEIGHT / 2 + 28); // 터치 기기엔 P 키가 없다
-      ctx.textAlign = 'left';
-    }
+    // 클리어·일시정지 화면은 캔버스가 아니라 위에 겹친 React 창(App.tsx)이 그린다(2026-11-24 — 게임 UI 개편).
   }
 }

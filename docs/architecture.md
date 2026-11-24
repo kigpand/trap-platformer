@@ -27,7 +27,7 @@
   - `taunts.ts`: 사망 원인 종류별 놀리는 문구(`TauntKind`). 캔버스와 App의 스크린 리더 알림이 함께 쓰며, 게임 로직은 문구를 모르고 원인 종류만 내보낸다.
 - `game/world/viewport.ts`: 화면 폭과 카메라 위치 계산. 렌더러(그릴 영역)와 `World`(플레이어가 지금 볼 수 있는 영역 판단)가 같은 계산을 써야 해서, 월드가 렌더링에 의존하지 않도록 월드 쪽에 둔다
 - `game/audio/SoundPlayer.ts`: Web Audio 오실레이터로 합성한 효과음과 배경 음악 루프(외부 음원 없음), 음소거·음량 상태. 배경 음악은 `GameController`가 매 스텝 `updateMusic(!paused)`로 짧게 앞서 예약하며, 멈출 때는 음악 버스를 페이드아웃해 예약된 음까지 끊는다. `World`는 소리를 모르고 update 중 일어난 일(`WorldEvent`: 점프·사망·체크포인트·클리어)과 위치가 있는 함정 이벤트(`TrapEvent`: `{ kind, rect }`)만 기록하며, `GameController`가 `drainEvents()`·`drainTrapEvents()`로 꺼내 재생한다. 함정 이벤트는 화면 밖 소리 규칙(`world/viewport.ts`의 `isWithinHearing`, 렌더러와 같은 카메라 계산)으로 거른다
-- `components/`: React 캔버스 마운트와 HUD. 프레임별 물리 처리는 담당하지 않음. `TouchControls`는 터치 기기용 이동·점프 버튼(포인터 캡처로 누름/뗌을 추적해 `InputManager.setTouch`로 전달). `ErrorBoundary`는 렌더 오류와 게임 루프 오류(`GameCanvas`가 렌더 단계로 다시 던진 것)를 잡아 복구 안내와 "다시 시작"(하위 트리 재마운트)을 보여줌
+- `components/`: React 캔버스 마운트와 HUD. HUD·일시정지·클리어·완료 창은 `App.tsx`가 캔버스 위에 겹친 `.game-ui` 층에 그린다(캔버스는 게임 장면만, 아이콘은 `Icons.tsx`의 인라인 SVG). 프레임별 물리 처리는 담당하지 않음. `TouchControls`는 터치 기기용 이동·점프 버튼(포인터 캡처로 누름/뗌을 추적해 `InputManager.setTouch`로 전달). `ErrorBoundary`는 렌더 오류와 게임 루프 오류(`GameCanvas`가 렌더 단계로 다시 던진 것)를 잡아 복구 안내와 "다시 시작"(하위 트리 재마운트)을 보여줌
 
 ## 테스트 구조
 - `tests/unit/`: Vitest. 물리·충돌(`physics/`), 함정·적·레벨(`world/`), 그리기(`rendering/`), 입력·루프·생명주기(`core/`), 플레이어·적(`entities/`), 소리(`audio/`), HUD·화면(`App.test.ts`), 검색용 메타데이터(`seo.test.ts`).

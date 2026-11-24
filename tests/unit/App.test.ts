@@ -145,4 +145,52 @@ describe('App debug HUD', () => {
     expect(panel()?.querySelector('button')?.textContent).toContain('누적 사망 기록 지우기');
     await act(async () => { root.unmount(); });
   });
+
+  it('shows the pause menu, the clear panel and the completion panel as in-game dialogs for the right states', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const dialog = (name: string): Element | null => container.querySelector(`[role="dialog"][aria-label="${name}"]`);
+    await act(async () => { push(base); });
+    expect(dialog('일시정지')).toBeNull();
+    expect(dialog('레벨 클리어')).toBeNull();
+
+    await act(async () => { push({ ...base, paused: true }); });
+    expect(dialog('일시정지')?.textContent).toContain('계속하기 (P)');
+    expect(dialog('일시정지')?.textContent).toContain('소리 끄기 (M)');
+    await act(async () => { push({ ...base, paused: true, muted: true }); });
+    expect(dialog('일시정지')?.textContent).toContain('소리 켜기 (M)');
+
+    // 클리어 창이 떠 있으면 정지 중이어도 클리어 창만 보인다.
+    await act(async () => { push({ ...base, paused: true, cleared: true, runDeaths: 2, time: 41.25, best: { time: 41.25, deaths: 2 }, runDeathsByKind: { arrow: 2 } }); });
+    expect(dialog('일시정지')).toBeNull();
+    expect(dialog('레벨 클리어')?.querySelector('h2')?.textContent).toBe('CLEAR!');
+    expect(dialog('레벨 클리어')?.textContent).toContain('41.3s');
+    expect(dialog('레벨 클리어')?.textContent).toContain('화살 발사대 ×2');
+    expect(dialog('레벨 클리어')?.textContent).toContain('다음 레벨 (N)');
+    await act(async () => { push({ ...base, cleared: true, newRecord: true }); });
+    expect(dialog('레벨 클리어')?.querySelector('h2')?.textContent).toBe('NEW RECORD!');
+
+    // 마지막 레벨을 클리어하면 클리어 창 대신 완료 창.
+    await act(async () => { push({ ...base, cleared: true, level: 3, levelCount: 3, bests: [{ time: 30, deaths: 1 }, null, { time: 50, deaths: 0 }] }); });
+    expect(dialog('레벨 클리어')).toBeNull();
+    expect(dialog('모든 레벨 클리어')?.textContent).toContain('30.0s / 1 FALLS');
+    expect(dialog('모든 레벨 클리어')?.textContent).toContain('레벨 1부터 다시 (N)');
+    await act(async () => { root.unmount(); });
+  });
+
+  it('keeps the HUD labels for screen readers while showing icons', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const stats = (): string[] => [...container.querySelectorAll('.hud .hud-stat')].map((e) => e.textContent ?? '');
+    await act(async () => { push({ ...base, deaths: 3, checkpoint: true }); });
+    expect(stats()).toEqual(['LEVEL 1 / 3', 'FALLS 3', 'CHECKPOINT SAVED', 'TIME 5.0s', 'BEST —']);
+    expect(container.querySelectorAll('.hud svg[aria-hidden="true"]').length).toBeGreaterThan(0);
+    await act(async () => { root.unmount(); });
+  });
 });
