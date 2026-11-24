@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas, type GameHandle } from './components/GameCanvas';
 import { TouchControls } from './components/TouchControls';
+import { ClockIcon, FlagIcon, PauseIcon, PlayIcon, RestartIcon, SkullIcon, SoundIcon, TrophyIcon } from './components/Icons';
 import type { HudSnapshot } from './game/core/GameController';
 import { rankDeaths, TAUNTS } from './game/rendering/taunts';
 import './style.css';
@@ -9,6 +10,22 @@ import './style.css';
 function topKiller(byKind: Parameters<typeof rankDeaths>[0]): string {
   const top = rankDeaths(byKind)[0];
   return top ? `가장 많이 당한 함정 ${top.name} ×${top.count}` : '당한 함정 없음';
+}
+
+// 클리어·완료 창의 "이번 런에서 당한 함정". 많이 당한 순서.
+function DeathRanking({ ranking }: { ranking: ReturnType<typeof rankDeaths> }) {
+  return (
+    <section className="death-stats" aria-label="이번 런에서 당한 함정">
+      <h3>이번 런에서 당한 함정</h3>
+      {ranking.length === 0 ? (
+        <p>한 번도 안 당했어요!</p>
+      ) : (
+        <ol>
+          {ranking.map((d) => <li key={d.kind}>{d.name} <b>×{d.count}</b></li>)}
+        </ol>
+      )}
+    </section>
+  );
 }
 
 export default function App() {
@@ -80,69 +97,99 @@ export default function App() {
       </header>
       <div className="game-shell">
         <GameCanvas ref={game} onSnapshot={onSnapshot} />
-      </div>
-      {/* 당한 함정 통계: 진짜·가짜 클리어(#14) 모두 같은 스냅샷으로 그린다 — 가짜 클리어가 구분되면 안 된다. */}
-      {snapshot.cleared && (
-        <section className="death-stats" aria-label="이번 런에서 당한 함정">
-          <h2>이번 런에서 당한 함정</h2>
-          {deathRanking.length === 0 ? (
-            <p>한 번도 안 당했어요!</p>
-          ) : (
-            <ol>
-              {deathRanking.map((d) => <li key={d.kind}>{d.name} <b>×{d.count}</b></li>)}
-            </ol>
+        {/* 게임 화면 위에 겹치는 HUD와 창(2026-11-24 프로젝트 오너 결정 — 웹 페이지가 아니라 게임처럼 보이게). 글자 라벨은
+            스크린 리더용으로 남겨 두고, 화면에는 아이콘과 값만 보인다. */}
+        <div className="game-ui">
+          <section className="hud" aria-label="게임 상태">
+            <div className="hud-group">
+              <span className="hud-stat hud-level"><span className="hud-label">LEVEL </span><b>{snapshot.level} / {snapshot.levelCount}</b></span>
+              <span className="hud-stat" title="떨어진 횟수"><SkullIcon /><span className="visually-hidden">FALLS </span><b>{snapshot.deaths}</b></span>
+              <span className={`hud-stat hud-icon-only${snapshot.checkpoint ? ' is-on' : ''}`} title={snapshot.checkpoint ? '체크포인트 저장됨' : '체크포인트 없음'}><FlagIcon /><span className="visually-hidden">CHECKPOINT {snapshot.checkpoint ? 'SAVED' : 'NONE'}</span></span>
+              {snapshot.debugPlayer && (
+                <>
+                  <span className="hud-stat hud-debug">POSITION <b>{snapshot.debugPlayer.x}, {snapshot.debugPlayer.y}</b></span>
+                  <span className="hud-stat hud-debug">GROUNDED <b>{snapshot.debugPlayer.grounded ? 'YES' : 'NO'}</b></span>
+                </>
+              )}
+            </div>
+            <div className="hud-group">
+              <span className="hud-stat" title="이번 런 시간"><ClockIcon /><span className="visually-hidden">TIME </span><b>{snapshot.time.toFixed(1)}s</b></span>
+              <span className="hud-stat" title="최고 기록"><TrophyIcon /><span className="visually-hidden">BEST </span><b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
+              <button type="button" className="hud-button" aria-label="일시정지/재개 (P)" aria-pressed={snapshot.paused} title="일시정지 (P)" onClick={() => game.current?.togglePause()}>
+                {snapshot.paused ? <PlayIcon /> : <PauseIcon />}
+              </button>
+              <button type="button" className="hud-button" aria-label="재시작 (R)" title="재시작 (R)" onClick={() => game.current?.restart()}><RestartIcon /></button>
+              <button type="button" className="hud-button" aria-label="음소거 (M)" aria-pressed={snapshot.muted} title="음소거 (M)" onClick={() => game.current?.toggleMute()}>
+                <SoundIcon muted={snapshot.muted} />
+              </button>
+            </div>
+          </section>
+          {/* 일시정지 창: 클리어 화면이 떠 있으면 그 창이 우선이다(정지 중 클리어 창은 그대로 보인다). */}
+          {snapshot.paused && !snapshot.cleared && (
+            <div className="overlay">
+              <section className="panel" role="dialog" aria-label="일시정지">
+                <h2>일시정지</h2>
+                <div className="panel-actions">
+                  <button type="button" className="primary" onClick={() => game.current?.togglePause()}>계속하기 (P)</button>
+                  <button type="button" onClick={() => game.current?.restart()}>처음부터 다시 (R)</button>
+                  <button type="button" onClick={() => game.current?.toggleMute()}>{snapshot.muted ? '소리 켜기 (M)' : '소리 끄기 (M)'}</button>
+                </div>
+                <label className="volume">
+                  음량 {Math.round(snapshot.volume * 100)}%
+                  {/* 마우스·터치로 조절한 뒤 포커스가 남으면 방향키가 슬라이더로 가서 이동이 막힌다 — 손을 떼면 포커스를 놓는다.
+                      키보드로 탭해 들어온 경우엔 방향키 조절을 그대로 쓸 수 있다. */}
+                  <input
+                    type="range" min={0} max={100} step={5}
+                    value={Math.round(snapshot.volume * 100)}
+                    onChange={(event) => game.current?.setVolume(Number(event.currentTarget.value) / 100)}
+                    onPointerUp={(event) => event.currentTarget.blur()}
+                  />
+                </label>
+              </section>
+            </div>
           )}
-        </section>
-      )}
-      {allCleared && (
-        <section className="complete" aria-label="모든 레벨 클리어">
-          <h2>모든 레벨 클리어!</h2>
-          <ul>
-            {snapshot.bests.map((best, i) => (
-              <li key={i}>
-                레벨 {i + 1} 최고 기록 <b>{best ? `${best.time.toFixed(1)}s / ${best.deaths} FALLS` : '—'}</b>
-                {snapshot.levelDeaths[i] && <span className="level-killer">{topKiller(snapshot.levelDeaths[i])}</span>}
-              </li>
-            ))}
-          </ul>
-          <button type="button" onClick={() => game.current?.nextLevel()}>레벨 1부터 다시 (N)</button>
-        </section>
-      )}
-      <TouchControls onTouch={(action, pressed) => game.current?.setTouch(action, pressed)} />
-      <div className="controls">
-        {snapshot.cleared && !allCleared && (
-          <button type="button" className="next-level" onClick={() => game.current?.nextLevel()}>다음 레벨 (N)</button>
-        )}
-        <button type="button" aria-pressed={snapshot.paused} onClick={() => game.current?.togglePause()}>일시정지/재개 (P)</button>
-        <button type="button" onClick={() => game.current?.restart()}>재시작 (R)</button>
-        <button type="button" aria-pressed={snapshot.muted} onClick={() => game.current?.toggleMute()}>음소거 (M)</button>
-        <label className="volume">
-          음량 {Math.round(snapshot.volume * 100)}%
-          {/* 마우스·터치로 조절한 뒤 포커스가 남으면 방향키가 슬라이더로 가서 이동이 막힌다 — 손을 떼면 포커스를 놓는다.
-              키보드로 탭해 들어온 경우엔 방향키 조절을 그대로 쓸 수 있다. */}
-          <input
-            type="range" min={0} max={100} step={5}
-            value={Math.round(snapshot.volume * 100)}
-            onChange={(event) => game.current?.setVolume(Number(event.currentTarget.value) / 100)}
-            onPointerUp={(event) => event.currentTarget.blur()}
-          />
-        </label>
+          {/* 클리어 창: 진짜·가짜 클리어(#14) 모두 같은 스냅샷으로 그린다 — 가짜 클리어가 구분되면 안 된다. */}
+          {snapshot.cleared && !allCleared && (
+            <div className="overlay">
+              <section className="panel" role="dialog" aria-label="레벨 클리어">
+                <p className="panel-kicker">LEVEL {snapshot.level}</p>
+                <h2>{snapshot.newRecord ? 'NEW RECORD!' : 'CLEAR!'}</h2>
+                <dl className="result">
+                  <div><dt><ClockIcon />시간</dt><dd>{snapshot.time.toFixed(1)}s</dd></div>
+                  <div><dt><SkullIcon />떨어짐</dt><dd>{snapshot.runDeaths}</dd></div>
+                  <div><dt><TrophyIcon />최고</dt><dd>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths}` : '—'}</dd></div>
+                </dl>
+                <DeathRanking ranking={deathRanking} />
+                <div className="panel-actions">
+                  <button type="button" className="primary" onClick={() => game.current?.nextLevel()}>다음 레벨 (N)</button>
+                </div>
+              </section>
+            </div>
+          )}
+          {allCleared && (
+            <div className="overlay">
+              <section className="panel panel-wide" role="dialog" aria-label="모든 레벨 클리어">
+                <p className="panel-kicker">ALL CLEAR</p>
+                <h2>모든 레벨 클리어!</h2>
+                <ul className="level-records">
+                  {snapshot.bests.map((best, i) => (
+                    <li key={i}>
+                      <span>레벨 {i + 1}</span>
+                      <b>{best ? `${best.time.toFixed(1)}s / ${best.deaths} FALLS` : '—'}</b>
+                      {snapshot.levelDeaths[i] && <span className="level-killer">{topKiller(snapshot.levelDeaths[i])}</span>}
+                    </li>
+                  ))}
+                </ul>
+                <DeathRanking ranking={deathRanking} />
+                <div className="panel-actions">
+                  <button type="button" className="primary" onClick={() => game.current?.nextLevel()}>레벨 1부터 다시 (N)</button>
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
       </div>
-      <section className="hud" aria-label="게임 상태">
-        <span>LEVEL <b>{snapshot.level} / {snapshot.levelCount}</b></span>
-        {snapshot.debugPlayer && (
-          <>
-            <span>POSITION <b>{snapshot.debugPlayer.x}, {snapshot.debugPlayer.y}</b></span>
-            <span>GROUNDED <b>{snapshot.debugPlayer.grounded ? 'YES' : 'NO'}</b></span>
-          </>
-        )}
-        <span>FALLS <b>{snapshot.deaths}</b></span>
-        <span>CHECKPOINT <b>{snapshot.checkpoint ? 'SAVED' : 'NONE'}</b></span>
-        <span>STATUS <b>{snapshot.paused ? 'PAUSED' : snapshot.cleared ? (snapshot.newRecord ? 'NEW RECORD!' : 'CLEAR!') : 'PLAYING'}</b></span>
-        <span>TIME <b>{snapshot.time.toFixed(1)}s</b></span>
-        <span>BEST <b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
-        <span>SOUND <b>{snapshot.muted ? 'OFF' : 'ON'}</b></span>
-      </section>
+      <TouchControls onTouch={(action, pressed) => game.current?.setTouch(action, pressed)} />
       {/* 누적 사망 기록(B를 켰을 때만): 새로고침·새 런에도 남는, 이 레벨의 원인별 사망 수 — 배치 판단용(docs/game-design.md "기록") */}
       {snapshot.debugDeaths && (
         <section className="death-stats debug-deaths" aria-label="누적 사망 기록">

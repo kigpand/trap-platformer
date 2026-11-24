@@ -197,18 +197,16 @@ describe('CanvasRenderer fake clear and fake signs', () => {
   const floor = { x: 600, y: 500, width: 240, height: 120 };
   const level = testLevel({ fakeGoals: [{ flag, floor: [floor] }], signs: [{ x: 300, y: 500, text: '여기서 점프!' }] });
 
-  it('draws the fake flag like the goal, and LEVEL CLEAR while the fake clear lasts', () => {
+  it('draws the fake flag like the goal, and stops drawing its floor once it collapses', () => {
     const world = new World(level);
     const same = (f: { style: string; x: number; y: number; width: number; height: number }, r: typeof flag) =>
       f.x === r.x && f.y === r.y && f.width === r.width && f.height === r.height;
     expect(renderFills(world).some((f) => f.style === GOAL_FILL && f.x >= flag.x && f.x + f.width <= flag.x + flag.width && f.y >= flag.y)).toBe(true); // 진짜 목표와 같은지는 props.test.ts
     expect(renderFills(world).some((f) => same(f, floor))).toBe(true);
-    expect(render(world).texts).not.toContain('LEVEL CLEAR');
     world.player.x = flag.x; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
     world.update(1 / 60, { horizontal: 0, jumpPressed: false, restartPressed: false });
-    expect(render(world).texts).toContain('LEVEL CLEAR');
+    expect(world.fakeClear).not.toBeNull(); // 클리어 창은 App.tsx가 진짜 클리어와 같은 스냅샷으로 그린다(e2e/fakeClear.spec.ts)
     world.collapseFakeFloor();
-    expect(render(world).texts).not.toContain('LEVEL CLEAR');
     expect(renderFills(world).some((f) => same(f, floor))).toBe(false); // 꺼진 바닥은 그리지 않는다
   });
 

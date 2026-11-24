@@ -62,14 +62,15 @@ test('a fake clear looks real, and "next level" drops the floor instead of advan
   await page.clock.install({ time: 0 });
   await page.clock.pauseAt(1000); // 페이지를 열기 전에 멈춘다 — 게임 루프는 아래 replay가 시계를 돌릴 때 처음 프레임을 받는다
   await page.goto('/');
-  const hud = (label: string) => page.locator('.hud span', { hasText: label });
+  const hud = (label: string) => page.locator('.hud .hud-stat', { hasText: label });
   await expect(hud('LEVEL')).toHaveText(/^LEVEL 1 \//);
   await expect(hud('TIME')).toHaveText('TIME 0.0s'); // 아직 한 스텝도 돌지 않았다
 
   await replay(page, inputs, 1008); // 1000에서 멈춘 시계의 첫 requestAnimationFrame은 1008
 
-  // 진짜 클리어와 같은 화면: HUD 상태·다음 레벨 버튼·스크린 리더 알림
-  await expect(hud('STATUS')).toHaveText(/^STATUS (NEW RECORD!|CLEAR!)$/);
+  // 진짜 클리어와 같은 화면: 클리어 창·다음 레벨 버튼·스크린 리더 알림
+  const clearDialog = page.getByRole('dialog', { name: '레벨 클리어' });
+  await expect(clearDialog.locator('h2')).toHaveText(/^(NEW RECORD!|CLEAR!)$/);
   await expect(page.getByRole('button', { name: '다음 레벨 (N)' })).toBeVisible();
   await expect(page.getByRole('status')).toContainText('레벨 1 클리어!');
   await expect(page.getByRole('region', { name: '이번 런에서 당한 함정' })).toContainText('한 번도 안 당했어요!'); // 당한 함정 통계도 진짜처럼
@@ -81,5 +82,6 @@ test('a fake clear looks real, and "next level" drops the floor instead of advan
   await expect(hud('LEVEL')).toHaveText(/^LEVEL 1 \//);
   await expect(page.getByRole('status')).toContainText('벌써 끝난 줄 알았지?');
   await expect(page.getByRole('region', { name: '이번 런에서 당한 함정' })).toHaveCount(0); // 클리어 표시가 풀리면 통계도 사라진다
+  await expect(clearDialog).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('trap-runner:best:v2:1'))).toBeNull();
 });
