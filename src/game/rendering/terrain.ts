@@ -5,15 +5,16 @@ import type { Rect } from '../physics/AABB';
 // 똑같이 그려져 위장이 깨지지 않는다(docs/traps-spec.md의 텔레그래프). 같은 이유로 테두리·모서리 음영은 넣지 않는다.
 // view는 화면에 보이는 월드 범위로, 그 밖의 무늬는 그리지 않는다. 움직이는 바닥(도망가는 발판)은 slide에 처음 자리에서
 // 움직인 만큼을 넘겨, 무늬가 바닥 위에서 미끄러지지 않고 같이 움직이게 한다(멈춰 있을 때는 주변 바닥과 같은 무늬).
-export const GROUND_FILL = '#627e55';
-export const GROUND_TOP = '#99c577';
+// 색은 "후드 러너" 숲 방향(2026-11-24, UI 개편 3단계): 짙은 풀과 따뜻한 갈색 흙, 공중 블록은 회청색 옛 돌벽.
+export const GROUND_FILL = '#5c4636';
+export const GROUND_TOP = '#6dbb5d';
 const GROUND_TOP_HEIGHT = 8;
-const GRASS_SHADE = '#7fa35f'; // 풀과 흙 사이 줄
-const GRASS_LIGHT = '#bfe39a'; // 풀 윗면의 밝은 점
-const SOIL_SPECK = '#4c6542'; // 흙 속 작은 돌
-export const BLOCK_FILL = '#8a6d4b';
-export const BLOCK_TOP = '#b08a5e';
-const BLOCK_MORTAR = '#6f5639'; // 벽돌 줄눈
+const GRASS_SHADE = '#4f9a4a'; // 풀과 흙 사이 줄
+const GRASS_LIGHT = '#a9e48f'; // 풀 윗면의 밝은 점
+const SOIL_SPECK = '#463428'; // 흙 속 작은 돌
+export const BLOCK_FILL = '#5f6680';
+export const BLOCK_TOP = '#8d97b3';
+const BLOCK_MORTAR = '#474d63'; // 돌 줄눈
 const CELL = 16;
 const BRICK_W = 20;
 const BRICK_H = 10;
