@@ -94,6 +94,30 @@ describe('ground edges land on whole device pixels', () => {
   }
 });
 
+describe('drawing scale follows the displayed size', () => {
+  // 게임 화면이 창을 채우게 커지면(UI 개편 2단계) 기기 픽셀 비율 1에서도 960px보다 넓게 보인다 — 1배로 그려 CSS가 키우면 흐려지므로
+  // 보이는 기기 픽셀 폭에 맞춰 2배로 그린다. 정수 배율 1·2 규칙은 그대로다.
+  const backingWidth = (dpr: number, cssWidth: number): number => {
+    vi.stubGlobal('devicePixelRatio', dpr);
+    const canvas = document.createElement('canvas');
+    Object.defineProperty(canvas, 'clientWidth', { value: cssWidth });
+    vi.spyOn(canvas, 'getContext').mockReturnValue(recorder().ctx);
+    new CanvasRenderer(canvas, () => false).render(new World(testLevel({ solids: [] })), { fps: 60, steps: 1 });
+    vi.unstubAllGlobals();
+    return canvas.width;
+  };
+  it('draws at 1x when shown at 960px or less on a 1x screen, and at 2x when shown wider', () => {
+    expect(backingWidth(1, 0)).toBe(960); // 크기를 모름(테스트 환경) — 기기 픽셀 비율만
+    expect(backingWidth(1, 960)).toBe(960);
+    expect(backingWidth(1, 1400)).toBe(1920);
+  });
+  it('keeps 2x on HiDPI screens and never goes above 2x', () => {
+    expect(backingWidth(2, 700)).toBe(1920);
+    expect(backingWidth(1.5, 1400)).toBe(1920);
+    expect(backingWidth(1, 3000)).toBe(1920);
+  });
+});
+
 describe('terrain features', () => {
   const shot = (world: World, area: Rect): Map<string, string> => {
     const canvas = document.createElement('canvas');

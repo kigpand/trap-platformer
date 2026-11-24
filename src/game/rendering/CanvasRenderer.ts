@@ -123,7 +123,10 @@ export class CanvasRenderer {
     if (!ctx) return;
     // 정수 배율(1 또는 2)로 그리고 화면 크기는 CSS가 맞춘다. 정수가 아닌 배율(1.25·1.5)이나 소수 카메라 위치에서는 맞닿은 두 사각형의
     // 경계가 기기 픽셀 중간에 걸려 양쪽이 안티앨리어싱되고 배경이 비쳐 이음매가 보였다 — 위장 바닥의 위치가 드러났다.
-    const scale = Math.min(Math.ceil(window.devicePixelRatio || 1), 2);
+    // 화면에 크게 보일 때(게임 화면이 창을 채우는 레이아웃)는 기기 픽셀 비율이 1이어도 2배로 그려, CSS가 키우는(흐려지는) 대신
+    // 줄이게 한다. 배율은 여전히 정수 1·2다.
+    const dpr = window.devicePixelRatio || 1;
+    const scale = Math.min(Math.max(Math.ceil(dpr), Math.ceil((this.canvas.clientWidth * dpr) / VIEW_WIDTH - 1e-9)), 2);
     const width = Math.round(VIEW_WIDTH * scale), height = Math.round(VIEW_HEIGHT * scale);
     if (this.canvas.width !== width || this.canvas.height !== height) { this.canvas.width = width; this.canvas.height = height; }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
