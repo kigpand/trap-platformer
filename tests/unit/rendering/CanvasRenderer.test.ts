@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
 import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_MARK_FILL, DEBRIS_FILL, LOGGED_DEATH_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { GROUND_FILL } from '../../../src/game/rendering/terrain';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -32,7 +33,7 @@ describe('CanvasRenderer fake safe zone', () => {
   it('draws the hazard like normal ground when no reveal is active', () => {
     const world = new World(LEVEL_1);
     lookAtHazard(world);
-    expect(hazardFill(renderFills(world))?.style).toBe('#627e55'); // 일반 바닥(SOLIDS)과 같은 색
+    expect(hazardFill(renderFills(world))?.style).toBe(GROUND_FILL); // 일반 바닥(SOLIDS)과 같은 색
   });
 
   it('draws the hazard in the warning color while the post-death reveal is active, and back to ground after it ends', () => {
@@ -45,7 +46,7 @@ describe('CanvasRenderer fake safe zone', () => {
     expect(hazardFill(renderFills(world))?.style).toBe(HAZARD_REVEAL_FILL);
 
     world.deathCause = null; // 2초 경과 후와 같은 상태
-    expect(hazardFill(renderFills(world))?.style).toBe('#627e55');
+    expect(hazardFill(renderFills(world))?.style).toBe(GROUND_FILL);
   });
 });
 
@@ -72,7 +73,7 @@ describe('CanvasRenderer terrain traps (#6, #7, #9)', () => {
   it('draws vanishing ground like ground, and the next tile to fall in the warning color once it starts', () => {
     const vg = { x: 300, y: 500, width: 160, height: 120 };
     const world = new World({ ...base, vanishingGrounds: [vg] });
-    expect(at(renderFills(world), vg).map((f) => f.style)).toContain('#627e55');
+    expect(at(renderFills(world), vg).map((f) => f.style)).toContain(GROUND_FILL);
     world.vanishingGrounds[0].elapsed = 0.3; world.vanishingGrounds[0].tilesGone = 1; // 첫 칸이 사라진 상태
     const fills = renderFills(world);
     expect(at(fills, vg)).toHaveLength(0); // 첫 칸은 그리지 않는다
@@ -129,7 +130,7 @@ describe('CanvasRenderer trick traps (#8, #10, #11, #12)', () => {
     world.dodgingPlatforms[0].x = 400;
     world.goal.rect = { x: 700, y: 440, width: 40, height: 60 };
     const fills = renderFills(world);
-    expect(fills.some((f) => f.x === 400 && f.y === 480 && f.style === '#627e55')).toBe(true);
+    expect(fills.some((f) => f.x === 400 && f.y === 480 && f.style === GROUND_FILL)).toBe(true);
     expect(fills.some((f) => f.style === GOAL_FILL && f.x >= 700 && f.x + f.width <= 740 && f.y >= 440 && f.y + f.height <= 500)).toBe(true); // 목표 영역 안의 깃발
   });
 });

@@ -8,7 +8,7 @@ import {
 import { arrowRect, boulderRect, pipeEnemyRect, sinkingPipeRects, stoneRect, ceilingRect, descendingRect, gemRect, rhythmPhase, SHADOW_DELAY_STEPS, shadowRect, dodgingRect, vanishingTile, vanishingTileCount, type DeathMark, type World } from '../world/World';
 import type { Rect } from '../physics/AABB';
 import { drawBackground } from './background';
-import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawPlatform, drawTrampoline, drawWind } from './terrain';
+import { drawBlock, drawConveyor, drawGround, drawMud, drawPipe, drawPlatform, drawTrampoline, drawWind, GROUND_FILL } from './terrain';
 import { drawFlag, drawGoal, drawSign, drawSpikes } from './props';
 export { GOAL_FILL, SPIKE_FILL } from './props';
 import { TAUNTS } from './taunts';
@@ -63,7 +63,7 @@ export const RHYTHM_GHOST = 'rgba(153,197,119,0.18)'; // #27 사라진 박자 �
 export const RHYTHM_WARNING_FILL = '#d9f99d'; // #27 사라지기 0.3초 전 깜박임
 export const ICE_FILL = '#bae6fd'; // #28 얼음 바닥
 const ICE_SHINE = '#f0f9ff';
-export const FAKE_WALL_REVEALED = 'rgba(138,109,75,0.35)'; // #20 한 번 겹친 가짜 벽(반투명)
+export const FAKE_WALL_REVEALED = 'rgba(95,102,128,0.35)'; // #20 한 번 겹친 가짜 벽(반투명)
 export const GEM_FILL = '#22d3ee'; // #21 미끼 보물
 export const GEM_SHINE = '#ecfeff';
 export const SHADOW_FILL = 'rgba(91,33,182,0.7)'; // #22 따라오는(충돌하는) 그림자
@@ -79,7 +79,7 @@ const DEBRIS_PER_RECT = 6;
 const DEBRIS_LIFE = 0.6; // 초
 const MAX_DEBRIS = 60; // 한꺼번에 많이 무너져도 그리기 양이 늘지 않게
 const DEBRIS_SIZE = 6;
-export const DEBRIS_FILL = '#4d6343';
+export const DEBRIS_FILL = '#54453a';
 // 이번 런의 사망 표식(docs/game-design.md "기록"): 발밑에 놓는 8px 픽셀 ×, 같은 자리에서 여러 번 죽었으면 위에 횟수.
 export const DEATH_MARK_FILL = 'rgba(226,232,240,0.7)';
 // 누적 사망 기록의 표식(B를 켰을 때만) — 이번 런 표식(회백색)과 구분되는 하늘색.
@@ -211,7 +211,7 @@ export class CanvasRenderer {
     }
     for (const fp of world.fallingPlatforms) {
       if (!fp.solid) continue;
-      ctx.fillStyle = fp.timer !== null ? '#c2622f' : '#627e55';
+      ctx.fillStyle = fp.timer !== null ? '#c2622f' : GROUND_FILL;
       ctx.fillRect(fp.rect.x, fp.rect.y, fp.rect.width, fp.rect.height);
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(fp.rect.x, fp.rect.y, fp.rect.width, fp.rect.height); }
     }
