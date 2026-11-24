@@ -90,8 +90,8 @@ export default function App() {
 
   return (
     <main className="app">
-      <header>
-        <span className="eyebrow">BROWSER TRAP PLATFORMER</span>
+      {/* 게임 화면이 창을 채우도록 머리글은 한 줄로 줄였다(2026-11-24 — UI 개편 2단계). 제목은 여전히 이 페이지의 h1이다. */}
+      <header className="topbar">
         <h1>TRAP RUNNER</h1>
         <p>보이는 대로 믿으면 떨어지는 2D 함정 플랫포머 — 함정 33종, 레벨 4개</p>
       </header>
@@ -114,11 +114,11 @@ export default function App() {
             </div>
             <div className="hud-group">
               <span className="hud-stat" title="이번 런 시간"><ClockIcon /><span className="visually-hidden">TIME </span><b>{snapshot.time.toFixed(1)}s</b></span>
-              <span className="hud-stat" title="최고 기록"><TrophyIcon /><span className="visually-hidden">BEST </span><b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
+              <span className="hud-stat hud-best" title="최고 기록"><TrophyIcon /><span className="visually-hidden">BEST </span><b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
               <button type="button" className="hud-button" aria-label="일시정지/재개 (P)" aria-pressed={snapshot.paused} title="일시정지 (P)" onClick={() => game.current?.togglePause()}>
                 {snapshot.paused ? <PlayIcon /> : <PauseIcon />}
               </button>
-              <button type="button" className="hud-button" aria-label="재시작 (R)" title="재시작 (R)" onClick={() => game.current?.restart()}><RestartIcon /></button>
+              <button type="button" className="hud-button hud-restart" aria-label="재시작 (R)" title="재시작 (R)" onClick={() => game.current?.restart()}><RestartIcon /></button>
               <button type="button" className="hud-button" aria-label="음소거 (M)" aria-pressed={snapshot.muted} title="음소거 (M)" onClick={() => game.current?.toggleMute()}>
                 <SoundIcon muted={snapshot.muted} />
               </button>
@@ -204,18 +204,31 @@ export default function App() {
           <button type="button" onClick={() => game.current?.clearDeathLog()}>누적 사망 기록 지우기 (모든 레벨)</button>
         </section>
       )}
-      {/* 입력 방식에 맞는 안내만 보인다(style.css의 pointer: coarse 미디어 쿼리) */}
-      <p className="help help-keys">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거 · N 다음 레벨(클리어 후)</p>
-      <p className="help help-keys">게임패드: 방향 패드 / 왼쪽 스틱 이동 · A / ↑ 점프 · Start 일시정지 · Select(Back) 재시작 · Y 다음 레벨(클리어 후)</p>
-      <p className="help help-touch">◀ ▶ 버튼을 누르고 있는 동안 이동 · ▲ 점프 · 일시정지·재시작·음소거·다음 레벨은 화면의 버튼으로</p>
-      <section className="about">
-        <h2>게임 소개</h2>
-        <p>
-          Trap Runner는 설치 없이 브라우저에서 바로 하는 횡스크롤 함정 플랫포머입니다. 사라지는 땅, 투명 블록, 가짜 클리어 깃발,
-          뒤를 따라오는 그림자처럼 처음 보면 당할 수밖에 없는 함정 33종이 레벨 4개에 숨어 있습니다. 죽으면 무엇에 당했는지 화면에
-          표시되니, 다음 시도에서 피해 보세요. 체크포인트에서 다시 시작하고, 레벨마다 최고 기록(시간·떨어진 횟수)이 브라우저에 저장됩니다.
-        </p>
-      </section>
+      <div className="info">
+        <section className="card" aria-label="조작법">
+          <h2>조작법</h2>
+          {/* 입력 방식에 맞는 안내만 보인다(style.css의 pointer: coarse 미디어 쿼리) */}
+          <ul className="keys help-keys">
+            <li><span className="key-set"><kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd></span> 이동</li>
+            <li><span className="key-set"><kbd>Space</kbd> / <kbd>↑</kbd> / <kbd>W</kbd></span> 점프</li>
+            <li><span className="key-set"><kbd>R</kbd></span> 재시작</li>
+            <li><span className="key-set"><kbd>P</kbd></span> 일시정지</li>
+            <li><span className="key-set"><kbd>M</kbd></span> 음소거</li>
+            <li><span className="key-set"><kbd>N</kbd></span> 다음 레벨(클리어 후)</li>
+            <li><span className="key-set"><kbd>B</kbd></span> 충돌 박스 표시</li>
+          </ul>
+          <p className="help help-keys">게임패드: 방향 패드 / 왼쪽 스틱 이동 · A / ↑ 점프 · Start 일시정지 · Select(Back) 재시작 · Y 다음 레벨(클리어 후)</p>
+          <p className="help help-touch">◀ ▶ 버튼을 누르고 있는 동안 이동 · ▲ 점프 · 일시정지·재시작·음소거·다음 레벨은 화면의 버튼으로</p>
+        </section>
+        <section className="card about" aria-label="게임 소개">
+          <h2>게임 소개</h2>
+          <p>
+            Trap Runner는 설치 없이 브라우저에서 바로 하는 횡스크롤 함정 플랫포머입니다. 사라지는 땅, 투명 블록, 가짜 클리어 깃발,
+            뒤를 따라오는 그림자처럼 처음 보면 당할 수밖에 없는 함정 33종이 레벨 4개에 숨어 있습니다. 죽으면 무엇에 당했는지 화면에
+            표시되니, 다음 시도에서 피해 보세요. 체크포인트에서 다시 시작하고, 레벨마다 최고 기록(시간·떨어진 횟수)이 브라우저에 저장됩니다.
+          </p>
+        </section>
+      </div>
       <p className="visually-hidden" role="status" aria-live="polite">{announcement}</p>
     </main>
   );
