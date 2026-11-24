@@ -5,6 +5,7 @@ import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type DeathCauseKind, type DeathStatKind, type GameSnapshot } from '../world/World';
 import { LEVELS, type Level } from '../world/level';
 import { isInView, isWithinHearing } from '../world/viewport';
+import { clearDeathLogs, deathLogKey, EMPTY_DEATH_LOG, loadDeathLog, recordDeath, type DeathLog } from './deathLogStore';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
 // HUD에 보여줄 상태: 월드 스냅샷 + 컨트롤러가 가진 정지·음소거·레벨·최고 기록 상태.
@@ -13,8 +14,10 @@ export interface BestRecord { time: number; deaths: number }
 // levelDeaths는 이번 판(레벨 1부터 이어서 한 판)에서 레벨마다 원인별 사망 수 — 클리어한 레벨만 있고 나머지는 null(완료 화면용).
 // debugPlayer는 B(충돌 박스 표시)를 켰을 때만 채우는 플레이어 위치·착지 상태. 꺼져 있으면 null이라 달리는 동안
 // 좌표가 바뀌어도 스냅샷이 그대로여서 HUD가 매 스텝 다시 렌더링되지 않는다.
+// debugDeaths도 B를 켰을 때만 채우는, 지금 레벨의 누적 사망 기록(원인별 사망 수와 합계 — deathLogStore.ts).
 export interface HudSnapshot extends Omit<GameSnapshot, 'x' | 'y' | 'grounded'> {
   debugPlayer: { x: number; y: number; grounded: boolean } | null;
+  debugDeaths: { total: number; kinds: Partial<Record<DeathStatKind, number>> } | null;
   paused: boolean; muted: boolean; volume: number;
   level: number; levelCount: number; best: BestRecord | null; bests: (BestRecord | null)[]; newRecord: boolean;
   levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
@@ -79,6 +82,8 @@ export class GameController {
   // 이번 판에서 떠나온(클리어한) 레벨의 원인별 사망 수. 지금 레벨은 World 스냅샷에서 바로 읽는다(publishSnapshot).
   private levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
   private newRecord = false;
+  // 레벨마다 누적 사망 기록. 렌더러는 지금 레벨의 표식을 B를 켰을 때만 그린다(syncDeathLog).
+  private deathLogs: DeathLog[];
   // #14 가짜 클리어 중 보여 줄 "진짜였다면"의 기록 화면(저장하지 않는다). world.fakeClear가 있을 때만 쓴다.
   private fakePreview: { best: BestRecord; improved: boolean } | null = null;
   constructor(
@@ -92,7 +97,9 @@ export class GameController {
     this.world = new World(levels[0]);
     this.bests = levels.map((_, i) => loadBest(i));
     this.levelDeaths = levels.map(() => null);
+    this.deathLogs = levels.map((level, i) => loadDeathLog(level, i));
     this.renderer = new CanvasRenderer(canvas);
+    this.syncDeathLog();
     this.sound.muted = loadMuted();
     this.sound.volume = loadVolume();
     this.loop = new GameLoop((dt) => {
@@ -114,6 +121,11 @@ export class GameController {
         if (event === 'clear') {
           if (this.world.fakeClear) this.fakePreview = this.previewClear();
           else this.recordClear();
+        }
+        if (event === 'death' && this.world.lastDeath) {
+          const i = this.levelIndex;
+          this.deathLogs[i] = recordDeath(this.levels[i], i, this.deathLogs[i], this.world.lastDeath);
+          this.syncDeathLog();
         }
         this.sound.play(event);
         // 천장·돌덩이에 깔려 죽으면 화면을 흔든다(연출, docs/game-design.md "연출").
@@ -140,7 +152,7 @@ export class GameController {
     // 지금 레벨은 클리어 화면(진짜·가짜 클리어 모두)일 때만 채운다 — 가짜 클리어의 완료 화면도 진짜처럼 보여야 한다.
     const levelDeaths = this.levelDeaths.map((d, j) => (j === this.levelIndex ? (world.cleared ? world.runDeathsByKind : null) : d));
     const snapshot: HudSnapshot = {
-      ...world, debugPlayer: this.renderer.debug ? { x, y, grounded } : null, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
+      ...world, debugPlayer: this.renderer.debug ? { x, y, grounded } : null, debugDeaths: this.renderer.debug ? this.debugDeaths() : null, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
       level: this.levelIndex + 1, levelCount: this.levels.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
       levelDeaths,
     };
@@ -162,6 +174,14 @@ export class GameController {
   // 다른 탭이 최고 기록을 저장하면 이 탭의 BEST 표시·완료 화면에도 바로 합친다(storage 이벤트는 다른 탭에서 바뀔 때만 온다).
   // 클리어할 때처럼 시간과 사망 수를 따로 합쳐, 이 탭이 가진 더 좋은 값은 그대로 남는다. 깨진 값이나 다른 키는 무시한다.
   private onStorage = (event: StorageEvent): void => {
+    // 다른 탭이 누적 사망 기록을 바꾸면(사망·지우기) 다시 읽는다 — 이 탭도 사망할 때마다 저장소를 다시 읽어 더하므로 덮어쓰지 않는다.
+    const d = this.levels.findIndex((level, j) => deathLogKey(level, j) === event.key);
+    if (d >= 0) {
+      this.deathLogs[d] = loadDeathLog(this.levels[d], d);
+      this.syncDeathLog();
+      this.publishSnapshot();
+      return;
+    }
     const i = this.levels.findIndex((_, j) => bestStorageKey(j) === event.key);
     if (i < 0) return;
     const stored = loadBest(i);
@@ -174,6 +194,18 @@ export class GameController {
   // 터치/마우스로만 조작하는 사용자나 스크린 리더 사용자를 위한 접근성 통로.
   restart(): void { this.restartRun(); this.publishSnapshot(); }
   nextLevel(): void { this.advanceLevel(); this.publishSnapshot(); }
+  // 디버그 HUD의 "누적 사망 기록 지우기": 모든 레벨의 누적 기록을 지운다(최고 기록·이번 런 표식은 그대로).
+  clearDeathLog(): void {
+    clearDeathLogs();
+    this.deathLogs = this.levels.map(() => EMPTY_DEATH_LOG);
+    this.syncDeathLog();
+    this.publishSnapshot();
+  }
+  private syncDeathLog(): void { this.renderer.loggedDeaths = this.deathLogs[this.levelIndex].marks; }
+  private debugDeaths(): { total: number; kinds: Partial<Record<DeathStatKind, number>> } {
+    const { kinds } = this.deathLogs[this.levelIndex];
+    return { total: Object.values(kinds).reduce((sum, n) => sum + n, 0), kinds };
+  }
   private restartRun(): void { this.world.reset(); this.newRecord = false; }
   // 이번 런으로 클리어하면 될 기록. 다른 탭이 그사이 더 좋은 기록을 저장했을 수 있다 — 시작 시 읽은 기록만 믿으면 더 나쁜
   // 기록으로 덮어쓰고 NEW RECORD!까지 띄운다. 비교·저장 직전에 저장소를 다시 읽어 합친다.
@@ -202,6 +234,7 @@ export class GameController {
     this.levelIndex = (this.levelIndex + 1) % this.levels.length;
     if (this.levelIndex === 0) this.levelDeaths = this.levels.map(() => null); // 완료 화면에서 레벨 1로 돌아가면 새 판
     this.world = new World(this.levels[this.levelIndex]);
+    this.syncDeathLog();
     this.newRecord = false;
     this.paused = false;
   }

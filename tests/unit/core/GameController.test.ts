@@ -4,6 +4,8 @@ import { GameController, mergeBest, type HudSnapshot } from '../../../src/game/c
 import { World, type DeathCauseKind } from '../../../src/game/world/World';
 import { SoundPlayer } from '../../../src/game/audio/SoundPlayer';
 import { CanvasRenderer } from '../../../src/game/rendering/CanvasRenderer';
+import { deathLogKey } from '../../../src/game/core/deathLogStore';
+import { testLevel } from '../world/fixtures';
 
 describe('mergeBest', () => {
   it('takes the first clear as the best record', () => {
@@ -442,6 +444,89 @@ describe('GameController volume setting', () => {
     expect(volume()).toBe(0.8);
     expect(() => controller.setVolume(0.2)).not.toThrow();
     expect(volume()).toBe(0.2);
+    controller.dispose();
+  });
+});
+
+// 누적 사망 기록(docs/game-design.md "기록", core/deathLogStore.ts): 사망마다 브라우저에 쌓고, B를 켰을 때만 HUD·화면에 보인다.
+describe('GameController cumulative death log', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+  // 바닥이 없는 시험용 레벨 — 스폰에서 떨어져 저절로 죽고, 다시 스폰에서 떨어진다(원인 없는 낙사).
+  const pit = testLevel({ solids: [] });
+  const ground = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }] });
+  function setup(levels = [pit, ground]) {
+    let frame = 0;
+    const callbacks: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { callbacks.push(cb); return callbacks.length; });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    const snapshots: HudSnapshot[] = [];
+    const controller = new GameController(document.createElement('canvas'), (s) => snapshots.push(s), (e) => { throw e; }, levels);
+    controller.start();
+    const step = (n = 1): void => { for (let i = 0; i < n; i++) { frame++; for (const cb of callbacks.splice(0)) cb(frame * 20); } };
+    step();
+    const last = (): HudSnapshot => snapshots[snapshots.length - 1];
+    const toggleDebug = (): void => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB' }));
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyB' }));
+      step();
+    };
+    return { controller, step, last, toggleDebug };
+  }
+  const stored = (): unknown => JSON.parse(localStorage.getItem(deathLogKey(pit, 0)) ?? 'null');
+
+  it('saves every counted death by cause and spot, and keeps it for the next session', () => {
+    const a = setup();
+    a.step(200);
+    const deaths = a.last().deaths;
+    expect(deaths).toBeGreaterThan(1);
+    expect(stored()).toEqual({ kinds: { fall: deaths }, marks: [{ x: pit.spawn.x + 13, y: pit.spawn.y + 32, count: deaths }] });
+    a.controller.dispose();
+    const c = setup();
+    c.toggleDebug();
+    expect(c.last().debugDeaths?.total).toBeGreaterThanOrEqual(deaths); // 새 세션에서도 이어서 센다
+    c.controller.dispose();
+  });
+
+  it('keeps the log out of the HUD snapshot unless B is on, and shows only the current level', () => {
+    const { controller, step, last, toggleDebug } = setup();
+    step(100);
+    expect(last().debugDeaths).toBeNull();
+    toggleDebug();
+    expect(last().debugDeaths).toEqual({ total: last().deaths, kinds: { fall: last().deaths } });
+    controller.dispose();
+  });
+
+  it('hands the current level\'s spots to the renderer', () => {
+    let seen: readonly { x: number; y: number; count: number }[] = [];
+    vi.spyOn(CanvasRenderer.prototype, 'render').mockImplementation(function (this: CanvasRenderer) { seen = this.loggedDeaths; });
+    const { controller, step } = setup();
+    step(100);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].count).toBeGreaterThan(0);
+    controller.dispose();
+  });
+
+  it('clears every level\'s log with the debug button, leaving best records alone', () => {
+    localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 10, deaths: 0 }));
+    const { controller, step, last, toggleDebug } = setup();
+    step(100);
+    toggleDebug();
+    controller.clearDeathLog();
+    expect(last().debugDeaths).toEqual({ total: 0, kinds: {} });
+    expect(stored()).toBeNull();
+    expect(localStorage.getItem('trap-runner:best:v2:1')).not.toBeNull();
+    controller.dispose();
+  });
+
+  it('picks up a death saved by another tab', () => {
+    const { controller, last, toggleDebug } = setup([ground, ground]);
+    toggleDebug();
+    expect(last().debugDeaths?.total).toBe(0);
+    const value = JSON.stringify({ kinds: { arrow: 4 }, marks: [] });
+    localStorage.setItem(deathLogKey(ground, 0), value);
+    window.dispatchEvent(new StorageEvent('storage', { key: deathLogKey(ground, 0), newValue: value }));
+    expect(last().debugDeaths).toEqual({ total: 4, kinds: { arrow: 4 } });
     controller.dispose();
   });
 });

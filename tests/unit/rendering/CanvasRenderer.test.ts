@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_MARK_FILL, DEBRIS_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_MARK_FILL, DEBRIS_FILL, LOGGED_DEATH_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
 import { TAUNTS } from '../../../src/game/rendering/taunts';
@@ -370,6 +370,28 @@ describe('CanvasRenderer death marks', () => {
 
   it('draws no marks before any death', () => {
     expect(renderFills(new World(LEVEL_1)).some((f) => f.style === DEATH_MARK_FILL)).toBe(false);
+  });
+  // 누적 사망 기록(B를 켰을 때만): 컨트롤러가 넣어 준 표식을 이번 런 표식과 다른 색으로 그린다.
+  it('draws the cumulative death log only with B on, in its own colour, and nothing off screen', () => {
+    const world = new World(testLevel({ width: 4000, solids: [{ x: 0, y: 500, width: 4000, height: 120 }] }));
+    const draw = (debug: boolean): { fills: FillCall[]; texts: string[] } => {
+      const canvas = document.createElement('canvas');
+      const { ctx, fills, texts } = recordingContext();
+      vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+      const renderer = new CanvasRenderer(canvas);
+      renderer.debug = debug;
+      renderer.loggedDeaths = [{ x: 300, y: 500, count: 7 }, { x: 3000, y: 500, count: 2 }];
+      renderer.render(world, { fps: 60, steps: 1 });
+      return { fills, texts };
+    };
+    expect(draw(false).fills.some((f) => f.style === LOGGED_DEATH_FILL)).toBe(false);
+    const { fills, texts } = draw(true);
+    const logged = fills.filter((f) => f.style === LOGGED_DEATH_FILL);
+    expect(logged).toHaveLength(8); // 화면 안의 × 하나(8칸)만
+    expect(logged.every((f) => f.x >= 296 && f.x + f.width <= 304 && f.y >= 492 && f.y + f.height <= 500)).toBe(true);
+    expect(texts).toContain('×7');
+    expect(texts).not.toContain('×2');
+    expect(LOGGED_DEATH_FILL).not.toBe(DEATH_MARK_FILL);
   });
 });
 

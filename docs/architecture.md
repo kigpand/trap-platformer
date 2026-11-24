@@ -5,6 +5,7 @@
 
 ## 모듈
 - `game/core/GameController.ts`: 생명주기, 스케줄러, 입력 및 월드 조율. 현재 레벨 번호를 들고, 클리어 후 다음 레벨 요청이 오면 `LEVELS`의 다음 레벨로 새 `World`를 만든다. 레벨별 최고 기록 저장도 맡는다
+- `game/core/deathLogStore.ts`: 누적 사망 기록의 localStorage 읽기·쓰기·지우기(레벨 데이터 해시를 키에 넣어 배치가 바뀌면 새로 시작, 사망마다 저장소를 다시 읽어 더해 다른 탭의 기록을 덮어쓰지 않음). `World`는 저장소를 모르고 마지막으로 센 사망의 자리·원인(`lastDeath`)만 남기며, `GameController`가 'death' 이벤트에서 읽어 쌓고 지금 레벨의 표식을 렌더러에 넘긴다(B를 켰을 때만 그림)
 - `game/core/GameLoop.ts`: 고정 시간 간격 처리를 위한 RAF 누적기와 최대 따라잡기 한도. 렌더 콜백에 디버그용 프레임 지표(FPS, 프레임당 스텝 수)를 함께 전달. update/render 중 예외가 나면 루프를 멈추고 `onError`로 알린다
 - `game/core/InputManager.ts`: 키보드 상태와 점프 키를 새로 누르는 순간 감지. 게임패드는 이벤트 대신 `consume()`마다 `navigator.getGamepads()`를 읽어(표준 배치 버튼 번호) 패드별 직전 버튼 상태와 비교해 새로 누른 순간만 잡고, 끊긴 패드의 상태는 버림(읽기 함수는 테스트에서 바꿔 끼움)
 - `game/physics/`: 순수 사각형 겹침 판정과 축별 이동 충돌 해소

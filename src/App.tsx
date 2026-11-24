@@ -13,7 +13,7 @@ function topKiller(byKind: Parameters<typeof rankDeaths>[0]): string {
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
-    debugPlayer: null, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+    debugPlayer: null, debugDeaths: null, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
     paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false, levelDeaths: [],
   });
   const [announcement, setAnnouncement] = useState('');
@@ -143,6 +143,20 @@ export default function App() {
         <span>BEST <b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
         <span>SOUND <b>{snapshot.muted ? 'OFF' : 'ON'}</b></span>
       </section>
+      {/* 누적 사망 기록(B를 켰을 때만): 새로고침·새 런에도 남는, 이 레벨의 원인별 사망 수 — 배치 판단용(docs/game-design.md "기록") */}
+      {snapshot.debugDeaths && (
+        <section className="death-stats debug-deaths" aria-label="누적 사망 기록">
+          <h2>누적 사망 기록 — 레벨 {snapshot.level}, {snapshot.debugDeaths.total}회</h2>
+          {snapshot.debugDeaths.total === 0 ? (
+            <p>아직 기록이 없어요.</p>
+          ) : (
+            <ol>
+              {rankDeaths(snapshot.debugDeaths.kinds).map((d) => <li key={d.kind}>{d.name} <b>×{d.count}</b></li>)}
+            </ol>
+          )}
+          <button type="button" onClick={() => game.current?.clearDeathLog()}>누적 사망 기록 지우기 (모든 레벨)</button>
+        </section>
+      )}
       {/* 입력 방식에 맞는 안내만 보인다(style.css의 pointer: coarse 미디어 쿼리) */}
       <p className="help help-keys">← → / A D 이동 · Space / ↑ / W 점프 · R 재시작 · B 충돌 박스 표시 · P 일시정지 · M 음소거 · N 다음 레벨(클리어 후)</p>
       <p className="help help-keys">게임패드: 방향 패드 / 왼쪽 스틱 이동 · A / ↑ 점프 · Start 일시정지 · Select(Back) 재시작 · Y 다음 레벨(클리어 후)</p>
