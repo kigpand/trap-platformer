@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GameCanvas, type GameHandle } from './components/GameCanvas';
 import { TouchControls } from './components/TouchControls';
+import { MEDAL_NAMES, MedalBadge } from './components/Medal';
+import { MEDAL_TIMES, medalFor } from './game/world/medals';
 import { ClockIcon, FlagIcon, PauseIcon, PlayIcon, RestartIcon, SkullIcon, SoundIcon, TrophyIcon } from './components/Icons';
 import type { HudSnapshot } from './game/core/GameController';
 import { rankDeaths, TAUNTS } from './game/rendering/taunts';
@@ -10,6 +12,21 @@ import './style.css';
 function topKiller(byKind: Parameters<typeof rankDeaths>[0]): string {
   const top = rankDeaths(byKind)[0];
   return top ? `가장 많이 당한 함정 ${top.name} ×${top.count}` : '당한 함정 없음';
+}
+
+// 클리어 창의 이번 런 메달과 목표 기록(가짜 클리어 #14도 같은 스냅샷으로 똑같이 그린다).
+function RunMedal({ levelIndex, time, deaths }: { levelIndex: number; time: number; deaths: number }) {
+  const medal = medalFor(levelIndex, { time, deaths });
+  const goal = MEDAL_TIMES[levelIndex];
+  return (
+    <div className="medal-row">
+      <MedalBadge medal={medal} large />
+      <div className="medal-text">
+        <b>{MEDAL_NAMES[medal.tier]}</b>{medal.flawless && <span className="flawless">★ 노데스</span>}
+        {goal && <span className="medal-goal">금 {goal.gold}초 · 은 {goal.silver}초</span>}
+      </div>
+    </div>
+  );
 }
 
 // 클리어·완료 창의 "이번 런에서 당한 함정". 많이 당한 순서.
@@ -114,7 +131,7 @@ export default function App() {
             </div>
             <div className="hud-group">
               <span className="hud-stat" title="이번 런 시간"><ClockIcon /><span className="visually-hidden">TIME </span><b>{snapshot.time.toFixed(1)}s</b></span>
-              <span className="hud-stat hud-best" title="최고 기록"><TrophyIcon /><span className="visually-hidden">BEST </span><b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b></span>
+              <span className="hud-stat hud-best" title="최고 기록"><TrophyIcon /><span className="visually-hidden">BEST </span><b>{snapshot.best ? `${snapshot.best.time.toFixed(1)}s / ${snapshot.best.deaths} FALLS` : '—'}</b>{snapshot.best && <MedalBadge medal={medalFor(snapshot.level - 1, snapshot.best)} />}</span>
               <button type="button" className="hud-button" aria-label="일시정지/재개 (P)" aria-pressed={snapshot.paused} title="일시정지 (P)" onClick={() => game.current?.togglePause()}>
                 {snapshot.paused ? <PlayIcon /> : <PauseIcon />}
               </button>
@@ -154,6 +171,7 @@ export default function App() {
               <section className="panel" role="dialog" aria-label="레벨 클리어">
                 <p className="panel-kicker">LEVEL {snapshot.level}</p>
                 <h2>{snapshot.newRecord ? 'NEW RECORD!' : 'CLEAR!'}</h2>
+                <RunMedal levelIndex={snapshot.level - 1} time={snapshot.time} deaths={snapshot.runDeaths} />
                 <dl className="result">
                   <div><dt><ClockIcon />시간</dt><dd>{snapshot.time.toFixed(1)}s</dd></div>
                   <div><dt><SkullIcon />떨어짐</dt><dd>{snapshot.runDeaths}</dd></div>
@@ -174,7 +192,7 @@ export default function App() {
                 <ul className="level-records">
                   {snapshot.bests.map((best, i) => (
                     <li key={i}>
-                      <span>레벨 {i + 1}</span>
+                      <span>{best && <MedalBadge medal={medalFor(i, best)} />}레벨 {i + 1}</span>
                       <b>{best ? `${best.time.toFixed(1)}s / ${best.deaths} FALLS` : '—'}</b>
                       {snapshot.levelDeaths[i] && <span className="level-killer">{topKiller(snapshot.levelDeaths[i])}</span>}
                     </li>

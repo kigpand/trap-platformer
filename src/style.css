@@ -71,3 +71,18 @@ kbd{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 
 .hud-best,.hud-restart{display:none}
 .overlay{position:fixed;z-index:20;padding:16px}
 }
+
+/* 메달(레벨별 목표 기록): 색으로 등급을 나눈 동전, 노데스면 오른쪽 위에 작은 별. */
+.medal{position:relative;display:inline-block;flex:none;width:14px;height:14px;margin-left:6px;border-radius:50%;vertical-align:-2px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25),0 0 0 1px rgba(0,0,0,.35)}
+.medal-gold{background:radial-gradient(circle at 35% 30%,#fff3b0,#f5c542 45%,#c9931e)}
+.medal-silver{background:radial-gradient(circle at 35% 30%,#ffffff,#c9d3df 45%,#8e9aab)}
+.medal-bronze{background:radial-gradient(circle at 35% 30%,#ffd9b3,#c98a52 45%,#8f5a2e)}
+.medal.is-flawless::after{content:'★';position:absolute;top:-7px;right:-7px;font-size:10px;line-height:1;color:#fde68a;text-shadow:0 0 3px #000}
+.medal-lg{width:44px;height:44px;margin:0;vertical-align:middle;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),0 4px 14px rgba(0,0,0,.35)}
+.medal-lg.is-flawless::after{top:-6px;right:-8px;font-size:20px}
+.medal-row{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 14px}
+.medal-text{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+.medal-text b{font-size:17px}
+.flawless{font-size:12px;font-weight:700;color:#fde68a}
+.medal-goal{font-size:12px;color:#9ca8b8}
+.level-records .medal{margin:0 8px 0 0}
