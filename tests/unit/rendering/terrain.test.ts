@@ -254,3 +254,19 @@ describe('one-way platform drawing', () => {
     expect(pixels(fills, r).get('450,426')).toBe(PLANK_FILL);
   });
 });
+
+describe('features stand out from the soil', () => {
+  // 2026-11-26: 땅을 갈색 흙으로 바꾼 뒤 예전 진흙(#6b4f2a)이 흙(GROUND_FILL)과 명암비 1.16으로 묻혀 보이지 않았다 — 진흙은 움직임을 바꾸므로
+  // 보여야 한다(docs/game-design.md "보이는 그대로 동작"). 통나무(파이프)도 흙 위에 서 있어 구분돼야 한다. WCAG 상대 휘도의 명암비로 잰다.
+  const luminance = (hex: string): number => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string): number => { const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+  it('keeps mud and the log bark clearly apart from the soil', () => {
+    expect(contrast(MUD_FILL, GROUND_FILL)).toBeGreaterThanOrEqual(1.5);
+    expect(contrast(MUD_FILL, GROUND_TOP)).toBeGreaterThanOrEqual(1.5); // 진흙은 풀 자리에 덮인다
+    expect(contrast(PIPE_FILL, GROUND_FILL)).toBeGreaterThanOrEqual(1.4);
+    expect(contrast('#6b4f2a', GROUND_FILL)).toBeLessThan(1.5); // 예전 진흙 색은 이 검사에 걸린다
+  });
+});
