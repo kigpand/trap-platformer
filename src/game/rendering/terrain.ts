@@ -96,43 +96,52 @@ export function drawBlock(ctx: CanvasRenderingContext2D, r: Rect, view: View, ed
   ctx.fillRect(r.x, edge === 'top' ? r.y : r.y + r.height - h, r.width, h);
 }
 
-// 파이프(지형지물): 청회색 금속 관에 윗부분 테두리 띠와 볼트. 무늬는 파이프 자신의 왼쪽 위 기준이라 같은 크기면 어디서든 똑같이
-// 그려진다. 모든 칠은 충돌 사각형 안에만 한다 — 테두리 띠가 몸통보다 튀어나와 보이면 설 수 있는 곳이 그림과 달라진다.
-export const PIPE_FILL = '#5b7f8f';
-export const PIPE_CAP = '#7aa3b2';
-const PIPE_LIGHT = '#a9c9d3'; // 왼쪽 반사광
-const PIPE_SHADE = '#3e5f6b'; // 오른쪽 그늘·띠 아래 줄
-const PIPE_BOLT = '#2c434c';
+// 파이프(지형지물): 숲 분위기에 맞춰 속이 빈 통나무를 세워 둔 모습으로 그린다(2026-11-26 — 이름·충돌은 그대로 "파이프"). 나무껍질 몸통에
+// 세로 홈, 윗면은 나이테가 보이는 잘린 단면과 이끼. 무늬는 파이프 자신의 왼쪽 위 기준이라 같은 크기면 어디서든 똑같이 그려진다
+// (가라앉는 파이프 #32가 진짜와 같아야 함). 모든 칠은 충돌 사각형 안에만 한다 — 그림이 튀어나와 보이면 설 수 있는 곳이 그림과 달라진다.
+export const PIPE_FILL = '#8a5a3b'; // 나무껍질(흙보다 밝고 따뜻하게 — 땅에 묻혀 보이지 않게)
+export const PIPE_CAP = '#d9b27c'; // 잘린 단면
+const PIPE_GROOVE = '#5e3b26'; // 껍질 홈·단면 아래 줄
+const PIPE_RING = '#b08250'; // 나이테
+const PIPE_HOLLOW = '#3a2418'; // 가운데 빈 속
+const PIPE_MOSS = '#5fae57';
 const PIPE_CAP_HEIGHT = 14;
 export function drawPipe(ctx: CanvasRenderingContext2D, r: Rect): void {
   const cap = Math.min(PIPE_CAP_HEIGHT, r.height);
   ctx.fillStyle = PIPE_FILL; ctx.fillRect(r.x, r.y, r.width, r.height);
-  ctx.fillStyle = PIPE_SHADE; fillClipped(ctx, r, r.x + r.width - 10, r.y, 6, r.height);
+  ctx.fillStyle = PIPE_GROOVE; // 세로 홈(가장자리와 몸통 군데군데)
+  for (const dx of [0, 10, 22, 38, 50]) if (dx + 2 <= r.width) fillClipped(ctx, r, r.x + dx, r.y + cap, 2, r.height - cap);
+  fillClipped(ctx, r, r.x + r.width - 3, r.y + cap, 3, r.height - cap);
+  fillClipped(ctx, r, r.x, r.y + cap, r.width, 2);
   ctx.fillStyle = PIPE_CAP; ctx.fillRect(r.x, r.y, r.width, cap);
-  ctx.fillStyle = PIPE_SHADE; fillClipped(ctx, r, r.x, r.y + cap, r.width, 2);
-  ctx.fillStyle = PIPE_LIGHT;
-  fillClipped(ctx, r, r.x + 6, r.y + 2, 4, cap - 4);
-  fillClipped(ctx, r, r.x + 8, r.y + cap + 2, 4, r.height - cap - 2);
-  ctx.fillStyle = PIPE_BOLT;
-  for (let x = r.x + 14; x + 2 <= r.x + r.width - 12; x += 12) fillClipped(ctx, r, x, r.y + cap / 2 - 1, 2, 2);
+  ctx.fillStyle = PIPE_RING; // 단면 가장자리와 나이테 한 겹
+  fillClipped(ctx, r, r.x, r.y, r.width, 2); fillClipped(ctx, r, r.x, r.y + cap - 2, r.width, 2);
+  fillClipped(ctx, r, r.x, r.y, 2, cap); fillClipped(ctx, r, r.x + r.width - 2, r.y, 2, cap);
+  ctx.fillStyle = PIPE_HOLLOW; // 속이 빈 가운데(위아래를 깎아 둥글게)
+  fillClipped(ctx, r, r.x + 12, r.y + 4, r.width - 24, Math.max(0, cap - 8));
+  ctx.fillStyle = PIPE_RING; fillClipped(ctx, r, r.x + 12, r.y + 4, 2, 1); fillClipped(ctx, r, r.x + r.width - 14, r.y + 4, 2, 1);
+  fillClipped(ctx, r, r.x + 12, r.y + cap - 5, 2, 1); fillClipped(ctx, r, r.x + r.width - 14, r.y + cap - 5, 2, 1);
+  ctx.fillStyle = PIPE_MOSS; // 이끼: 윗가장자리 왼쪽·오른쪽 조금
+  fillClipped(ctx, r, r.x, r.y, 10, 2); fillClipped(ctx, r, r.x + r.width - 14, r.y, 8, 2); fillClipped(ctx, r, r.x, r.y + 2, 4, 2);
 }
 
 // 움직임을 바꾸는 지형지물(함정 아님 — 보이는 그대로 동작하므로 바닥과 구분되게 그린다). 모두 판정 사각형 안에만 칠한다.
-// 트램펄린: 바닥 윗면에 놓인 보라색 매트와 양쪽 다리.
-export const TRAMPOLINE_MAT = '#c084fc';
-const TRAMPOLINE_FRAME = '#475569';
-const TRAMPOLINE_SPRING = '#cbd5e1';
+// 트램펄린: 숲 분위기에 맞춰 탱탱한 버섯으로 그린다(2026-11-26 — 동작은 그대로). 타일이 바닥 윗면에 묻혀 있으므로 땅 위로 내민
+// 둥근 보라 갓에 흰 점과 갓 아래 주름만 그린다(대를 그리면 흙 속에 흰 막대로 보였다).
+export const TRAMPOLINE_MAT = '#c084fc'; // 버섯 갓
+const MUSHROOM_SHADE = '#9255d8'; // 갓 아래쪽 그늘
+const MUSHROOM_SPOT = '#f5e9ff';
+const MUSHROOM_GILL = '#5b3a86';
 export function drawTrampoline(ctx: CanvasRenderingContext2D, t: Rect): void {
-  const h = Math.min(16, t.height);
-  ctx.fillStyle = '#101729'; fillClipped(ctx, t, t.x + 4, t.y + 5, t.width - 8, h - 7); // 매트 아래 빈 공간
-  ctx.fillStyle = TRAMPOLINE_SPRING; // 지그재그 스프링 두 개
-  for (const sx of [t.x + 8, t.x + t.width - 12]) for (let k = 0; k < 4; k++) fillClipped(ctx, t, sx + (k % 2 === 0 ? 0 : 2), t.y + 6 + k * 2, 2, 2);
-  ctx.fillStyle = TRAMPOLINE_FRAME;
-  fillClipped(ctx, t, t.x, t.y + 3, 4, h - 3);
-  fillClipped(ctx, t, t.x + t.width - 4, t.y + 3, 4, h - 3);
-  fillClipped(ctx, t, t.x, t.y + h - 2, t.width, 2);
-  ctx.fillStyle = TRAMPOLINE_MAT;
-  fillClipped(ctx, t, t.x, t.y, t.width, 5);
+  const capH = Math.min(8, t.height);
+  ctx.fillStyle = MUSHROOM_GILL; fillClipped(ctx, t, t.x + 4, t.y + capH, t.width - 8, 2);
+  ctx.fillStyle = TRAMPOLINE_MAT; // 둥근 갓: 위 두 줄은 안쪽으로 들여 모서리를 깎는다
+  fillClipped(ctx, t, t.x + 6, t.y, t.width - 12, 1);
+  fillClipped(ctx, t, t.x + 2, t.y + 1, t.width - 4, 2);
+  fillClipped(ctx, t, t.x, t.y + 3, t.width, capH - 5);
+  ctx.fillStyle = MUSHROOM_SHADE; fillClipped(ctx, t, t.x, t.y + capH - 2, t.width, 2);
+  ctx.fillStyle = MUSHROOM_SPOT; // 흰 점(갓 자신의 왼쪽 기준이라 어디서든 같다)
+  for (const [dx, dy, w] of [[8, 2, 4], [t.width / 2 + 2, 1, 3], [t.width - 12, 3, 4]] as const) fillClipped(ctx, t, t.x + dx, t.y + dy, w, 2);
 }
 // 컨베이어 벨트: 바닥 윗면을 덮는 회색 벨트와 흐르는 방향의 화살(">" 또는 "<") 무늬. 무늬는 월드 좌표 기준이고, phase(렌더링 전용 시간)만큼 흐른다.
 export const BELT_FILL = '#3f4a5c';
@@ -153,9 +162,10 @@ export function drawConveyor(ctx: CanvasRenderingContext2D, r: Rect, speed: numb
     for (const [dx, dy] of CHEVRON) fillClipped(ctx, belt, x + (right ? dx : 4 - dx), r.y + dy, 2, 2);
   }
 }
-// 진흙: 바닥 윗면을 덮는 갈색 진흙과 어두운 웅덩이 점. 무늬는 월드 좌표 칸 해시.
-export const MUD_FILL = '#6b4f2a';
-const MUD_SPOT = '#4a3620';
+// 진흙: 바닥 윗면을 덮는 어둡고 축축한 진흙과 젖은 반사광 줄. 갈색 흙(GROUND_FILL)보다 훨씬 어두워 땅과 구분된다(2026-11-26 —
+// 땅을 갈색 흙으로 바꾼 뒤 예전 진흙 색이 흙에 묻혀 보이지 않았다). 무늬는 월드 좌표 칸 해시.
+export const MUD_FILL = '#33241c';
+const MUD_SPOT = '#7e6a5c'; // 젖은 반사광
 export function drawMud(ctx: CanvasRenderingContext2D, r: Rect, view: View): void {
   const h = Math.min(12, r.height);
   ctx.fillStyle = MUD_FILL; ctx.fillRect(r.x, r.y, r.width, h);
