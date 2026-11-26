@@ -15,7 +15,7 @@ vi.mock('../../src/components/GameCanvas', () => ({
 const { default: App } = await import('../../src/App');
 
 const base: HudSnapshot = {
-  debugPlayer: null, debugDeaths: null, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+  debugPlayer: null, debugDeaths: null, ghostEnabled: false, ghostAvailable: false, deaths: 0, cleared: false, checkpoint: false, time: 5, runDeaths: 0, deathKind: null, runDeathsByKind: {},
   paused: false, muted: false, volume: 0.8, level: 1, levelCount: 3, best: null, bests: [null, null, null], newRecord: false, levelDeaths: [null, null, null],
 };
 
@@ -217,6 +217,22 @@ describe('App debug HUD', () => {
 
     await act(async () => { push({ ...base, cleared: true, level: 3, levelCount: 3, bests: [{ time: 100, deaths: 3 }, null, { time: 150, deaths: 0 }] }); });
     expect(medals(container.querySelector('[role="dialog"][aria-label="모든 레벨 클리어"]'))).toEqual(['동메달', '은메달 · 노데스']); // 레벨 3 은메달 162초 이내
+    await act(async () => { root.unmount(); });
+  });
+
+  it('offers the ghost toggle in the pause menu, noting when the level has no ghost yet', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const ghostButton = (): Element | undefined => [...container.querySelectorAll('[aria-label="일시정지"] button')].find((b) => b.textContent?.startsWith('고스트'));
+    await act(async () => { push({ ...base, paused: true }); });
+    expect(ghostButton()?.textContent).toBe('고스트 켜기 · 이 레벨 기록 없음');
+    expect(ghostButton()?.getAttribute('aria-pressed')).toBe('false');
+    await act(async () => { push({ ...base, paused: true, ghostEnabled: true, ghostAvailable: true }); });
+    expect(ghostButton()?.textContent).toBe('고스트 끄기');
+    expect(ghostButton()?.getAttribute('aria-pressed')).toBe('true');
     await act(async () => { root.unmount(); });
   });
 });

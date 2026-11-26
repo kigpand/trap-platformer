@@ -40,6 +40,7 @@ describe('GameController fake clear', () => {
     expect(last().best).toEqual({ time: last().time, deaths: 0 });
     expect(play).toHaveBeenCalledWith('clear');
     expect(localStorage.getItem('trap-runner:best:v2:1')).toBeNull();
+    expect(Object.keys(localStorage).some((k) => k.startsWith('trap-runner:ghost:'))).toBe(false); // 고스트도 저장하지 않는다
     controller.dispose();
   });
 

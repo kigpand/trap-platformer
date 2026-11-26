@@ -47,7 +47,7 @@ function DeathRanking({ ranking }: { ranking: ReturnType<typeof rankDeaths> }) {
 
 export default function App() {
   const [snapshot, setSnapshot] = useState<HudSnapshot>({
-    debugPlayer: null, debugDeaths: null, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
+    debugPlayer: null, debugDeaths: null, ghostEnabled: false, ghostAvailable: false, deaths: 0, cleared: false, checkpoint: false, time: 0, runDeaths: 0, deathKind: null, runDeathsByKind: {},
     paused: false, muted: false, volume: 0.8, level: 1, levelCount: 1, best: null, bests: [], newRecord: false, levelDeaths: [],
   });
   const [announcement, setAnnouncement] = useState('');
@@ -150,6 +150,10 @@ export default function App() {
                   <button type="button" className="primary" onClick={() => game.current?.togglePause()}>계속하기 (P)</button>
                   <button type="button" onClick={() => game.current?.restart()}>처음부터 다시 (R)</button>
                   <button type="button" onClick={() => game.current?.toggleMute()}>{snapshot.muted ? '소리 켜기 (M)' : '소리 끄기 (M)'}</button>
+                  {/* 고스트: 이 레벨의 가장 빠른 클리어 런을 반투명 흰 실루엣으로(기본 꺼짐). 기록이 없으면 켜도 아직 보이지 않는다. */}
+                  <button type="button" aria-pressed={snapshot.ghostEnabled} onClick={() => game.current?.toggleGhost()}>
+                    {snapshot.ghostEnabled ? '고스트 끄기' : '고스트 켜기'}{!snapshot.ghostAvailable && <span className="button-note"> · 이 레벨 기록 없음</span>}
+                  </button>
                 </div>
                 <label className="volume">
                   음량 {Math.round(snapshot.volume * 100)}%
