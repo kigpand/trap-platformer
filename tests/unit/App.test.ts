@@ -193,4 +193,30 @@ describe('App debug HUD', () => {
     expect(container.querySelectorAll('.hud svg[aria-hidden="true"]').length).toBeGreaterThan(0);
     await act(async () => { root.unmount(); });
   });
+
+  it('shows the run medal with the targets on the clear panel, and the best medal in the HUD and on the completion panel', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    const clear = (): Element | null => container.querySelector('[role="dialog"][aria-label="레벨 클리어"]');
+    const medals = (el: Element | null): (string | null)[] => [...(el?.querySelectorAll('.medal') ?? [])].map((m) => m.getAttribute('aria-label'));
+
+    // 레벨 1 목표: 금 72초, 은 94초.
+    await act(async () => { push({ ...base, cleared: true, time: 80.4, runDeaths: 2, best: { time: 70, deaths: 0 } }); });
+    expect(medals(clear())).toEqual(['은메달']);
+    expect(clear()?.textContent).toContain('금 72초 · 은 94초');
+    expect(clear()?.textContent).not.toContain('노데스');
+    expect(medals(container.querySelector('.hud'))).toEqual(['금메달 · 노데스']); // 최고 기록(시간 70초, 최소 사망 0)
+    expect(container.querySelector('.hud-best')?.textContent).toBe('BEST 70.0s / 0 FALLS'); // 메달은 글자에 섞이지 않는다
+
+    await act(async () => { push({ ...base, cleared: true, time: 60, runDeaths: 0, best: { time: 60, deaths: 0 } }); });
+    expect(medals(clear())).toEqual(['금메달 · 노데스']);
+    expect(clear()?.textContent).toContain('★ 노데스');
+
+    await act(async () => { push({ ...base, cleared: true, level: 3, levelCount: 3, bests: [{ time: 100, deaths: 3 }, null, { time: 150, deaths: 0 }] }); });
+    expect(medals(container.querySelector('[role="dialog"][aria-label="모든 레벨 클리어"]'))).toEqual(['동메달', '은메달 · 노데스']); // 레벨 3 은메달 162초 이내
+    await act(async () => { root.unmount(); });
+  });
 });
