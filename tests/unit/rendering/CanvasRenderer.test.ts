@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_MARK_FILL, DEBRIS_FILL, LOGGED_DEATH_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
+import { ARROW_FILL, ARROW_WARNING_FILL, BOULDER_FILL, CanvasRenderer, CRACK_FILL, DEATH_MARK_FILL, DEBRIS_FILL, GHOST_FILL, LOGGED_DEATH_FILL, SHAKE_AMPLITUDE, DEATH_CAUSE_OVERLAY, FAKE_WALL_REVEALED, GEM_SHINE, GOAL_FILL, HEAVY_MARK, ICE_FILL, RHYTHM_GHOST, RHYTHM_WARNING_FILL, SHADOW_FILL, SHADOW_OUTLINE_RGB, HAZARD_REVEAL_FILL, REVERSE_MARK, SKY_WARNING_FILL, SPIKE_FILL, SPRING_FILL, VANISH_WARNING_FILL } from '../../../src/game/rendering/CanvasRenderer';
 import { GROUND_FILL } from '../../../src/game/rendering/terrain';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, type Level } from '../../../src/game/world/level';
@@ -446,5 +446,30 @@ describe('CanvasRenderer effects (shake and debris)', () => {
     expect(renderWith(renderer, canvas, world).some((f) => f.style === DEBRIS_FILL)).toBe(false);
     for (let i = 0; i < 20; i++) renderer.addDebris({ x: 200, y: 480, width: 120, height: 20 });
     expect(renderWith(renderer, canvas, world).filter((f) => f.style === DEBRIS_FILL).length).toBe(60);
+  });
+});
+
+describe('CanvasRenderer ghost', () => {
+  // 고스트(최고 기록 런)는 플레이어 모양의 반투명 흰 실루엣에 BEST — 보라색 따라 하는 그림자(SHADOW_FILL)와 다른 색이다.
+  const draw = (ghost: CanvasRenderer['ghost']) => {
+    const world = new World(testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }] }));
+    const canvas = document.createElement('canvas');
+    const { ctx, fills, texts } = recordingContext();
+    vi.spyOn(canvas, 'getContext').mockReturnValue(ctx);
+    const renderer = new CanvasRenderer(canvas);
+    renderer.ghost = ghost;
+    renderer.render(world, { fps: 60, steps: 1 });
+    return { fills, texts };
+  };
+  it('draws a single-colour silhouette of the player shape with a BEST tag, only when given', () => {
+    expect(draw(null).fills.some((f) => f.style === GHOST_FILL)).toBe(false);
+    expect(draw(null).texts).not.toContain('BEST');
+    const { fills, texts } = draw({ x: 400, y: 468, facing: 1, airborne: false, moving: false });
+    const ghost = fills.filter((f) => f.style === GHOST_FILL);
+    expect(ghost.length).toBeGreaterThan(0);
+    expect(ghost.every((f) => f.x >= 400 && f.x + f.width <= 426 && f.y >= 468 && f.y + f.height <= 500)).toBe(true); // 플레이어 크기 안
+    expect(fills.filter((f) => f.x >= 400 && f.x < 426 && f.y >= 468 && f.y < 500).every((f) => f.style === GHOST_FILL)).toBe(true); // 플레이어 색이 섞이지 않는다
+    expect(texts).toContain('BEST');
+    expect(GHOST_FILL).not.toBe(SHADOW_FILL);
   });
 });

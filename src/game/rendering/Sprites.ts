@@ -81,7 +81,7 @@ export const ENEMY_WALK_2: PixelGrid = [
 // 플레이어 충돌 박스는 시각적 스프라이트와 독립적이므로(docs/physics-spec.md) 정확히 겹칠 필요는 없다.
 export function drawPixelSprite(
   ctx: CanvasRenderingContext2D, grid: PixelGrid, x: number, y: number, boxWidth: number, boxHeight: number,
-  flipX: boolean,
+  flipX: boolean, tint?: string,
 ): void {
   const cols = grid[0].length;
   const rows = grid.length;
@@ -91,9 +91,11 @@ export function drawPixelSprite(
   for (let row = 0; row < rows; row++) {
     let col = 0;
     while (col < cols) {
-      const color = PALETTE[grid[row][flipX ? cols - 1 - col : col]];
+      // tint가 있으면 보이는 칸을 모두 그 색 하나로 칠한다(고스트의 흰 실루엣).
+      const colorOf = (c: number): string | undefined => { const own = PALETTE[grid[row][flipX ? cols - 1 - c : c]]; return own && (tint ?? own); };
+      const color = colorOf(col);
       let end = col + 1;
-      while (end < cols && PALETTE[grid[row][flipX ? cols - 1 - end : end]] === color) end++;
+      while (end < cols && colorOf(end) === color) end++;
       if (color) {
         ctx.fillStyle = color;
         const left = Math.round(x + col * pixelSize);

@@ -30,9 +30,10 @@ function drawDeathMarks(ctx: CanvasRenderingContext2D, marks: readonly DeathMark
     if (m.count > 1) ctx.fillText(`×${m.count}`, m.x, top - labelGap);
   }
 }
-function playerFrame(p: Player) {
-  if (!p.grounded) return PLAYER_JUMP;
-  if (p.vx === 0) return PLAYER_IDLE;
+function playerFrame(p: Player) { return poseFrame(!p.grounded, p.vx !== 0); }
+function poseFrame(airborne: boolean, moving: boolean) {
+  if (airborne) return PLAYER_JUMP;
+  if (!moving) return PLAYER_IDLE;
   return Math.floor(performance.now() / WALK_CYCLE_MS) % 2 === 0 ? PLAYER_WALK_1 : PLAYER_WALK_2;
 }
 
@@ -84,6 +85,11 @@ export const DEBRIS_FILL = '#54453a';
 export const DEATH_MARK_FILL = 'rgba(226,232,240,0.7)';
 // 누적 사망 기록의 표식(B를 켰을 때만) — 이번 런 표식(회백색)과 구분되는 하늘색.
 export const LOGGED_DEATH_FILL = 'rgba(103,232,249,0.8)';
+// 고스트(최고 기록 런)의 반투명 흰 실루엣 — 보라색 반투명인 따라 하는 그림자(#20, SHADOW_FILL)와 헷갈리지 않게 색이 다르고 머리 위에 BEST를 쓴다.
+export const GHOST_FILL = 'rgba(236,244,255,0.38)';
+const GHOST_LABEL = 'rgba(236,244,255,0.7)';
+// 고스트의 한 순간(core/ghostStore.ts가 기록에서 꺼내 준다).
+export interface GhostPose { x: number; y: number; facing: 1 | -1; airborne: boolean; moving: boolean }
 const DEATH_MARK_SIZE = 8;
 interface Debris { x: number; y: number; vx: number; vy: number; life: number }
 // 운영체제의 "동작 줄이기"를 켠 사용자에게는 화면을 흔들지 않는다.
@@ -93,6 +99,8 @@ export class CanvasRenderer {
   debug = false;
   // 누적 사망 기록의 표식(컨트롤러가 지금 레벨 것으로 넣어 준다). 그리기만 하고 바꾸지 않는다.
   loggedDeaths: readonly DeathMark[] = [];
+  // 지금 보여 줄 고스트의 자세(꺼져 있거나 기록이 없으면 null). 컨트롤러가 런 시간에 맞춰 넣어 준다.
+  ghost: GhostPose | null = null;
   private shake = 0; // 남은 흔들림 시간(초)
   private debris: Debris[] = [];
   constructor(private readonly canvas: HTMLCanvasElement, private readonly reducedMotion: () => boolean = prefersReducedMotion) {}
@@ -481,6 +489,14 @@ export class CanvasRenderer {
     drawDeathMarks(ctx, world.deathMarks, DEATH_MARK_FILL, cam, 3);
     ctx.textAlign = 'left';
     const p = world.player;
+    // 고스트는 플레이어 아래에 깔리게 먼저 그린다.
+    const g = this.ghost;
+    if (g) {
+      drawPixelSprite(ctx, poseFrame(g.airborne, g.moving), g.x, g.y, p.width, p.height, g.facing < 0, GHOST_FILL);
+      ctx.fillStyle = GHOST_LABEL; ctx.font = 'bold 9px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('BEST', g.x + p.width / 2, g.y - 4);
+      ctx.textAlign = 'left';
+    }
     drawPixelSprite(ctx, playerFrame(p), p.x, p.y, p.width, p.height, p.facing < 0);
     if (this.debug) { ctx.strokeStyle = '#ff3b87'; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.width, p.height); }
     // 플레이어를 바꾸는 구역 표시: 좌우 반전(#16) "⇄", 무거운 신발(#24) "⤓". 명세상 두 구역은 겹치지 않지만 겹쳐도 함께 보인다.

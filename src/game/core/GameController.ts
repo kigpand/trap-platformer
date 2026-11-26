@@ -5,6 +5,7 @@ import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type DeathCauseKind, type DeathStatKind, type GameSnapshot } from '../world/World';
 import { LEVELS, type Level } from '../world/level';
 import { isInView, isWithinHearing } from '../world/viewport';
+import { encodePose, ghostKey, ghostPoseAt, loadGhost, loadGhostEnabled, MAX_GHOST_FRAMES, saveGhostEnabled, saveGhostIfFaster, type Ghost } from './ghostStore';
 import { clearDeathLogs, deathLogKey, EMPTY_DEATH_LOG, loadDeathLog, recordDeath, type DeathLog } from './deathLogStore';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
@@ -18,6 +19,8 @@ export interface BestRecord { time: number; deaths: number }
 export interface HudSnapshot extends Omit<GameSnapshot, 'x' | 'y' | 'grounded'> {
   debugPlayer: { x: number; y: number; grounded: boolean } | null;
   debugDeaths: { total: number; kinds: Partial<Record<DeathStatKind, number>> } | null;
+  // 고스트 보기를 켰는지, 지금 레벨에 저장된 고스트가 있는지(일시정지 창의 고스트 버튼).
+  ghostEnabled: boolean; ghostAvailable: boolean;
   paused: boolean; muted: boolean; volume: number;
   level: number; levelCount: number; best: BestRecord | null; bests: (BestRecord | null)[]; newRecord: boolean;
   levelDeaths: (Partial<Record<DeathStatKind, number>> | null)[];
@@ -84,6 +87,11 @@ export class GameController {
   private newRecord = false;
   // 레벨마다 누적 사망 기록. 렌더러는 지금 레벨의 표식을 B를 켰을 때만 그린다(syncDeathLog).
   private deathLogs: DeathLog[];
+  // 고스트: 레벨마다 저장된 가장 빠른 런, 보기 설정, 이번 런의 기록 중인 프레임(core/ghostStore.ts).
+  private ghosts: (Ghost | null)[];
+  private ghostEnabled: boolean;
+  private ghostFrames: number[] = [];
+  private lastRunTime = 0;
   // #14 가짜 클리어 중 보여 줄 "진짜였다면"의 기록 화면(저장하지 않는다). world.fakeClear가 있을 때만 쓴다.
   private fakePreview: { best: BestRecord; improved: boolean } | null = null;
   constructor(
@@ -98,6 +106,8 @@ export class GameController {
     this.bests = levels.map((_, i) => loadBest(i));
     this.levelDeaths = levels.map(() => null);
     this.deathLogs = levels.map((level, i) => loadDeathLog(level, i));
+    this.ghosts = levels.map((level, i) => loadGhost(level, i));
+    this.ghostEnabled = loadGhostEnabled();
     this.renderer = new CanvasRenderer(canvas);
     this.syncDeathLog();
     this.sound.muted = loadMuted();
@@ -117,6 +127,7 @@ export class GameController {
         if (state.input.restartPressed) this.newRecord = false;
         this.world.update(dt, state.input);
       }
+      this.recordGhostFrame();
       for (const event of this.world.drainEvents()) {
         if (event === 'clear') {
           if (this.world.fakeClear) this.fakePreview = this.previewClear();
@@ -138,6 +149,8 @@ export class GameController {
         if (event.kind === 'slam' && isInView(event.rect, this.world.player.x, this.world.level.width)) this.renderer.shakeScreen();
       }
       if (!this.paused) this.renderer.stepEffects(dt);
+      const ghost = this.ghostEnabled ? this.ghosts[this.levelIndex] : null;
+      this.renderer.ghost = ghost ? ghostPoseAt(ghost, this.world.runTime) : null;
       this.sound.updateMusic(!this.paused); // 일시정지(탭 숨김 포함) 중에는 배경 음악도 멈춘다
       this.publishSnapshot();
     }, (metrics) => this.renderer.render(this.world, metrics), onError);
@@ -152,7 +165,8 @@ export class GameController {
     // 지금 레벨은 클리어 화면(진짜·가짜 클리어 모두)일 때만 채운다 — 가짜 클리어의 완료 화면도 진짜처럼 보여야 한다.
     const levelDeaths = this.levelDeaths.map((d, j) => (j === this.levelIndex ? (world.cleared ? world.runDeathsByKind : null) : d));
     const snapshot: HudSnapshot = {
-      ...world, debugPlayer: this.renderer.debug ? { x, y, grounded } : null, debugDeaths: this.renderer.debug ? this.debugDeaths() : null, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
+      ...world, debugPlayer: this.renderer.debug ? { x, y, grounded } : null, debugDeaths: this.renderer.debug ? this.debugDeaths() : null,
+      ghostEnabled: this.ghostEnabled, ghostAvailable: this.ghosts[this.levelIndex] !== null, paused: this.paused, muted: this.sound.muted, volume: this.sound.volume,
       level: this.levelIndex + 1, levelCount: this.levels.length, best: bests[this.levelIndex], bests, newRecord: preview ? preview.improved : this.newRecord,
       levelDeaths,
     };
@@ -175,6 +189,8 @@ export class GameController {
   // 클리어할 때처럼 시간과 사망 수를 따로 합쳐, 이 탭이 가진 더 좋은 값은 그대로 남는다. 깨진 값이나 다른 키는 무시한다.
   private onStorage = (event: StorageEvent): void => {
     // 다른 탭이 누적 사망 기록을 바꾸면(사망·지우기) 다시 읽는다 — 이 탭도 사망할 때마다 저장소를 다시 읽어 더하므로 덮어쓰지 않는다.
+    const g = this.levels.findIndex((level, j) => ghostKey(level, j) === event.key);
+    if (g >= 0) { this.ghosts[g] = loadGhost(this.levels[g], g); this.publishSnapshot(); return; }
     const d = this.levels.findIndex((level, j) => deathLogKey(level, j) === event.key);
     if (d >= 0) {
       this.deathLogs[d] = loadDeathLog(this.levels[d], d);
@@ -201,6 +217,19 @@ export class GameController {
     this.syncDeathLog();
     this.publishSnapshot();
   }
+  // 일시정지 창의 "고스트 켜기/끄기". 설정은 브라우저에 저장한다.
+  toggleGhost(): void { this.ghostEnabled = !this.ghostEnabled; saveGhostEnabled(this.ghostEnabled); this.publishSnapshot(); }
+  // 이번 런을 런 시간 2스텝마다 한 프레임씩 기록한다. 런이 새로 시작하면(R·다음 레벨 — 런 시간이 줄어듦) 비우고, 사망은 런을
+  // 끊지 않으므로 이어서 기록한다(고스트도 같은 자리에서 죽고 체크포인트로 돌아간다). 클리어 뒤에는 런 시간이 멈춰 더 쌓이지 않는다.
+  private recordGhostFrame(): void {
+    const t = this.world.runTime;
+    if (t < this.lastRunTime) this.ghostFrames = [];
+    this.lastRunTime = t;
+    const step = Math.round(t * 60);
+    if (step === 0) return;
+    const pose = encodePose(this.world.player);
+    while (this.ghostFrames.length / 3 <= Math.floor(step / 2) && this.ghostFrames.length < MAX_GHOST_FRAMES * 3) this.ghostFrames.push(...pose);
+  }
   private syncDeathLog(): void { this.renderer.loggedDeaths = this.deathLogs[this.levelIndex].marks; }
   private debugDeaths(): { total: number; kinds: Partial<Record<DeathStatKind, number>> } {
     const { kinds } = this.deathLogs[this.levelIndex];
@@ -222,6 +251,9 @@ export class GameController {
     this.bests = this.bests.map((b, j) => (j === i ? best : b));
     this.newRecord = improved;
     if (improved) saveBest(i, best);
+    // 고스트는 이 브라우저에 저장된 고스트보다 빠를 때만 바꾼다(최고 기록과 따로 — 다른 탭의 기록은 고스트가 없을 수 있다).
+    const run: Ghost = { time: this.world.snapshot().time, frames: [...this.ghostFrames] };
+    if (run.frames.length > 0) this.ghosts[i] = saveGhostIfFaster(this.levels[i], i, run);
   }
   // 클리어한 레벨에서만 다음 레벨로 넘어간다(버튼·N 키 공통). 마지막 레벨 뒤에는 레벨 1로 돌아가 처음부터 한다.
   // 새 레벨은 새 World로 시작하므로 시간·사망 수·체크포인트도 새로 센다. 다음 레벨 요청은 "이제 플레이하겠다"는
