@@ -586,7 +586,7 @@ export const LEVEL_3: Level = defineLevel({
 // 레벨 4(지옥): 함정 30종을 셋씩 겹친 구간 G1~G9와 끝 구간(docs/game-design.md "난이도 곡선"). 위치는 해법의 점프마다
 // 6프레임 이상 여유가 남도록 고정 스텝 시뮬레이션으로 맞췄다(tests/unit/world/Level4.test.ts의 시간 여유 측정).
 export const LEVEL_4: Level = defineLevel({
-  width: 18600,
+  width: 21600,
   height: 620,
   spawn: { x: 65, y: 350 },
   solids: [
@@ -606,10 +606,18 @@ export const LEVEL_4: Level = defineLevel({
     { x: 13300, y: 500, width: 1400, height: 120 }, // 기습 적 → G8 도망가는 발판 구덩이(14700-14960)
     { x: 14960, y: 500, width: 980, height: 120 }, // 스프링, 15940-16040은 날려버리는 점프가 떨어뜨리는 뒤쪽 구덩이
     { x: 16040, y: 500, width: 410, height: 120 }, // G9 조건부 함정·날려버리는 점프, 16450-16540 구덩이
-    { x: 16540, y: 500, width: 610, height: 120 }, // 가짜 안전지대, 표지판, 가짜 체크포인트 — 17150-17450은 가짜 클리어 바닥
-    { x: 17450, y: 500, width: 350, height: 120 }, // 도망가는 목표: 17800-17900·18150-18250 구덩이
-    { x: 17900, y: 500, width: 250, height: 120 },
-    { x: 18250, y: 500, width: 350, height: 120 },
+    // 장애물 코스(2026-11-27, 프로젝트 오너 요청 — 9구간 뒤, "진짜 끝!" 앞에 3,000px를 끼워 넣고 끝 구간을 그만큼 뒤로 옮겼다):
+    // 3단 언덕 → 징검돌 두 개 → 평지 슬라임 둘 → 넓은 통나무 위에서 기다려 슬라임 → 통나무 → 슬라임 위 돌 블록 길. 가장 길고 어렵다.
+    { x: 16540, y: 500, width: 960, height: 120 }, // 가짜 안전지대(16680)·3단 언덕(16950), 17500-17900 징검돌 구덩이(400px)
+    { x: 17560, y: 450, width: 100, height: 20 }, // 징검돌 둘(바닥보다 50 높음)
+    { x: 17740, y: 450, width: 100, height: 20 },
+    { x: 17900, y: 500, width: 2250, height: 120 }, // 슬라임·통나무·돌 블록 길·체크포인트(19,800)·표지판·가짜 체크포인트 — 20150-20450은 가짜 클리어 바닥
+    { x: 19200, y: 450, width: 80, height: 20 }, // 돌 블록 길: 오르고(50·90 높이) 내려온다 — 아래에는 슬라임이 왕복한다
+    { x: 19340, y: 410, width: 80, height: 20 },
+    { x: 19480, y: 450, width: 80, height: 20 },
+    { x: 20450, y: 500, width: 350, height: 120 }, // 도망가는 목표: 20800-20900·21150-21250 구덩이
+    { x: 20900, y: 500, width: 250, height: 120 },
+    { x: 21250, y: 500, width: 350, height: 120 },
   ],
   // 맵 곳곳의 함정 없는 평지에 흩어 둔 평범한 파이프·언덕(프로젝트 오너 요청, 2026-11-07). 겹친 함정 구간과, 체크포인트에서
   // 다음 함정까지의 길(그냥 하면 당하는지 확인하는 길)·그림자 길·화살 길·돌덩이 길은 비운다. 모두 해법의 6프레임 여유를 지킨다.
@@ -618,12 +626,21 @@ export const LEVEL_4: Level = defineLevel({
     { x: 12300, y: 460, width: 40, height: 40 }, // 돌덩이가 멈춘 뒤(12200), 체크포인트 3 앞
     { x: 14100, y: 450, width: 50, height: 50 }, // 기습 적 너머, 도망가는 발판 앞 — 적이 나오는 파이프(#31)
     { x: 15400, y: 450, width: 60, height: 50 }, // 스프링 너머
+    { x: 6080, y: 460, width: 40, height: 40 }, // 빈 평지(2026-11-27): 화살 구간 뒤, 내려오는 천장 통로 앞
+    { x: 9880, y: 460, width: 40, height: 40 }, // 빈 평지(2026-11-27): 바람 구덩이 너머, 돌덩이에 쫓기기 전
+    { x: 10060, y: 450, width: 50, height: 50 },
+    { x: 18700, y: 470, width: 80, height: 30 }, // 장애물 코스: 넓고 낮은 통나무(올라서서 슬라임을 기다린다)
+    { x: 19050, y: 450, width: 50, height: 50 }, // 장애물 코스: 슬라임 너머 통나무
   ],
   hills: [
     { x: 3950, y: 500, steps: 2, stepWidth: 50, stepHeight: 40, topWidth: 120 }, // 솟는 가시 너머
     { x: 8000, y: 500, steps: 3, stepWidth: 50, stepHeight: 30, topWidth: 100 }, // 떨어지는 천장 너머, 체크포인트 2 앞
+    { x: 6230, y: 500, steps: 2, stepWidth: 40, stepHeight: 30, topWidth: 60 }, // 빈 평지(2026-11-27): 화살 구간 뒤 통나무 너머
+    { x: 16950, y: 500, steps: 3, stepWidth: 40, stepHeight: 30, topWidth: 60 }, // 장애물 코스 첫머리
   ],
-  goal: { x: 17700, y: 440, width: 40, height: 60 },
+  // 장애물 코스의 슬라임: 평지에서 차례로 마주 넘는 둘(사이에 기다릴 자리 172px), 통나무 사이 하나, 돌 블록 길 아래 하나.
+  enemies: [{ minX: 18050, maxX: 18200, y: 472 }, { minX: 18400, maxX: 18550, y: 472 }, { minX: 18820, maxX: 18960, y: 472 }, { minX: 19240, maxX: 19560, y: 472 }],
+  goal: { x: 20700, y: 440, width: 40, height: 60 },
   hazards: [{ x: 16680, y: 495, width: 80, height: 25 }],
   fallingPlatforms: [{ x: 13100, y: 480, width: 140, height: 20 }],
   hiddenBlocks: [{ x: 12900, y: 500, width: 80, height: 120 }],
@@ -634,17 +651,18 @@ export const LEVEL_4: Level = defineLevel({
     { zone: { x: 8450, y: 360, width: 40, height: 140 }, respawnX: 8450, respawnY: 350 },
     { zone: { x: 12450, y: 360, width: 40, height: 140 }, respawnX: 12450, respawnY: 350 },
     { zone: { x: 16200, y: 360, width: 40, height: 140 }, respawnX: 16200, respawnY: 350 },
+    { zone: { x: 19800, y: 360, width: 40, height: 140 }, respawnX: 19800, respawnY: 350 }, // 장애물 코스 뒤, 끝 구간 앞
   ],
   vanishingGrounds: [{ x: 760, y: 500, width: 600, height: 120 }],
   invisibleBlocks: [{ x: 14705, y: 420, width: 80, height: 20 }],
   fallingCeilings: [{ block: { x: 7600, y: 380, width: 40, height: 40 }, trigger: { x: 7570, y: 380, width: 70, height: 120 } }],
   dodgingPlatforms: [{ platform: { x: 14730, y: 480, width: 60, height: 20 }, trigger: { x: 14660, y: 380, width: 40, height: 100 }, to: { x: 14780, y: 480 } }],
   popUpSpikes: [{ spikes: { x: 3720, y: 476, width: 40, height: 24 }, trigger: { x: 3660, y: 400, width: 60, height: 100 } }],
-  fakeCheckpoints: [{ x: 17000, y: 460, width: 40, height: 40 }], // 높이 40px — 넘는 출발 구간이 60px(레벨 3)보다 넓다
+  fakeCheckpoints: [{ x: 20000, y: 460, width: 40, height: 40 }], // 높이 40px — 넘는 출발 구간이 60px(레벨 3)보다 넓다
   goalHops: [
-    { trigger: { x: 17620, y: 400, width: 40, height: 100 }, to: { x: 17980, y: 440, width: 40, height: 60 } },
-    { trigger: { x: 17900, y: 400, width: 40, height: 100 }, to: { x: 18320, y: 440, width: 40, height: 60 } },
-    { trigger: { x: 18240, y: 400, width: 40, height: 100 }, to: { x: 18540, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 20620, y: 400, width: 40, height: 100 }, to: { x: 20980, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 20900, y: 400, width: 40, height: 100 }, to: { x: 21320, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 21240, y: 400, width: 40, height: 100 }, to: { x: 21540, y: 440, width: 40, height: 60 } },
   ],
   skyDrops: [{ trigger: { x: 1400, y: 400, width: 40, height: 100 }, drops: [
     { x: 1640, delay: 0, minX: 1600, maxX: 1760 }, { x: 2040, delay: 0.4, minX: 2000, maxX: 2160 },
@@ -652,8 +670,8 @@ export const LEVEL_4: Level = defineLevel({
   flingZones: [{ zone: { x: 16430, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
   reverseZones: [{ x: 3200, y: 300, width: 220, height: 200 }],
   springFloors: [{ tile: { x: 15020, y: 500, width: 40, height: 20 }, vx: -600, vy: -800 }],
-  fakeGoals: [{ flag: { x: 17280, y: 440, width: 40, height: 60 }, floor: [{ x: 17150, y: 500, width: 300, height: 120 }] }],
-  signs: [{ x: 9150, y: 500, text: '여기서 점프!' }, { x: 16900, y: 500, text: '진짜 끝!' }],
+  fakeGoals: [{ flag: { x: 20280, y: 440, width: 40, height: 60 }, floor: [{ x: 20150, y: 500, width: 300, height: 120 }] }],
+  signs: [{ x: 9150, y: 500, text: '여기서 점프!' }, { x: 19900, y: 500, text: '진짜 끝!' }],
   boulders: [{ trigger: { x: 10500, y: 300, width: 40, height: 200 }, startX: 10260, endX: 12200, y: 440 }],
   fakeWalls: [{ x: 11000, y: 380, width: 40, height: 120 }],
   baitGems: [{ x: 5305, y: 485 }],

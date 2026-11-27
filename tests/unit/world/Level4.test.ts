@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_4, LEVELS } from '../../../src/game/world/level';
+import { autoplayUntil } from './autopilot';
 import { playSolution, type Step } from './solution';
 import { jumpSlack } from './tolerance';
-import { CEILING_MIRROR, CONDITIONAL_FLING_HAZARD, DODGE_INVISIBLE_SPRING, FINALE, FROM_CP1, FROM_CP2, FROM_CP3, FROM_CP4, FROM_SPAWN, FULL, HEAVY_SPIKES, HIDDEN_FALLING_AMBUSH, ICE_REVERSE_SPIKES, mirror, RHYTHM_ARROWS, SHADOW_DROPS } from './level4Solution';
+import { CEILING_MIRROR, CONDITIONAL_FLING_HAZARD, DODGE_INVISIBLE_SPRING, FINALE, FROM_CP1, FROM_CP2, FROM_CP3, FROM_CP4, FROM_CP5, FROM_SPAWN, COURSE, BOULDER_RUNUP, FULL, HEAVY_SPIKES, HIDDEN_FALLING_AMBUSH, ICE_REVERSE_SPIKES, mirror, RHYTHM_ARROWS, SHADOW_DROPS } from './level4Solution';
 import { dt } from './fixtures';
 import { respawnFrom } from './respawn';
 
@@ -27,7 +28,7 @@ function naive(start: World, steps: Step[], horizontal: -1 | 0 | 1, jump = false
 describe('LEVEL_4 (hell)', () => {
   it('is the last level, the longest, and uses every trap kind (1-30)', () => {
     expect(LEVELS[LEVELS.length - 1]).toBe(LEVEL_4);
-    expect(LEVEL_4.width).toBe(18600);
+    expect(LEVEL_4.width).toBe(21600); // 2026-11-27 장애물 코스 3,000px를 끼워 넣음
     expect(LEVEL_4.width).toBeGreaterThan(Math.max(...LEVELS.slice(0, -1).map((l) => l.width)));
     const kinds = [LEVEL_4.hiddenBlocks, LEVEL_4.fallingPlatforms, LEVEL_4.ambushes, LEVEL_4.hazards, LEVEL_4.conditionalTraps,
       LEVEL_4.vanishingGrounds, LEVEL_4.invisibleBlocks, LEVEL_4.dodgingPlatforms, LEVEL_4.fallingCeilings, LEVEL_4.popUpSpikes,
@@ -40,9 +41,9 @@ describe('LEVEL_4 (hell)', () => {
     expect(LEVEL_4.goalHops).toHaveLength(3); // 진짜 목표는 세 번 도망간다
   });
 
-  it('keeps one checkpoint per two trap sections', () => {
-    // 스폰 → 1·2구간, 체크포인트 1 → 3·4, 2 → 5·6, 3 → 7·8, 4 → 9·끝 구간.
-    expect(LEVEL_4.checkpoints.map((cp) => cp.respawnX)).toEqual([4600, 8450, 12450, 16200]);
+  it('keeps one checkpoint per two trap sections, plus one after the obstacle course', () => {
+    // 스폰 → 1·2구간, 체크포인트 1 → 3·4, 2 → 5·6, 3 → 7·8, 4 → 9구간·장애물 코스, 5(2026-11-27) → 끝 구간.
+    expect(LEVEL_4.checkpoints.map((cp) => cp.respawnX)).toEqual([4600, 8450, 12450, 16200, 19800]);
   });
 
   it('can be finished from spawn with the solution inputs and no deaths', () => {
@@ -54,10 +55,11 @@ describe('LEVEL_4 (hell)', () => {
   });
 
   it.each([
-    ['checkpoint 1 (rhythm platforms and arrows)', 0, [...FROM_CP1, ...FROM_CP2, ...FROM_CP3, ...FROM_CP4]],
-    ['checkpoint 2 (heavy shoes and landing spikes)', 1, [...FROM_CP2, ...FROM_CP3, ...FROM_CP4]],
-    ['checkpoint 3 (hidden block, falling platform, ambush)', 2, [...FROM_CP3, ...FROM_CP4]],
-    ['checkpoint 4 (conditional trap, fling jump, fake safe zone)', 3, FROM_CP4],
+    ['checkpoint 1 (rhythm platforms and arrows)', 0, [...FROM_CP1, ...FROM_CP2, ...FROM_CP3, ...FROM_CP4, ...FROM_CP5]],
+    ['checkpoint 2 (heavy shoes and landing spikes)', 1, [...FROM_CP2, ...FROM_CP3, ...FROM_CP4, ...FROM_CP5]],
+    ['checkpoint 3 (hidden block, falling platform, ambush)', 2, [...FROM_CP3, ...FROM_CP4, ...FROM_CP5]],
+    ['checkpoint 4 (conditional trap, fling jump, fake safe zone, obstacle course)', 3, [...FROM_CP4, ...FROM_CP5]],
+    ['checkpoint 5 (after the obstacle course)', 4, FROM_CP5],
   ] as const)('can be finished from %s with no further deaths', (_, index, steps) => {
     const world = respawnAt(index);
     expect(playSolution(world, steps)).toBe(steps.length);
@@ -73,10 +75,11 @@ describe('LEVEL_4 (hell)', () => {
     const fresh = (index: number) => () => { const w = respawnAt(index); w.deaths = 0; return w; };
     const segments: [string, () => World, Step[], Step[]][] = [
       ['spawn', () => new World(LEVEL_4), FROM_SPAWN, FULL.slice(FROM_SPAWN.length)],
-      ['checkpoint 1', fresh(0), FROM_CP1, [...FROM_CP2, ...FROM_CP3, ...FROM_CP4]],
-      ['checkpoint 2', fresh(1), FROM_CP2, [...FROM_CP3, ...FROM_CP4]],
-      ['checkpoint 3', fresh(2), FROM_CP3, FROM_CP4],
-      ['checkpoint 4', fresh(3), FROM_CP4, []],
+      ['checkpoint 1', fresh(0), FROM_CP1, [...FROM_CP2, ...FROM_CP3, ...FROM_CP4, ...FROM_CP5]],
+      ['checkpoint 2', fresh(1), FROM_CP2, [...FROM_CP3, ...FROM_CP4, ...FROM_CP5]],
+      ['checkpoint 3', fresh(2), FROM_CP3, [...FROM_CP4, ...FROM_CP5]],
+      ['checkpoint 4', fresh(3), FROM_CP4, FROM_CP5],
+      ['checkpoint 5', fresh(4), FROM_CP5, []],
     ];
     for (const [name, make, steps, rest] of segments) {
       const slack = jumpSlack(make, [...steps, ...rest], steps.length, 5, 6);
@@ -108,17 +111,17 @@ describe('LEVEL_4 (hell)', () => {
     expect(naive(respawnAt(0), [{ run: 4998 }, { waitUntil: (w) => w.lifeTime % 1.8 > 0.15 && w.lifeTime % 1.8 < 0.2 }, { jump: true }], 0)).toBe('rhythmPlatform');
     expect(naive(respawnAt(0), RHYTHM_ARROWS.slice(0, 6), 1)).toBe('arrow');
     // 4. 따라 뛰는 적을 가까이서 넘으려 하면 같이 뛰고, 통로에서 기다리면 천장, 통로를 나와 그대로 달리면 떨어지는 천장
-    const toCorridor = [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 2)];
+    const toCorridor = [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 6)]; // 빈 평지의 통나무·언덕 넘기(4) + 통로 앞까지 달리고 적을 기다림(2)
     expect(naive(respawnAt(0), [...toCorridor, { runUntil: (w) => mirror(w).enemy.x - (w.player.x + w.player.width) <= 20 }], 1, true)).toBe('mirrorEnemy');
     expect(naive(respawnAt(0), [...toCorridor, { run: 6700 }], 0)).toBe('descendingCeiling');
-    expect(naive(respawnAt(0), [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 5)], 1)).toBe('fallingCeiling');
+    expect(naive(respawnAt(0), [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 9)], 1)).toBe('fallingCeiling');
     // 4-5 사이: 3단 언덕의 두 번째 단에 올라 그대로 →를 누르고 있으면 꼭대기에서 굴러 내려오는 돌(#33)
-    expect(naive(respawnAt(0), [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 13)], 1)).toBe('rollingStone');
+    expect(naive(respawnAt(0), [...RHYTHM_ARROWS, ...CEILING_MIRROR.slice(0, 17)], 1)).toBe('rollingStone');
     // 5. 표지판 말대로 구덩이 가장자리(구역 안)에서 뛰면 착지 지점에 가시
     expect(naive(respawnAt(1), [{ run: 9195 }], 1, true)).toBe('landingSpikes');
     // 6. 가짜 벽 앞에서 멈추면 돌덩이, 장애물마다 바로 앞에서 뛰면 세 번째 착지에 발판이 무너진다
-    expect(naive(respawnAt(1), [...HEAVY_SPIKES, { run: 11000 }], 0)).toBe('boulder');
-    expect(naive(respawnAt(1), [...HEAVY_SPIKES, { run: 11620 }, { jump: true }, { run: 11790 }, { jump: true }, { run: 11850 }], 1, true)).toBe('countingPlatform');
+    expect(naive(respawnAt(1), [...HEAVY_SPIKES, ...BOULDER_RUNUP, { run: 11000 }], 0)).toBe('boulder');
+    expect(naive(respawnAt(1), [...HEAVY_SPIKES, ...BOULDER_RUNUP, { run: 11620 }, { jump: true }, { run: 11790 }, { jump: true }, { run: 11850 }], 1, true)).toBe('countingPlatform');
     // 7. 틈을 걸어서 지나면 숨겨진 블록, 낙하 발판에서 머뭇거리면 발판째, 착지해 그대로 달리면 기습 적
     expect(naive(respawnAt(2), [], 1)).toBe('hiddenBlock');
     expect(naive(respawnAt(2), HIDDEN_FALLING_AMBUSH.slice(0, 4), 0)).toBe('fallingPlatform');
@@ -134,13 +137,35 @@ describe('LEVEL_4 (hell)', () => {
     expect(naive(respawnAt(3), [{ run: 16445 }], 1, true)).toBe('flingJump');
     expect(naive(respawnAt(3), CONDITIONAL_FLING_HAZARD.slice(0, 2), 1)).toBe('hazard');
     // 끝: 가짜 체크포인트에 닿으면 터지고, 가짜 클리어에서 다음 레벨을 누르면 떨어지고, 달아난 목표를 쫓다 구덩이에 빠진다
-    expect(naive(respawnAt(3), CONDITIONAL_FLING_HAZARD, 1)).toBe('fakeCheckpoint');
-    const fake = respawnAt(3);
-    playSolution(fake, [...CONDITIONAL_FLING_HAZARD, ...FINALE.slice(0, 2), { run: LEVEL_4.fakeGoals[0].flag.x + 10 }]);
+    // (2026-11-27부터 9구간과 끝 사이에 장애물 코스가 있어, 끝 구간은 코스 뒤 체크포인트 5에서 확인한다)
+    expect(naive(respawnAt(4), [], 1)).toBe('fakeCheckpoint');
+    const fake = respawnAt(4);
+    playSolution(fake, [...FINALE.slice(0, 2), { run: LEVEL_4.fakeGoals[0].flag.x + 10 }]);
     expect(fake.snapshot().cleared).toBe(true);
     expect(fake.collapseFakeFloor()).toBe(true);
     expect(naive(fake, [], 0)).toBe('fakeClear');
-    expect(naive(respawnAt(3), [...CONDITIONAL_FLING_HAZARD, ...FINALE.slice(0, 2)], 1)).toBe('fleeingGoal');
+    expect(naive(respawnAt(4), FINALE.slice(0, 2), 1)).toBe('fleeingGoal');
+  });
+
+  // 장애물 코스(2026-11-27): 9구간의 트롤 함정은 해법으로 지나고, 그 뒤 코스는 보이는 것을 피하는 자동 플레이로 통과할 수 있어야 공정하다.
+  it('lets a player who dodges what they see get through the obstacle course after section 9', () => {
+    const world = respawnAt(3);
+    playSolution(world, CONDITIONAL_FLING_HAZARD);
+    autoplayUntil(world, () => world.activeCheckpoint?.x === LEVEL_4.checkpoints[4].respawnX, 2400);
+    expect(world.deaths).toBe(1);
+    expect(world.activeCheckpoint?.x).toBe(19800);
+  });
+
+  it('needs both stepping stones over the 400px pit of the obstacle course', () => {
+    const stones = LEVEL_4.solids.filter((s) => s.y === 450 && s.x > 17500 && s.x < 17900);
+    expect(stones).toHaveLength(2);
+    const from = COURSE.findIndex((st) => 'run' in st && st.run === 17495);
+    for (const missing of stones) {
+      const world = new World({ ...LEVEL_4, solids: LEVEL_4.solids.filter((s) => s !== missing) });
+      world.player.x = 17495 - world.player.width; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+      playSolution(world, COURSE.slice(from));
+      expect(world.deaths, `without the stone at ${missing.x}`).toBe(1);
+    }
   });
 
   it('bounces back off the spring when jumping late from the dodged platform', () => {
