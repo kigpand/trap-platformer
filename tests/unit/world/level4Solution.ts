@@ -55,7 +55,7 @@ export const BACK_PIT: Step[] = [...over(15400), { run: 15900 }, { jump: true }]
 // 9. 조건부 함정(머뭇거림) 다음 날려버리는 점프(가장자리)를 피해 일찍 뛰고, 가짜 안전지대를 넘는다.
 export const CONDITIONAL_FLING_HAZARD: Step[] = [{ run: 16410 }, { jump: true }, { run: 16655 }, { jump: true }];
 // 끝: "진짜 끝!" 표지판 → 가짜 체크포인트를 넘고 → 가짜 클리어 깃발을 멈추지 않고 지나 → 세 번 도망가는 목표를 쫓는다.
-// 장애물 코스(2026-11-27): 3단 언덕 → 징검돌 두 개 → 평지 슬라임 둘 → 넓은 통나무 위에서 기다려 슬라임 → 통나무 → 돌 블록 길.
+// 장애물 코스(2026-11-27): 3단 언덕 → 징검돌 두 개 → 평지 슬라임 둘 → 넓은 통나무 위에서 기다려 슬라임 → 통나무 → 공중 발판 길.
 const headOn = (i: number, farEnd: number): Step[] => [
   { waitUntil: (w) => w.enemies[i].vx < 0 && w.enemies[i].x >= farEnd }, // 슬라임이 먼 끝에서 돌아올 때
   { runUntil: (w) => { const e = w.enemies[i]; return w.player.grounded && e.x - (w.player.x + w.player.width) <= 45; } }, { jump: true }, // 마주 넘는다
@@ -67,7 +67,7 @@ export const COURSE: Step[] = [
   { run: 18630 }, { jump: true }, // 넓고 낮은 통나무 위로
   ...headOn(2, 18930), // 통나무 사이 슬라임
   ...over(19050), // 통나무
-  { run: 19172 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }, // 돌 블록 셋, 슬라임 순찰 구간(19,588) 너머 바닥으로
+  { run: 19172 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }, // 공중 발판 셋, 슬라임 순찰 구간(19,588) 너머 바닥으로
 ];
 export const FINALE: Step[] = [{ run: 19955 }, { jump: true }, { run: 20780 }, { jump: true }, { run: 21110 }, { jump: true }, { run: 21560 }];
 
