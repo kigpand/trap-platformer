@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
-import { runToGoal } from './autopilot';
+import { autoplayUntil, runToGoal } from './autopilot';
 import { playSolution, type Step } from './solution';
 import { AFTER_CP2, ARROWS, BOULDER, COUNTING, COURSE, STONE_WIND, DODGE, FLEEING_GOAL, FULL, HEAVY, LANDING_SPIKES, mirror, MIRROR, REVERSE, SPIKES_AND_FAKE, TAUNTING, VANISHING_CEILING_ENEMY } from './level2Solution';
 import { dt } from './fixtures';
@@ -118,7 +118,7 @@ describe('LEVEL_2', () => {
   // 장애물 코스(2026-11-27): 함정이 아니라 보이는 장애물·적이라, 보이는 것을 피하는 자동 플레이로 통과할 수 있어야 공정하다.
   it('lets a player who dodges what they see get through the obstacle course', () => {
     const world = respawnAt(LEVEL_2.checkpoints[13]);
-    runToGoal(world, 1500);
+    autoplayUntil(world, () => world.activeCheckpoint?.x === LEVEL_2.checkpoints[14].respawnX);
     expect(world.deaths).toBe(1); // 체크포인트로 보낸 사망뿐
     expect(world.activeCheckpoint?.x).toBe(LEVEL_2.checkpoints[14].respawnX); // 코스 끝 체크포인트까지 왔다
   });
