@@ -270,7 +270,7 @@ export const LEVEL_1: Level = defineLevel({
 // 거리(약 147px)보다 넓어 가운데 낙하 발판을 반드시 밟고 유예 시간(World.ts의 FALL_TRIGGER_DELAY) 안에 다시 뛰어야 한다.
 // 배치 제약(docs/physics-spec.md "레벨 배치 제약")과 도달 가능성은 tests/unit/world/Level2.test.ts가 검증한다.
 export const LEVEL_2: Level = defineLevel({
-  width: 15300,
+  width: 17700,
   height: 620,
   spawn: { x: 65, y: 350 },
   // groundA: 시작 구간. groundB: 갑자기 출현하는 적·체크포인트·가짜 안전지대·왕복 적 구간. groundC: 틈(1760-1860) 너머 목표 구간.
@@ -292,8 +292,15 @@ export const LEVEL_2: Level = defineLevel({
     { x: 10400, y: 470, width: 10, height: 30 },
     { x: 10550, y: 500, width: 1750, height: 120 }, // 따라오는 돌덩이, 12300-12380 구덩이
     { x: 12380, y: 500, width: 1440, height: 120 }, // 13820-14020: 바람 구간이 있는 넓은 구덩이(200px — 바람 없이는 못 건넘)
-    { x: 14020, y: 500, width: 780, height: 120 }, // 도망가는 목표(예전 groundF 자리를 옮김), 14800-14900 구덩이
-    { x: 14900, y: 500, width: 400, height: 120 },
+    // 장애물 코스(2026-11-27, 프로젝트 오너 요청 — 바람 구덩이 너머에 2,400px를 끼워 넣고 도망가는 목표 구간을 그만큼 뒤로 옮겼다):
+    // 연이은 언덕 → 징검돌 구덩이 → 통나무 사이 슬라임 → 슬라임 위 돌 블록 길.
+    { x: 14020, y: 500, width: 880, height: 120 }, // 바람 구덩이 착지·체크포인트(14,200)·연이은 언덕, 14900-15140 징검돌 구덩이(240px — 징검돌 없이는 못 건넘)
+    { x: 14980, y: 450, width: 120, height: 20 }, // 징검돌(바닥보다 50 높음): 가장자리에서 달려 뛰면 그 위에 내린다
+    { x: 15140, y: 500, width: 2060, height: 120 }, // 통나무 사이 슬라임·돌 블록 길·체크포인트(16,600)·도망가는 목표, 17200-17300 구덩이
+    { x: 15960, y: 450, width: 80, height: 20 }, // 돌 블록 길: 오르고(50·90 높이) 내려온다 — 아래에는 슬라임이 왕복한다
+    { x: 16100, y: 410, width: 80, height: 20 },
+    { x: 16240, y: 450, width: 80, height: 20 },
+    { x: 17300, y: 500, width: 400, height: 120 },
   ],
   // 맵 곳곳의 함정 없는 평지에 흩어 둔 평범한 파이프·언덕(프로젝트 오너 요청, 2026-11-07). 화살이 지나가는 길(7000-8600)과
   // 돌덩이가 굴러가는 길(11400-13000)에는 두지 않는다 — 둘 다 지형을 무시해 파이프를 뚫고 지나가 보인다.
@@ -301,12 +308,16 @@ export const LEVEL_2: Level = defineLevel({
     { x: 10, y: 460, width: 40, height: 40 }, // 스폰 뒤 왼쪽 끝(첫 화면)
     { x: 4650, y: 450, width: 50, height: 50 }, // 날려버리는 점프 구역 앞
     { x: 10800, y: 440, width: 60, height: 60 }, // 세 번째 착지 발판 너머 — 적이 나오는 파이프(#31)
+    { x: 15420, y: 470, width: 80, height: 30 }, // 장애물 코스: 통나무 두 개 사이 우묵한 곳에 슬라임이 왕복한다(첫 통나무는 넓고 낮아 올라서 기다린다)
+    { x: 15760, y: 450, width: 50, height: 50 },
   ],
   hills: [
     { x: 9450, y: 500, steps: 2, stepWidth: 50, stepHeight: 40, topWidth: 100 }, // 따라 뛰는 적 너머
     { x: 13300, y: 500, steps: 3, stepWidth: 50, stepHeight: 30, topWidth: 120 }, // 돌덩이가 멈춘 뒤(13000)
+    { x: 14320, y: 500, steps: 2, stepWidth: 40, stepHeight: 30, topWidth: 60 }, // 장애물 코스: 연이은 언덕(2단 → 바로 3단)
+    { x: 14560, y: 500, steps: 3, stepWidth: 40, stepHeight: 25, topWidth: 60 },
   ],
-  goal: { x: 14680, y: 440, width: 40, height: 60 }, // 다가가면 도망간다(goalHops)
+  goal: { x: 17080, y: 440, width: 40, height: 60 }, // 다가가면 도망간다(goalHops)
   // 가짜 안전지대: groundB 위 위장 타일. 앞(1100)에 건너뛸 수 없는 체크포인트가 있어, 이 함정으로
   // 죽으면 체크포인트에서 재시작하고 강조 표시가 화면 안에 보인다(docs/traps-spec.md #4). 체크포인트와
   // 200px 띄운다 — 재시작 위치(공중 y 350)에서 →를 누른 채 떨어져도 착지한 뒤 점프할 거리가 남도록.
@@ -316,7 +327,9 @@ export const LEVEL_2: Level = defineLevel({
   // 왕복 적: 가짜 안전지대 너머. 위험지대를 넘어 착지하는 지점(약 1400)과 순찰 구간(1500-1600)을 띄워,
   // 체크포인트에서 재시작해 적의 순찰 위치가 초기화돼도 착지하자마자 부딪히지 않게 한다. 적을 넘어 착지한
   // 뒤에도 groundB 끝(1760)까지 다시 점프할 거리가 남는다.
-  enemies: [{ minX: 1500, maxX: 1600, y: 472 }, { minX: 3700, maxX: 3800, y: 472 }], // 두 번째: 천장 너머 groundE. 천장 블록을 넘어 착지하는 곳(약 3660)과 띄운다
+  enemies: [{ minX: 1500, maxX: 1600, y: 472 }, { minX: 3700, maxX: 3800, y: 472 }, // 두 번째: 천장 너머 groundE. 천장 블록을 넘어 착지하는 곳(약 3660)과 띄운다
+    { minX: 15540, maxX: 15680, y: 472 }, // 장애물 코스: 통나무 사이 슬라임(통나무에서 40px 떨어져 왕복 — 통나무 위는 안전)
+    { minX: 16000, maxX: 16300, y: 472 }], // 장애물 코스: 돌 블록 길 아래 슬라임(블록 앞 15,960까지는 오지 않고, 16,328 너머도 안전)
   // 갑자기 출현하는 적: 구덩이를 건넌 직후 트리거(720-760). 등장 구간(960-1060)은 트리거보다 200px 앞이라
   // 경고 0.3초 안에 들이닥치지 않고, 체크포인트(1100) 앞에서 끝나 재시작 위치와 겹치지 않는다. 구간이 짧아
   // 등장 직후 곧 방향을 돌려 플레이어와 마주 오므로, 뒤에서 따라잡다 등에 떨어지는 일 없이 넘을 수 있다.
@@ -342,7 +355,8 @@ export const LEVEL_2: Level = defineLevel({
     { zone: { x: 11300, y: 360, width: 40, height: 140 }, respawnX: 11300, respawnY: 350 },
     // 돌덩이가 멈춘 뒤(13000), 굴러 내려오는 돌이 있는 언덕(13300) 앞. 돌에 죽어도 돌덩이 구간을 다시 하지 않는다.
     { zone: { x: 13100, y: 360, width: 40, height: 140 }, respawnX: 13100, respawnY: 350 },
-    { zone: { x: 14200, y: 360, width: 40, height: 140 }, respawnX: 14200, respawnY: 350 },
+    { zone: { x: 14200, y: 360, width: 40, height: 140 }, respawnX: 14200, respawnY: 350 }, // 장애물 코스 앞
+    { zone: { x: 16600, y: 360, width: 40, height: 140 }, respawnX: 16600, respawnY: 350 }, // 도망가는 목표 앞
   ],
   // 레벨 2(보통): 새 함정 7종을 모두 쓰고, 레벨 1보다 타이밍을 좁힌다(docs/game-design.md "난이도 곡선").
   // 사라지는 땅: groundD 끝(2900)~groundE(3260) 9칸.
@@ -357,10 +371,10 @@ export const LEVEL_2: Level = defineLevel({
   popUpSpikes: [{ spikes: { x: 2560, y: 476, width: 24, height: 24 }, trigger: { x: 2500, y: 400, width: 60, height: 100 } }],
   // 가짜 체크포인트: 진짜 체크포인트(2290) 뒤. 높이 50px로 점프로 넘을 수 있다.
   fakeCheckpoints: [{ x: 2780, y: 450, width: 40, height: 50 }],
-  // 도망가는 목표: 레벨 끝(14,680)에서 다가가면 구덩이(14,800-14,900) 건너로, 거기서 다시 끝으로 달아난다(예전 끝 구간을 그대로 옮김).
+  // 도망가는 목표: 레벨 끝(17,080)에서 다가가면 구덩이(17,200-17,300) 건너로, 거기서 다시 끝으로 달아난다(예전 끝 구간을 그대로 옮김).
   goalHops: [
-    { trigger: { x: 14600, y: 400, width: 40, height: 100 }, to: { x: 15040, y: 440, width: 40, height: 60 } },
-    { trigger: { x: 14960, y: 400, width: 40, height: 100 }, to: { x: 15240, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 17000, y: 400, width: 40, height: 100 }, to: { x: 17440, y: 440, width: 40, height: 60 } },
+    { trigger: { x: 17360, y: 400, width: 40, height: 100 }, to: { x: 17640, y: 440, width: 40, height: 60 } },
   ],
   // 날려버리는 점프: 구덩이(4900) 앞 20px. 그 안에서 뛰면 뒤로 높이 날아가 뒤쪽 구덩이(4400-4500)에 떨어진다. 일찍 뛰어 넘는다.
   flingZones: [{ zone: { x: 4880, y: 300, width: 20, height: 200 }, vx: -420, vy: -720 }],
@@ -373,9 +387,9 @@ export const LEVEL_2: Level = defineLevel({
   // 무거운 신발: 구덩이(6200) 앞 20px(구덩이 100px — 일찍 뛰는 출발 구간 27px, traps-spec #24 실측).
   heavyZones: [{ zone: { x: 6180, y: 300, width: 20, height: 200 }, jumpSpeed: 300 }],
   // 움직임을 바꾸는 지형지물(2026-11-08): 좌우 반전을 빠져나간 뒤 진흙(5420-5520), 언덕 너머 트램펄린(9720),
-  // 도망가는 목표 앞 거꾸로 미는 벨트(14300-14550).
+  // 도망가는 목표 앞 거꾸로 미는 벨트(16700-16950).
   trampolines: [{ tile: { x: 9720, y: 500, width: 40, height: 20 }, speed: 720 }],
-  conveyors: [{ rect: { x: 14300, y: 500, width: 250, height: 20 }, speed: -60 }],
+  conveyors: [{ rect: { x: 16700, y: 500, width: 250, height: 20 }, speed: -60 }],
   mudFloors: [{ x: 5420, y: 500, width: 100, height: 20 }],
   // 바람 구간: 언덕 너머 넓은 구덩이(13820-14020) 위.
   windZones: [{ zone: { x: 13800, y: 250, width: 240, height: 370 }, lift: 800 }],

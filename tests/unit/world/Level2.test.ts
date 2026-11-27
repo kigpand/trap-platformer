@@ -3,7 +3,7 @@ import { World } from '../../../src/game/world/World';
 import { LEVEL_1, LEVEL_2 } from '../../../src/game/world/level';
 import { runToGoal } from './autopilot';
 import { playSolution, type Step } from './solution';
-import { AFTER_CP2, ARROWS, BOULDER, COUNTING, STONE_WIND, DODGE, FLEEING_GOAL, FULL, HEAVY, LANDING_SPIKES, mirror, MIRROR, REVERSE, SPIKES_AND_FAKE, TAUNTING, VANISHING_CEILING_ENEMY } from './level2Solution';
+import { AFTER_CP2, ARROWS, BOULDER, COUNTING, COURSE, STONE_WIND, DODGE, FLEEING_GOAL, FULL, HEAVY, LANDING_SPIKES, mirror, MIRROR, REVERSE, SPIKES_AND_FAKE, TAUNTING, VANISHING_CEILING_ENEMY } from './level2Solution';
 import { dt } from './fixtures';
 import { respawnFrom } from './respawn';
 import { jumpSlack } from './tolerance';
@@ -23,7 +23,7 @@ function standOn(world: World, x: number, groundY: number): void {
   world.player.grounded = true;
 }
 
-// 레벨 2(보통, 15,300px) 해법. 원래 구간은 보이는 것만 피하면 되므로 자동 플레이로 가고, 함정 확장 구간은
+// 레벨 2(보통, 17,700px) 해법. 원래 구간은 보이는 것만 피하면 되므로 자동 플레이로 가고, 함정 확장 구간은
 // 해법 입력으로 간다(docs/traps-spec.md 공통 규칙). 구간별로 나눠 체크포인트 재시작 테스트에서 이어 쓴다.
 // 맵 3배 확장: 예전 끝(도망가는 목표)을 레벨 끝으로 옮기고, 그 사이에 날려버리는 점프 → 좌우 반전 → 무거운 신발 →
 // 착지 예측 가시 → 화살 → 따라 뛰는 적 → 세 번째 착지 발판 → 따라오는 돌덩이를 하나씩 둔다.
@@ -43,7 +43,7 @@ describe('LEVEL_2', () => {
   });
 
   it('is about three times its old 5100px and adds the taunting traps not used in level 1', () => {
-    expect(LEVEL_2.width).toBe(15300);
+    expect(LEVEL_2.width).toBe(17700); // 2026-11-27 장애물 코스 2,400px를 끼워 넣음
     const taunting = [LEVEL_2.flingZones, LEVEL_2.reverseZones, LEVEL_2.boulders, LEVEL_2.landingSpikeZones, LEVEL_2.heavyZones,
       LEVEL_2.arrowTraps, LEVEL_2.mirrorEnemies, LEVEL_2.countingPlatforms];
     expect(taunting.every((list) => list.length > 0)).toBe(true);
@@ -66,15 +66,16 @@ describe('LEVEL_2', () => {
     ['checkpoint 3 (before the spikes and fake checkpoint)', 2, [{ wait: 0.6 }, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING]],
     ['checkpoint 4 (before the falling ceiling)', 3, [{ wait: 0.6 }, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING]],
     ['checkpoint 5 (before the fling jump)', 4, TAUNTING],
-    ['checkpoint 6 (before the reverse zone)', 5, [...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 7 (before the heavy shoes)', 6, [...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 8 (before the landing spikes)', 7, [...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 9 (before the arrows)', 8, [...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 10 (before the mirror enemy)', 9, [...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 11 (before the third-landing platform)', 10, [...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 12 (before the boulder)', 11, [...BOULDER, ...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 13 (before the hill with the rolling stone)', 12, [...STONE_WIND, ...FLEEING_GOAL]],
-    ['checkpoint 14 (before the fleeing goal)', 13, FLEEING_GOAL],
+    ['checkpoint 6 (before the reverse zone)', 5, [...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 7 (before the heavy shoes)', 6, [...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 8 (before the landing spikes)', 7, [...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 9 (before the arrows)', 8, [...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 10 (before the mirror enemy)', 9, [...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 11 (before the third-landing platform)', 10, [...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 12 (before the boulder)', 11, [...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 13 (before the hill with the rolling stone)', 12, [...STONE_WIND, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 14 (before the obstacle course)', 13, [{ wait: 0.6 }, ...COURSE, ...FLEEING_GOAL]],
+    ['checkpoint 15 (before the fleeing goal)', 14, FLEEING_GOAL],
   ] as const)('can be finished from %s with no further deaths', (_, index, steps) => {
     const world = respawnAt(LEVEL_2.checkpoints[index]);
     expect(playSolution(world, steps)).toBe(steps.length);
@@ -112,6 +113,33 @@ describe('LEVEL_2', () => {
     for (let i = 0; i < 400 && b.deaths === 1 && !b.cleared; i++) b.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
     expect(b.cleared).toBe(false); // →만 누르면 도망간 목표를 쫓다 구덩이에 빠진다
     expect(b.deathCause?.rect.x).toBe(LEVEL_2.goalHops[0].trigger.x);
+  });
+
+  // 장애물 코스(2026-11-27): 함정이 아니라 보이는 장애물·적이라, 보이는 것을 피하는 자동 플레이로 통과할 수 있어야 공정하다.
+  it('lets a player who dodges what they see get through the obstacle course', () => {
+    const world = respawnAt(LEVEL_2.checkpoints[13]);
+    runToGoal(world, 1500);
+    expect(world.deaths).toBe(1); // 체크포인트로 보낸 사망뿐
+    expect(world.activeCheckpoint?.x).toBe(LEVEL_2.checkpoints[14].respawnX); // 코스 끝 체크포인트까지 왔다
+  });
+
+  it('needs the stepping stone: no jump from near the edge crosses the 240px pit without it', () => {
+    const stone = LEVEL_2.solids.find((s) => s.x === 14980 && s.y === 450);
+    expect(stone).toBeDefined();
+    const calm = { ...LEVEL_2, solids: LEVEL_2.solids.filter((s) => s !== stone) };
+    for (let x = 14900 - 60; x < 14900; x++) {
+      const world = new World(calm);
+      standOn(world, x - world.player.width, 500);
+      world.update(dt, { horizontal: 1, jumpPressed: true, restartPressed: false });
+      for (let i = 0; i < 180 && world.deaths === 0; i++) world.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
+      expect(world.deaths, `jump with right edge at ${x}`).toBe(1);
+    }
+  });
+
+  it('keeps the first log of the course a safe perch: the slime never reaches it', () => {
+    const log = LEVEL_2.pipes.find((p) => p.x === 15420);
+    const slime = LEVEL_2.enemies.find((e) => e.minX === 15540);
+    expect(log && slime && slime.minX - (log.x + log.width)).toBeGreaterThanOrEqual(40);
   });
 
   it('requires the falling platform: the pit is too wide to jump without it', () => {

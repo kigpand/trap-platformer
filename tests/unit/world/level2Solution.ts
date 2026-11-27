@@ -54,7 +54,23 @@ export const STONE_WIND: Step[] = [
   { waitUntil: (w) => stoneOnGroundNear(w) }, { hop: true },
   ...over(13300), { jump: true }, { run: 13815 }, { jump: true },
 ];
-export const FLEEING_GOAL: Step[] = [{ run: 14610 }, { wait: 0.4 }, { run: 14780 }, { jump: true }, { run: 15280 }];
-export const TAUNTING: Step[] = [...FLING, ...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...FLEEING_GOAL];
+// 장애물 코스(2026-11-27): 연이은 언덕 → 징검돌 구덩이 → 통나무 사이 슬라임 → 슬라임 위 돌 블록 길.
+export const slime = (i: number) => (w: World) => w.enemies[i];
+export const COURSE: Step[] = [
+  { run: 14300 }, { jump: true }, // 2단 언덕(단 30px) 꼭대기로
+  { jump: true }, { jump: true }, { jump: true }, // 바로 3단 언덕(단 25px)의 첫 단 → 꼭대기 → 반대쪽 바닥
+  { run: 14895 }, { jump: true }, // 구덩이 가장자리에서 달려 뛰어 징검돌 위로
+  { run: 15095 }, { jump: true }, // 징검돌 끝에서 건너편으로
+  { run: 15330 }, { jump: true }, // 넓고 낮은 첫 통나무 위로(슬라임은 통나무에서 40px 떨어져 왕복)
+  { waitUntil: (w) => slime(2)(w).vx < 0 && slime(2)(w).x >= 15650 }, // 슬라임이 먼 끝에서 돌아올 때
+  { runUntil: (w) => { const e = slime(2)(w); return w.player.grounded && e.x - (w.player.x + w.player.width) <= 45; } }, { jump: true }, // 마주 오는 슬라임을 넘는다
+  ...over(15760), // 둘째 통나무
+  { run: 15890 }, { jump: true }, // 돌 블록 길: 조금 앞에서 뛰어 첫 블록(50 높이) 위로 — 블록 끝에서 뛰면 넘어가 슬라임 위로 떨어진다
+  { jump: true }, // 둘째 블록(90 높이)
+  { jump: true }, // 셋째 블록(다시 50 높이)
+  { jump: true }, // 슬라임 순찰 구간(16,328) 너머 바닥으로
+];
+export const FLEEING_GOAL: Step[] = [{ run: 17010 }, { wait: 0.4 }, { run: 17180 }, { jump: true }, { run: 17680 }];
+export const TAUNTING: Step[] = [...FLING, ...REVERSE, ...HEAVY, ...LANDING_SPIKES, ...ARROWS, ...MIRROR, ...COUNTING, ...BOULDER, ...STONE_WIND, ...COURSE, ...FLEEING_GOAL];
 export const AFTER_CP2: Step[] = [...INVISIBLE_BLOCK, ...SPIKES_AND_FAKE, ...VANISHING_CEILING_ENEMY, ...DODGE, ...TAUNTING];
 export const FULL: Step[] = [...ORIGINAL, ...AFTER_CP2];
