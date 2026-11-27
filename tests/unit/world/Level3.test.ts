@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { World } from '../../../src/game/world/World';
 import { LEVEL_3, LEVELS } from '../../../src/game/world/level';
 import { playSolution, type Step } from './solution';
-import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, HILL_PIPE_ENEMY, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
+import { ARROWS_HEAVY, CEILING_FAKE_SPRING, COUNTING, COURSE, DODGE, FAKE_CEILING_SPIKES, FINALE, FULL, HILL_PIPE_ENEMY, ICE_FLING, INVISIBLE_BLOCK, MIRROR_SPIKES, RHYTHM, SHADOW_REVERSE, SKY_DROPS_1, SKY_DROPS_2, TAUNTING, VANISH_HAZARD } from './level3Solution';
 import { dt } from './fixtures';
+import { autoplayUntil } from './autopilot';
 import { respawnFrom } from './respawn';
 import { jumpSlack } from './tolerance';
 
@@ -30,7 +31,7 @@ describe('LEVEL_3 (hard)', () => {
       LEVEL_3.fakeWalls, LEVEL_3.baitGems, LEVEL_3.shadows, LEVEL_3.landingSpikeZones, LEVEL_3.heavyZones, LEVEL_3.descendingCeilings,
       LEVEL_3.arrowTraps, LEVEL_3.rhythmPlatforms, LEVEL_3.iceFloors, LEVEL_3.mirrorEnemies, LEVEL_3.countingPlatforms];
     expect(kinds.every((list) => list.length > 0)).toBe(true);
-    expect(LEVEL_3.width).toBe(16800);
+    expect(LEVEL_3.width).toBe(19200); // 2026-11-27 장애물 코스 2,400px를 끼워 넣음
   });
 
   it('can be finished from spawn with the solution inputs and no deaths', () => {
@@ -46,17 +47,18 @@ describe('LEVEL_3 (hard)', () => {
     ['checkpoint 2 (before the fake checkpoint)', 1, [{ wait: 0.6 }, ...FAKE_CEILING_SPIKES, ...DODGE, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING]],
     ['checkpoint 3 (before the second vanishing ground)', 2, [{ wait: 0.6 }, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING]],
     ['checkpoint 4 (before the second sky drops)', 3, [{ wait: 0.6 }, ...SKY_DROPS_2, ...TAUNTING]],
-    ['checkpoint 5 (boulder and fake wall)', 4, [{ run: 6295 }, { jump: true }, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 6 (ice and fling jump)', 5, [...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 7 (shadow and reverse zone)', 6, [...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 8 (arrows and heavy shoes)', 7, [...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 9 (mirror enemy and landing spikes)', 8, [...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 10 (third-landing platform)', 9, [...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 11 (hill with the rolling stone, pipe enemy)', 10, [...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 12 (rhythm platforms)', 11, [...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 13 (ceiling, second fake clear, spring)', 12, [...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 14 (spring)', 13, [...CEILING_FAKE_SPRING, ...FINALE]],
-    ['checkpoint 15 (fleeing goal)', 14, FINALE],
+    ['checkpoint 5 (boulder and fake wall)', 4, [{ run: 6295 }, { jump: true }, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 6 (ice and fling jump)', 5, [...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 7 (shadow and reverse zone)', 6, [...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 8 (arrows and heavy shoes)', 7, [...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 9 (mirror enemy and landing spikes)', 8, [...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 10 (third-landing platform)', 9, [...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 11 (hill with the rolling stone, pipe enemy)', 10, [...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 12 (rhythm platforms)', 11, [...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 13 (ceiling, second fake clear, spring)', 12, [...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 14 (spring)', 13, [...CEILING_FAKE_SPRING, ...COURSE, ...FINALE]],
+    ['checkpoint 15 (obstacle course)', 14, [{ wait: 0.6 }, ...COURSE, ...FINALE]],
+    ['checkpoint 16 (fleeing goal)', 15, FINALE],
   ] as const)('can be finished from %s with no further deaths', (_, index, steps) => {
     const world = respawnAt(index);
     expect(playSolution(world, steps)).toBe(steps.length);
@@ -85,6 +87,28 @@ describe('LEVEL_3 (hard)', () => {
     for (let i = 0; i < 400 && b.deaths === 1; i++) b.update(dt, { horizontal: 1, jumpPressed: false, restartPressed: false });
     expect(b.deaths).toBe(2);
     expect(b.deathCause?.rect.x).toBe(LEVEL_3.skyDrops[1].trigger.x);
+  });
+
+  // 장애물 코스(2026-11-27): 보이는 장애물·적이라 보이는 것을 피하는 자동 플레이로 통과할 수 있어야 공정하다.
+  it('lets a player who dodges what they see get through the obstacle course', () => {
+    const cps = LEVEL_3.checkpoints;
+    const world = respawnAt(cps.length - 2);
+    autoplayUntil(world, () => world.activeCheckpoint?.x === cps[cps.length - 1].respawnX);
+    expect(world.deaths).toBe(1);
+    expect(world.activeCheckpoint?.x).toBe(cps[cps.length - 1].respawnX);
+  });
+
+  it('needs both stepping stones over the 400px pit of the obstacle course', () => {
+    const stones = LEVEL_3.solids.filter((s) => s.y === 450 && s.x > 16500 && s.x < 16900);
+    expect(stones).toHaveLength(2);
+    for (const missing of stones) {
+      const calm = { ...LEVEL_3, solids: LEVEL_3.solids.filter((s) => s !== missing) };
+      const world = new World(calm);
+      world.player.x = 16495 - world.player.width; world.player.y = 468; world.player.vy = 0; world.player.grounded = true;
+      const steps = COURSE.slice(COURSE.findIndex((st) => 'run' in st && st.run === 16495));
+      playSolution(world, steps);
+      expect(world.deaths, `without the stone at ${missing.x}`).toBe(1);
+    }
   });
 
   it('makes the one-way platform the only way over the pit before the spring', () => {

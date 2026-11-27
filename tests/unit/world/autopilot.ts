@@ -31,3 +31,14 @@ export function runToGoal(world: World, maxSteps = 1800): void {
     world.update(1 / 60, input);
   }
 }
+
+// 자동 플레이를 조건(예: 어느 체크포인트에 닿음)이 참이 될 때까지만 돌린다 — 그 뒤의 트롤 함정까지 가서 죽지 않게.
+export function autoplayUntil(world: World, done: () => boolean, maxSteps = 1800): void {
+  const input = { horizontal: 1 as const, jumpPressed: false, restartPressed: false };
+  for (let i = 0; i < maxSteps && !done(); i++) {
+    const solids = [...world.terrain, ...world.dynamicSolids(), ...world.level.oneWayPlatforms];
+    const spawnedAmbushes = world.ambushes.flatMap((a) => (a.enemy ? [a.enemy] : []));
+    input.jumpPressed = shouldJump(world.player, solids, [...world.level.hazards, ...world.enemies, ...spawnedAmbushes]);
+    world.update(1 / 60, input);
+  }
+}

@@ -53,6 +53,18 @@ export const HILL_PIPE_ENEMY: Step[] = [
 ]; // 발끝까지 버티다 늦게 뛰어 두 번만 착지
 export const RHYTHM: Step[] = [{ run: 13398 }, { waitUntil: (w) => w.lifeTime % 1.8 < 1 / 60 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }];
 export const CEILING_FAKE_SPRING: Step[] = [{ run: 15585 }, { jump: true }, { run: 15800 }, { jump: true }]; // 천장 통로·두 번째 가짜 클리어를 멈추지 않고 지나, 한쪽 통과 발판으로 구덩이를 건너 그 위에서 스프링을 넘는다
-export const FINALE: Step[] = [{ run: 16185 }, { jump: true }, { run: 16534 }, { jump: true }, { run: 16760 }]; // 도망가는 목표·구덩이·가시
-export const TAUNTING: Step[] = [...BOULDER_WALL, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...FINALE];
+// 장애물 코스(2026-11-27): 3단 언덕 → 징검돌 두 개 → 평지 슬라임 → 통나무 → 슬라임 위 공중 발판 길.
+export const COURSE: Step[] = [
+  { run: 16080 }, { jump: true }, { jump: true }, { jump: true }, // 3단 언덕(단 30px)을 올라 넘는다
+  { run: 16495 }, { jump: true }, // 넓은 구덩이: 첫 징검돌로
+  { run: 16655 }, { jump: true }, // 둘째 징검돌로
+  { run: 16835 }, { jump: true }, // 건너편으로
+  { waitUntil: (w) => w.enemies[0].vx < 0 && w.enemies[0].x >= 17300 }, // 평지 슬라임이 먼 끝에서 돌아올 때
+  { runUntil: (w) => { const e = w.enemies[0]; return w.player.grounded && e.x - (w.player.x + w.player.width) <= 45; } }, { jump: true }, // 마주 넘는다
+  ...over(17450), // 통나무
+  { run: 17572 }, { jump: true }, // 공중 발판 길: 통나무를 넘어 내린 자리에서 바로 첫 블록 위로
+  { jump: true }, { jump: true }, { jump: true }, // 둘째·셋째 블록, 슬라임 순찰 구간(17,988) 너머 바닥으로
+];
+export const FINALE: Step[] = [{ run: 18585 }, { jump: true }, { run: 18934 }, { jump: true }, { run: 19160 }]; // 도망가는 목표·구덩이·가시
+export const TAUNTING: Step[] = [...BOULDER_WALL, ...ICE_FLING, ...SHADOW_REVERSE, ...ARROWS_HEAVY, ...MIRROR_SPIKES, ...COUNTING, ...HILL_PIPE_ENEMY, ...RHYTHM, ...CEILING_FAKE_SPRING, ...COURSE, ...FINALE];
 export const FULL: Step[] = [...VANISH_SPIKES, ...INVISIBLE_BLOCK, ...SKY_DROPS_1, ...FAKE_CEILING_SPIKES, ...DODGE, ...VANISH_HAZARD, ...SKY_DROPS_2, ...TAUNTING];

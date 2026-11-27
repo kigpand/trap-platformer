@@ -23,6 +23,7 @@ export const RHYTHM_ARROWS: Step[] = [
 // 4. 내려오는 천장 통로 안의 따라 뛰는 적: 적이 먼 끝에서 돌아설 때 들어가, 마주 오면 제자리에서 뛰어 머리 위로 넘긴다.
 // 통로를 나오면 떨어지는 천장 — 한 발 들어가 떨어뜨리고 물러섰다가 넘는다.
 export const CEILING_MIRROR: Step[] = [
+  ...over(6080), ...over(6230), // 빈 평지의 통나무와 2단 언덕(2026-11-27) — 언덕 꼭대기에서 걸어 내려간다
   { run: 6540 }, { waitUntil: (w) => mirror(w).enemy.vx < 0 && mirror(w).enemy.x >= 7300 - 28 - 4 },
   { runUntil: (w) => mirror(w).enemy.x - (w.player.x + w.player.width) <= 50 }, { hop: true },
   { waitUntil: (w) => !mirror(w).airborne && mirror(w).enemy.x + mirror(w).enemy.width < w.player.x - 10 },
@@ -34,7 +35,9 @@ export const CEILING_MIRROR: Step[] = [
 // 5. "여기서 점프!" 표지판 = 무거운 신발 구역 = 착지 예측 가시 구역: 구역 앞에서 보통 점프로 넘는다.
 export const HEAVY_SPIKES: Step[] = [{ run: 9135 }, { jump: true }, { run: 9495 }, { jump: true }]; // 이어서 바람을 타고 넓은 구덩이(9500-9700)
 // 6. 돌덩이에 쫓기며 가짜 벽을 그대로 지나, 세 번째 착지 발판 위 장애물 셋을 두 번만 착지해 넘는다(둘째 점프로 B를 넘어 C 위에 선다).
-export const BOULDER_COUNTING: Step[] = [{ run: 11600 }, { jump: true }, { run: 11765 }, { jump: true }, ...over(12300)];
+// 바람 구덩이 너머 빈 평지의 통나무 둘(2026-11-27)을 넘는 길 — 해법과 "그냥 하면 당함" 확인이 함께 쓴다.
+export const BOULDER_RUNUP: Step[] = [...over(9880), ...over(10060)];
+export const BOULDER_COUNTING: Step[] = [...BOULDER_RUNUP, { run: 11600 }, { jump: true }, { run: 11765 }, { jump: true }, ...over(12300)];
 // 7. 숨겨진 블록 틈을 뛰어넘고, 낙하 발판에 내리자마자 다시 뛰고, 기습 적은 먼 끝에서 돌아올 때 마주 넘는다.
 export const HIDDEN_FALLING_AMBUSH: Step[] = [
   { run: 12860 }, { jump: true }, { run: 13050 }, { jump: true }, { jump: true },
@@ -52,11 +55,26 @@ export const BACK_PIT: Step[] = [...over(15400), { run: 15900 }, { jump: true }]
 // 9. 조건부 함정(머뭇거림) 다음 날려버리는 점프(가장자리)를 피해 일찍 뛰고, 가짜 안전지대를 넘는다.
 export const CONDITIONAL_FLING_HAZARD: Step[] = [{ run: 16410 }, { jump: true }, { run: 16655 }, { jump: true }];
 // 끝: "진짜 끝!" 표지판 → 가짜 체크포인트를 넘고 → 가짜 클리어 깃발을 멈추지 않고 지나 → 세 번 도망가는 목표를 쫓는다.
-export const FINALE: Step[] = [{ run: 16955 }, { jump: true }, { run: 17780 }, { jump: true }, { run: 18110 }, { jump: true }, { run: 18560 }];
+// 장애물 코스(2026-11-27): 3단 언덕 → 징검돌 두 개 → 평지 슬라임 둘 → 넓은 통나무 위에서 기다려 슬라임 → 통나무 → 공중 발판 길.
+const headOn = (i: number, farEnd: number): Step[] => [
+  { waitUntil: (w) => w.enemies[i].vx < 0 && w.enemies[i].x >= farEnd }, // 슬라임이 먼 끝에서 돌아올 때
+  { runUntil: (w) => { const e = w.enemies[i]; return w.player.grounded && e.x - (w.player.x + w.player.width) <= 45; } }, { jump: true }, // 마주 넘는다
+];
+export const COURSE: Step[] = [
+  { run: 16930 }, { jump: true }, { jump: true }, { jump: true }, // 3단 언덕(단 30px)을 올라 넘는다
+  { run: 17495 }, { jump: true }, { run: 17655 }, { jump: true }, { run: 17835 }, { jump: true }, // 징검돌 둘을 건넌다
+  ...headOn(0, 18170), ...headOn(1, 18520), // 평지 슬라임 둘
+  { run: 18630 }, { jump: true }, // 넓고 낮은 통나무 위로
+  ...headOn(2, 18930), // 통나무 사이 슬라임
+  ...over(19050), // 통나무
+  { run: 19172 }, { jump: true }, { jump: true }, { jump: true }, { jump: true }, // 공중 발판 셋, 슬라임 순찰 구간(19,588) 너머 바닥으로
+];
+export const FINALE: Step[] = [{ run: 19955 }, { jump: true }, { run: 20780 }, { jump: true }, { run: 21110 }, { jump: true }, { run: 21560 }];
 
 export const FROM_SPAWN: Step[] = [...SHADOW_DROPS, ...ICE_REVERSE_SPIKES];
 export const FROM_CP1: Step[] = [...RHYTHM_ARROWS, ...CEILING_MIRROR];
 export const FROM_CP2: Step[] = [...HEAVY_SPIKES, ...BOULDER_COUNTING];
 export const FROM_CP3: Step[] = [...HIDDEN_FALLING_AMBUSH, ...DODGE_INVISIBLE_SPRING, ...BACK_PIT];
-export const FROM_CP4: Step[] = [...CONDITIONAL_FLING_HAZARD, ...FINALE];
-export const FULL: Step[] = [...FROM_SPAWN, ...FROM_CP1, ...FROM_CP2, ...FROM_CP3, ...FROM_CP4];
+export const FROM_CP4: Step[] = [...CONDITIONAL_FLING_HAZARD, ...COURSE];
+export const FROM_CP5: Step[] = FINALE;
+export const FULL: Step[] = [...FROM_SPAWN, ...FROM_CP1, ...FROM_CP2, ...FROM_CP3, ...FROM_CP4, ...FROM_CP5];
