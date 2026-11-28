@@ -473,3 +473,19 @@ describe('CanvasRenderer ghost', () => {
     expect(GHOST_FILL).not.toBe(SHADOW_FILL);
   });
 });
+
+describe('CanvasRenderer enemies off screen', () => {
+  // 2026-11-28 리뷰: 적은 화면 어디에 있든 매 프레임 그려져, 장애물 코스로 적이 늘자 프레임 그리기 양이 예산(1,000)의 94%까지 찼다.
+  const ground = [{ x: 0, y: 500, width: 6000, height: 120 }];
+  const count = (parts: Parameters<typeof testLevel>[0]) => {
+    const world = new World(testLevel({ width: 6000, solids: ground, ...parts }));
+    world.player.x = 100; world.player.y = 468; world.player.grounded = true;
+    return renderFills(world).length;
+  };
+  it('draws no part of a patrol or mirror enemy that is off screen, and still draws one on screen', () => {
+    const none = count({});
+    expect(count({ enemies: [{ minX: 4000, maxX: 4200, y: 472 }] })).toBe(none);
+    expect(count({ mirrorEnemies: [{ minX: 4000, maxX: 4200, y: 472, jumpSpeed: 720 }] })).toBe(none);
+    expect(count({ enemies: [{ minX: 400, maxX: 600, y: 472 }] })).toBeGreaterThan(none);
+  });
+});
