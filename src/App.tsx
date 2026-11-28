@@ -147,7 +147,9 @@ export default function App() {
               <section className="panel" role="dialog" aria-label="일시정지">
                 <h2>일시정지</h2>
                 <div className="panel-actions">
-                  <button type="button" className="primary" onClick={() => game.current?.togglePause()}>계속하기 (P)</button>
+                  {/* 창이 열리면 키보드 포커스를 "계속하기"로 옮긴다(Space·Enter로 재개, 2026-11-28 리뷰). 클리어 창에는 하지 않는다 — 포커스된
+                      "다음 레벨" 버튼은 Space(점프)로 눌려, 가짜 클리어(#14)에서 그대로 바닥이 꺼진다. */}
+                  <button type="button" className="primary" autoFocus onClick={() => game.current?.togglePause()}>계속하기 (P)</button>
                   <button type="button" onClick={() => game.current?.restart()}>처음부터 다시 (R)</button>
                   <button type="button" onClick={() => game.current?.toggleMute()}>{snapshot.muted ? '소리 켜기 (M)' : '소리 끄기 (M)'}</button>
                   {/* 고스트: 이 레벨의 가장 빠른 클리어 런을 반투명 흰 실루엣으로(기본 꺼짐). 기록이 없으면 켜도 아직 보이지 않는다. */}

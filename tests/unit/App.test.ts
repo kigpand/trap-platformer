@@ -235,4 +235,20 @@ describe('App debug HUD', () => {
     expect(ghostButton()?.getAttribute('aria-pressed')).toBe('true');
     await act(async () => { root.unmount(); });
   });
+
+  it('moves keyboard focus to "continue" when the pause menu opens, but not to the clear window buttons', async () => {
+    // 클리어 창의 "다음 레벨"에 포커스가 가면 Space(점프)가 그 버튼을 눌러, 가짜 클리어(#14)에서 바닥이 꺼진다.
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(createElement(App)); });
+    await act(async () => { push({ ...base, paused: true }); });
+    expect(document.activeElement?.textContent).toBe('계속하기 (P)');
+    await act(async () => { push(base); });
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    await act(async () => { push({ ...base, cleared: true }); });
+    expect(container.querySelector('[role="dialog"][aria-label="레벨 클리어"]')?.contains(document.activeElement)).toBe(false);
+    await act(async () => { root.unmount(); });
+  });
 });
