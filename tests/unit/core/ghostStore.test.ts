@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { encodePose, ghostKey, ghostPoseAt, loadGhost, loadGhostEnabled, MAX_GHOST_FRAMES, parseGhost, saveGhostEnabled, saveGhostIfFaster, type Ghost } from '../../../src/game/core/ghostStore';
+import { encodePose, ghostKey, ghostPoseAt, loadGhost, loadGhostEnabled, MAX_GHOST_FRAMES, parseGhost, pruneStaleGhosts, saveGhostEnabled, saveGhostIfFaster, type Ghost } from '../../../src/game/core/ghostStore';
 import { testLevel } from '../world/fixtures';
 
 const level = testLevel({ solids: [{ x: 0, y: 500, width: 2000, height: 120 }] });
@@ -63,12 +63,30 @@ describe('ghost store', () => {
     expect(loadGhostEnabled()).toBe(false);
   });
 
+  it('drops ghosts of old layouts and missing levels, keeping the current ones and every other saved value', () => {
+    const other = testLevel({ solids: [{ x: 0, y: 500, width: 1500, height: 120 }] });
+    saveGhostIfFaster(level, 0, ghost);
+    saveGhostIfFaster(other, 1, ghost);
+    localStorage.setItem('trap-runner:ghost:v1:1:deadbeef', '{}'); // 레벨 1의 예전 배치
+    localStorage.setItem('trap-runner:ghost:v1:9:cafebabe', '{}'); // 없어진 레벨
+    localStorage.setItem('trap-runner:best:v2:1', '{"time":1,"deaths":0}');
+    localStorage.setItem('trap-runner:ghost-enabled', '1');
+    pruneStaleGhosts([level, other]);
+    expect(loadGhost(level, 0)).toEqual(ghost);
+    expect(loadGhost(other, 1)).toEqual(ghost);
+    expect(localStorage.getItem('trap-runner:ghost:v1:1:deadbeef')).toBeNull();
+    expect(localStorage.getItem('trap-runner:ghost:v1:9:cafebabe')).toBeNull();
+    expect(localStorage.getItem('trap-runner:best:v2:1')).not.toBeNull();
+    expect(localStorage.getItem('trap-runner:ghost-enabled')).toBe('1'); // 설정 키는 접두어가 달라 남는다
+  });
+
   it('keeps working without storage', () => {
     const blocked = (): never => { throw new DOMException('blocked', 'SecurityError'); };
-    vi.stubGlobal('localStorage', { getItem: blocked, setItem: blocked, removeItem: blocked, clear: () => {} });
+    vi.stubGlobal('localStorage', { getItem: blocked, setItem: blocked, removeItem: blocked, key: blocked, get length(): number { return blocked(); }, clear: () => {} });
     expect(loadGhost(level, 0)).toBeNull();
     expect(saveGhostIfFaster(level, 0, ghost)).toEqual(ghost);
     expect(loadGhostEnabled()).toBe(false);
     expect(() => saveGhostEnabled(true)).not.toThrow();
+    expect(() => pruneStaleGhosts([level])).not.toThrow();
   });
 });

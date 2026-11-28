@@ -5,7 +5,7 @@ import { CanvasRenderer } from '../rendering/CanvasRenderer';
 import { World, type DeathCauseKind, type DeathStatKind, type GameSnapshot } from '../world/World';
 import { LEVELS, type Level } from '../world/level';
 import { isInView, isWithinHearing } from '../world/viewport';
-import { encodePose, ghostKey, ghostPoseAt, loadGhost, loadGhostEnabled, MAX_GHOST_FRAMES, saveGhostEnabled, saveGhostIfFaster, type Ghost } from './ghostStore';
+import { encodePose, ghostKey, ghostPoseAt, loadGhost, loadGhostEnabled, MAX_GHOST_FRAMES, pruneStaleGhosts, saveGhostEnabled, saveGhostIfFaster, type Ghost } from './ghostStore';
 import { clearDeathLogs, deathLogKey, EMPTY_DEATH_LOG, loadDeathLog, recordDeath, type DeathLog } from './deathLogStore';
 // 클리어 시간과 최소 사망 수는 서로 다른 런에서 나올 수 있어 따로 갱신한다.
 export interface BestRecord { time: number; deaths: number }
@@ -106,6 +106,7 @@ export class GameController {
     this.bests = levels.map((_, i) => loadBest(i));
     this.levelDeaths = levels.map(() => null);
     this.deathLogs = levels.map((level, i) => loadDeathLog(level, i));
+    pruneStaleGhosts(levels);
     this.ghosts = levels.map((level, i) => loadGhost(level, i));
     this.ghostEnabled = loadGhostEnabled();
     this.renderer = new CanvasRenderer(canvas);

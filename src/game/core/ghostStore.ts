@@ -65,6 +65,20 @@ export function saveGhostIfFaster(level: Level, levelIndex: number, run: Ghost):
   return run;
 }
 
+// 지금 레벨들의 키가 아닌 고스트(레벨 배치가 바뀌어 더 읽지 않는 예전 해시, 없어진 레벨)를 지운다. 고스트 하나가 수십 KB라 배치를
+// 바꿀 때마다 쌓이지 않게 한다(2026-11-28 리뷰). 다른 저장값(최고 기록·누적 사망 기록·설정)은 건드리지 않는다.
+export function pruneStaleGhosts(levels: readonly Level[]): void {
+  try {
+    const keep = new Set(levels.map((level, i) => ghostKey(level, i)));
+    const stale: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(KEY_PREFIX) && !keep.has(key)) stale.push(key);
+    }
+    for (const key of stale) localStorage.removeItem(key);
+  } catch { /* 저장소가 막힘 — 지울 것도 없다 */ }
+}
+
 // 고스트 보기 설정 — 기본은 꺼짐(오너 결정). 일시정지 창에서 켜고 끈다.
 export function loadGhostEnabled(): boolean {
   try { return localStorage.getItem(ENABLED_KEY) === '1'; } catch { return false; }
