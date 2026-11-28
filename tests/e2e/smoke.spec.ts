@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { ghostKey } from '../../src/game/core/ghostStore';
+import { LEVELS } from '../../src/game/world/level';
 
 // POSITION·GROUNDED는 B(충돌 박스 표시)를 켰을 때만 HUD에 보인다. 키 리스너가 붙기 전에 누른 B는 사라지므로
 // 보일 때까지 다시 누른다(이미 보이면 누르지 않아 도로 꺼지지 않는다). 컨트롤러를 새로 만들면 다시 꺼진다.
@@ -298,6 +300,36 @@ test('shows the stored best record, and ignores a corrupted one', async ({ page 
   await page.reload();
   await expect(best).toHaveText('BEST —');
   await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+// 메달(2026-11-26): 저장된 최고 기록에서 계산해 HUD 최고 기록 옆에 그림 이름으로 보인다(레벨 1 목표: 금 72초, 은 94초).
+test('shows the medal of the stored best record next to it in the HUD', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 60, deaths: 0 })));
+  await page.goto('/');
+  await expect(page.locator('.hud-best').getByRole('img')).toHaveAccessibleName('금메달 · 노데스');
+  await expect(page.locator('.hud-best')).toHaveText('BEST 60.0s / 0 FALLS'); // 메달은 글자에 섞이지 않는다
+  await page.addInitScript(() => localStorage.setItem('trap-runner:best:v2:1', JSON.stringify({ time: 90, deaths: 3 })));
+  await page.reload();
+  await expect(page.locator('.hud-best').getByRole('img')).toHaveAccessibleName('은메달');
+});
+
+// 고스트(2026-11-26): 기본 꺼짐, 일시정지 창에서 켜고, 설정은 새로고침 뒤에도 남는다. 저장된 고스트가 있으면 "기록 없음"이 사라진다.
+test('turns the ghost on from the pause menu, remembers it, and notes when the level has no ghost yet', async ({ page }) => {
+  const openMenu = () => page.getByRole('button', { name: '일시정지/재개 (P)' }).click();
+  const ghostButton = page.getByRole('dialog', { name: '일시정지' }).getByRole('button', { name: /^고스트/ });
+  await page.goto('/');
+  await openMenu();
+  await expect(ghostButton).toHaveText('고스트 켜기 · 이 레벨 기록 없음');
+  await expect(ghostButton).toHaveAttribute('aria-pressed', 'false');
+  await ghostButton.click();
+  await expect(ghostButton).toHaveText('고스트 끄기 · 이 레벨 기록 없음');
+  expect(await page.evaluate(() => localStorage.getItem('trap-runner:ghost-enabled'))).toBe('1');
+  // 레벨 1의 실제 키(레벨 데이터 해시 포함)로 고스트 하나를 넣어 둔다(키는 테스트 쪽에서 게임 모듈로 계산 — fakeClear.spec.ts처럼).
+  await page.evaluate(([key, value]) => localStorage.setItem(key, value), [ghostKey(LEVELS[0], 0), JSON.stringify({ time: 30, frames: [65, 468, 0, 70, 468, 4] })]);
+  await page.reload();
+  await openMenu();
+  await expect(ghostButton).toHaveText('고스트 끄기');
+  await expect(ghostButton).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('picks up a best record saved in another tab right away', async ({ page, context }) => {
