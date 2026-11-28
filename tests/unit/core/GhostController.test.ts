@@ -97,4 +97,11 @@ describe('GameController ghost', () => {
     expect(frames[10 * 3 + 2] & 1).toBe(0); // 오른쪽을 본다(왼쪽으로 달린 프레임이 아님)
     controller.dispose();
   });
+
+  it('removes ghosts left from an old level layout when the game starts', () => {
+    localStorage.setItem('trap-runner:ghost:v1:1:deadbeef', JSON.stringify({ time: 1, frames: [65, 468, 0] }));
+    const { controller } = start();
+    expect(localStorage.getItem('trap-runner:ghost:v1:1:deadbeef')).toBeNull();
+    controller.dispose();
+  });
 });
