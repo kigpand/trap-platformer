@@ -147,6 +147,8 @@ export class CanvasRenderer {
     // 화면(카메라 가로 범위)과 겹치는 사각형만 그린다 — 레벨이 길어져도 바닥·함정 타일을 그리는 양이 화면 크기만큼으로 유지된다.
     // 개수가 많고 길이 방향으로 늘어나는 지형 계열에만 쓰고, 몇 개뿐인 적·움직이는 함정은 그대로 그린다.
     const inView = (r: Rect): boolean => r.x < cam + VIEW_WIDTH && r.x + r.width > cam;
+    // 적도 화면에 걸칠 때만 그린다(지형과 같음) — 화면 밖 적까지 그리면 적 수만큼 프레임 그리기 양이 늘어 예산(budget.test.ts)을 먹는다(2026-11-28 리뷰).
+    const drawEnemyInView = (e: Enemy): void => { if (inView(e)) drawEnemy(ctx, e); };
     const view = { x: cam, width: VIEW_WIDTH, height: VIEW_HEIGHT }; // 땅·블록 무늬를 그릴 범위(terrain.ts)
     const wave = Math.floor(performance.now() / 400) % 2; // 목표 깃발이 나부끼는 프레임(렌더링 전용 타이밍)
     for (const p of level.solids) {
@@ -161,7 +163,7 @@ export class CanvasRenderer {
       if (this.debug) { ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2; ctx.strokeRect(c.x, c.y, c.width, c.height); }
     }
     // #31 입구에서 올라오는 적은 파이프보다 먼저 그려, 입구 아래 부분이 파이프에 가려지게 한다.
-    for (const pe of world.pipeEnemies) if (pe.phase === 'emerging' && pe.enemy) drawEnemy(ctx, pe.enemy);
+    for (const pe of world.pipeEnemies) if (pe.phase === 'emerging' && pe.enemy) drawEnemyInView(pe.enemy);
     for (const pl of level.oneWayPlatforms) {
       if (!inView(pl)) continue;
       drawPlatform(ctx, pl);
@@ -366,17 +368,17 @@ export class CanvasRenderer {
     }
     // #29 따라 뛰는 적: 일반 왕복 적과 똑같이 그린다(처음엔 구분되지 않아야 한다).
     for (const m of world.mirrorEnemies) {
-      drawEnemy(ctx, m.enemy);
+      drawEnemyInView(m.enemy);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(m.enemy.x, m.enemy.y, m.enemy.width, m.enemy.height); }
     }
     for (const e of world.enemies) {
-      drawEnemy(ctx, e);
+      drawEnemyInView(e);
       if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
     }
     for (const amb of world.ambushes) {
       if (amb.enemy) {
         const e = amb.enemy;
-        drawEnemy(ctx, e);
+        drawEnemyInView(e);
         if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(e.x, e.y, e.width, e.height); }
       } else if (amb.warningTimer !== null && Math.floor(amb.warningTimer * 10) % 2 === 0) {
         const { minX, y } = amb.config;
@@ -392,7 +394,7 @@ export class CanvasRenderer {
         ctx.strokeStyle = '#facc15'; ctx.lineWidth = 3;
         ctx.strokeRect(pipe.x + (pipe.width - ENEMY_WIDTH) / 2, pipe.y - ENEMY_HEIGHT, ENEMY_WIDTH, ENEMY_HEIGHT);
       }
-      if ((pe.phase === 'walking' || pe.phase === 'patrolling') && pe.enemy) drawEnemy(ctx, pe.enemy);
+      if ((pe.phase === 'walking' || pe.phase === 'patrolling') && pe.enemy) drawEnemyInView(pe.enemy);
       if (this.debug) {
         const r = pipeEnemyRect(pe);
         if (r) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(r.x, r.y, r.width, r.height); }
@@ -415,7 +417,7 @@ export class CanvasRenderer {
           ctx.fillRect(se.drop.x, 0, ENEMY_WIDTH, 4);
         }
         if (se.enemy) {
-          drawEnemy(ctx, se.enemy);
+          drawEnemyInView(se.enemy);
           if (this.debug) { ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 2; ctx.strokeRect(se.enemy.x, se.enemy.y, se.enemy.width, se.enemy.height); }
         }
       }
