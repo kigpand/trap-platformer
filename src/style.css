@@ -61,7 +61,16 @@ kbd{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 
 @media(pointer:coarse){.keys.help-keys{display:none}}
 /* 터치 기기 세로: 게임 아래 터치 버튼 자리를 남긴다. 가로는 높이가 낮아 맞추면 너무 작아지므로 예전처럼 너비를 채운다. */
 @media(pointer:coarse) and (orientation:portrait){.game-shell,.topbar{max-width:min(100%,calc((100svh - 190px) * 16 / 9))}.game-shell{width:100%}}
-@media(pointer:coarse) and (orientation:landscape){.game-shell,.topbar{width:100%;max-width:none}}
+/* 터치 기기 가로(2026-11-28 리뷰): 예전엔 게임이 화면 너비를 채워 높이를 넘었고 ◀ ▶ ▲ 버튼이 그 아래(화면 밖)에 있었다. 게임을 화면 높이에
+   맞추고, 버튼은 화면 아래 양쪽 모서리에 게임 위로 반투명하게 겹친다(왼쪽 이동, 오른쪽 점프). 머리글은 스크린 리더에만 남긴다. */
+@media(pointer:coarse) and (orientation:landscape){
+.app{padding-top:8px}
+.topbar{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.game-shell{width:min(100%,calc((100svh - 16px) * 16 / 9));max-width:none}
+.touch-controls{position:fixed;z-index:30;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));max-width:none;margin:0;grid-template-columns:64px 64px 1fr 76px;pointer-events:none}
+.touch-controls button{pointer-events:auto;height:64px;background:rgba(17,24,42,.2);border-color:rgba(255,255,255,.3);color:rgba(234,241,249,.85)} /* 흐림 없이 비쳐 보이게 — 레벨 처음(카메라가 움직이기 전)에는 플레이어가 ▶ 버튼 자리에 있다 */
+.touch-controls button:active{background:rgba(44,58,85,.7)}
+}
 /* 좁은 화면: HUD는 한 줄에 들어가게 줄이고(LEVEL 글자·최고 기록·재시작은 숨김, B의 디버그 칸이 더해지면 두 줄) — 최고 기록은 클리어 창, 재시작은 일시정지 창에 있다),
    일시정지·클리어·완료 창은 작은 게임 화면 대신 화면 전체를 덮는다. */
 @media(max-width:620px){

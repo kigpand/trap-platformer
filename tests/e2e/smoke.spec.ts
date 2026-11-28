@@ -386,6 +386,36 @@ test('shows the keyboard help on a desktop layout, not the touch help', async ({
   await expect(page.getByText('◀ ▶ 버튼을 누르고 있는 동안 이동')).toBeHidden();
 });
 
+// 2026-11-28 리뷰: 휴대폰 가로에서는 게임이 화면 너비를 채워 높이를 넘었고, ◀ ▶ ▲가 그 아래(화면 밖)에 있어 스크롤해야 조작할 수 있었다.
+test.describe('on a touch device in landscape', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
+
+  test('fits the game and all three touch buttons on screen without scrolling, and the buttons still move the player', async ({ page }) => {
+    await page.goto('/');
+    const inside = async (selector: string): Promise<void> => {
+      const box = await page.locator(selector).boundingBox();
+      expect(box, selector).not.toBeNull();
+      if (!box) return;
+      expect(box.y, selector).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height, selector).toBeLessThanOrEqual(390);
+      expect(box.x, selector).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, selector).toBeLessThanOrEqual(844);
+    };
+    for (const selector of ['.game-shell', '.touch-left', '.touch-right', '.touch-jump']) await inside(selector);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    await showDebugHud(page);
+    const position = page.locator('.hud .hud-stat', { hasText: 'POSITION' });
+    await expect(page.locator('.hud .hud-stat', { hasText: 'GROUNDED' })).toHaveText('GROUNDED YES');
+    const box = await page.getByRole('button', { name: '오른쪽으로 이동' }).boundingBox();
+    if (!box) throw new Error('right button is not visible');
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }] });
+    await page.waitForTimeout(300);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(position).not.toHaveText(/^POSITION 65, /);
+  });
+});
+
 test.describe('help text on a touch device', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
 
